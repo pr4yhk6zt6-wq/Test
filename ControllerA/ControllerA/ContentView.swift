@@ -3,7 +3,9 @@ import SwiftUI
 struct ContentView: View {
     @StateObject var inputState = InputState()
     @StateObject var connection = ConnectionManager()
+    @StateObject var settings = SettingsManager()
     @State private var showConnectionSheet = false
+    @State private var showSettingsSheet = false
     @State private var manualHost = ""
     @State private var isLandscape = false
 
@@ -23,7 +25,7 @@ struct ContentView: View {
                                 .font(.caption2.bold())
                                 .foregroundColor(.white)
                         }
-                        if connection.state == .connected {
+                        if connection.state == .connected && settings.showDiagnostics {
                             Text("RTT: \(connection.rttMs)ms | Loss: \(String(format: "%.1f", connection.packetLoss))% | \(Int(connection.sendRate))Hz")
                                 .font(.caption2)
                                 .foregroundColor(.white.opacity(0.7))
@@ -35,12 +37,21 @@ struct ContentView: View {
 
                     Spacer()
 
-                    Button(action: { showConnectionSheet = true }) {
-                        Image(systemName: "wifi")
-                            .foregroundColor(.white)
-                            .padding(10)
-                            .background(Color.black.opacity(0.5))
-                            .clipShape(Circle())
+                    HStack(spacing: 10) {
+                        Button(action: { showSettingsSheet = true }) {
+                            Image(systemName: "gear")
+                                .foregroundColor(.white)
+                                .padding(10)
+                                .background(Color.black.opacity(0.5))
+                                .clipShape(Circle())
+                        }
+                        Button(action: { showConnectionSheet = true }) {
+                            Image(systemName: "wifi")
+                                .foregroundColor(.white)
+                                .padding(10)
+                                .background(Color.black.opacity(0.5))
+                                .clipShape(Circle())
+                        }
                     }
                 }
                 .padding()
@@ -53,6 +64,9 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showConnectionSheet) {
             connectionSheet
+        }
+        .sheet(isPresented: $showSettingsSheet) {
+            SettingsView(settings: settings, connection: connection)
         }
     }
 

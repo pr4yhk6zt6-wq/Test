@@ -7,7 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		A1B2C3D4E5F6A7B8C9D0E1F2 /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E1F3 /* App.swift */; };
+		A1B2C3D4E5F6A7B8C9D0E300 /* SettingsManager.swift in Sources */,
+				A1B2C3D4E5F6A7B8C9D0E302 /* SettingsView.swift in Sources */,
+				A1B2C3D4E5F6A7B8C9D0E1F2 /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E1F3 /* App.swift */; };
 		A1B2C3D4E5F6A7B8C9D0E1F4 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E1F5 /* ContentView.swift */; };
 		A1B2C3D4E5F6A7B8C9D0E1F6 /* ControllerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E1F7 /* ControllerView.swift */; };
 		A1B2C3D4E5F6A7B8C9D0E1F8 /* JoystickView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E1F9 /* JoystickView.swift */; };
@@ -15,6 +17,8 @@
 		A1B2C3D4E5F6A7B8C9D0E1FC /* ConnectionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E1FD /* ConnectionManager.swift */; };
 		A1B2C3D4E5F6A7B8C9D0E1FE /* InputState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E1FF /* InputState.swift */; };
 		A1B2C3D4E5F6A7B8C9D0E200 /* RemoteControllerProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E201 /* RemoteControllerProtocol.swift */; };
+		A1B2C3D4E5F6A7B8C9D0E300 /* SettingsManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E301 /* SettingsManager.swift */; };
+		A1B2C3D4E5F6A7B8C9D0E302 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E303 /* SettingsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -27,6 +31,8 @@
 		A1B2C3D4E5F6A7B8C9D0E1FD /* ConnectionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionManager.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6A7B8C9D0E1FF /* InputState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputState.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6A7B8C9D0E201 /* RemoteControllerProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteControllerProtocol.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6A7B8C9D0E301 /* SettingsManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsManager.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6A7B8C9D0E303 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6A7B8C9D0E203 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -77,6 +83,7 @@
 				A1B2C3D4E5F6A7B8C9D0E1F7 /* ControllerView.swift */,
 				A1B2C3D4E5F6A7B8C9D0E1F9 /* JoystickView.swift */,
 				A1B2C3D4E5F6A7B8C9D0E1FB /* ButtonViews.swift */,
+				A1B2C3D4E5F6A7B8C9D0E303 /* SettingsView.swift */,
 			);
 			path = UI;
 			sourceTree = "<group>";
@@ -85,6 +92,7 @@
 			isa = PBXGroup;
 			children = (
 				A1B2C3D4E5F6A7B8C9D0E1FD /* ConnectionManager.swift */,
+				A1B2C3D4E5F6A7B8C9D0E301 /* SettingsManager.swift */,
 			);
 			path = Managers;
 			sourceTree = "<group>";
@@ -180,6 +188,8 @@
 				A1B2C3D4E5F6A7B8C9D0E1FC /* ConnectionManager.swift in Sources */,
 				A1B2C3D4E5F6A7B8C9D0E1F6 /* ControllerView.swift in Sources */,
 				A1B2C3D4E5F6A7B8C9D0E1F4 /* ContentView.swift in Sources */,
+				A1B2C3D4E5F6A7B8C9D0E300 /* SettingsManager.swift in Sources */,
+				A1B2C3D4E5F6A7B8C9D0E302 /* SettingsView.swift in Sources */,
 				A1B2C3D4E5F6A7B8C9D0E1F2 /* App.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

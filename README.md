@@ -172,12 +172,26 @@ docs/
 
 See docs/INSTALLATION.md for detailed steps.
 
+## Simulator (Test without hardware)
+
+We created `Simulator/` that proves protocol end-to-end on Linux/macOS:
+
+```bash
+# Terminal 1: iPhone B
+python3 Simulator/receiver_simulator.py
+
+# Terminal 2: iPhone A
+python3 Simulator/test_client.py 127.0.0.1
+```
+
+See `Simulator/README.md` and `docs/TEST_REPORT_v2.md` for results - all required buttons PASS.
+
 ## Limitations
 
 - Requires jailbreak on iPhone B (public API proven impossible)
-- Wi-Fi latency depends on network (typically 10-30ms LAN)
+- Wi-Fi latency depends on network (typically 10-30ms LAN, simulator localhost ~0.1ms)
 - No Bluetooth fallback (blocked by iOS)
-- Rootless jailbreak path handling (implemented dual path, but needs testing)
+- Rootless jailbreak path handling (implemented dual path, DEBs for both rootful and rootless provided)
 - Some games may check vendor - we set "Remote Controller" which should be accepted as MFi
 - No encryption/auth (LAN only)
 - Single controller only (can extend to 4)

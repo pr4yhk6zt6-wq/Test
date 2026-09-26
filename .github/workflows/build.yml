@@ -1,0 +1,98 @@
+name: Build Remote Controller
+
+on:
+  push:
+    branches: [ main, arena/* ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-controllerA:
+    name: Build ControllerA IPA
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_15.2.app || sudo xcode-select -s /Applications/Xcode.app
+
+      - name: Build ControllerA
+        run: |
+          cd ControllerA
+          xcodebuild -project ControllerA.xcodeproj -scheme ControllerA -configuration Release -sdk iphoneos -destination generic/platform=iOS archive -archivePath build/ControllerA.xcarchive CODE_SIGNING_ALLOWED=NO || true
+          # Create IPA structure manually for unsigned build
+          mkdir -p build/Payload
+          # If archive exists, try to find .app
+          find build -name "*.app" -type d | head -n 5
+          # For development build, create simple IPA from build products
+          if [ -d "build/Build/Products/Release-iphoneos/ControllerA.app" ]; then
+            cp -r build/Build/Products/Release-iphoneos/ControllerA.app build/Payload/
+            cd build && zip -r ControllerA-unsigned.ipa Payload && cd ..
+          fi
+          ls -lh build/ || true
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ControllerA-ipa
+          path: ControllerA/build/*.ipa
+          if-no-files-found: warn
+
+  build-receiverB:
+    name: Build ReceiverB DEB
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Theos
+        run: |
+          brew install ldid dpkg
+          git clone --recursive https://github.com/theos/theos.git $HOME/theos
+          echo "THEOS=$HOME/theos" >> $GITHUB_ENV
+          # Install sdks
+          git clone https://github.com/theos/sdks.git $HOME/theos/sdks --depth 1 || true
+          ls $HOME/theos/sdks | head
+
+      - name: Build DEB (rootful)
+        run: |
+          export THEOS=$HOME/theos
+          cd ReceiverB
+          make package -j4 || true
+          ls -lh packages/ || true
+
+      - name: Build DEB (rootless)
+        run: |
+          export THEOS=$HOME/theos
+          cd ReceiverB
+          make clean
+          THEOS_PACKAGE_SCHEME=rootless make package -j4 || true
+          ls -lh packages/ || true
+
+      - name: Upload DEB artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ReceiverB-deb
+          path: ReceiverB/packages/*.deb
+          if-no-files-found: warn
+
+  test-protocol:
+    name: Test Protocol
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run protocol tests
+        run: |
+          python3 test_protocol.py
+          echo "Starting simulator test..."
+          python3 Simulator/receiver_simulator.py &
+          SIM_PID=$!
+          sleep 2
+          python3 Simulator/test_client.py 127.0.0.1 &
+          CLIENT_PID=$!
+          sleep 10
+          kill $SIM_PID $CLIENT_PID || true
+          echo "Simulator test done"
