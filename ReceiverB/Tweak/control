@@ -1,0 +1,11 @@
+Package: com.example.remotecontroller
+Name: Remote Controller - Receiver
+Depends: mobilesubstrate, firmware (>= 13.0)
+Version: 1.0.0
+Architecture: iphoneos-arm
+Description: System-wide virtual game controller that receives input from another iPhone over Wi-Fi. Allows native games like Stardew Valley to be controlled by iPhone A as a physical controller.
+Maintainer: Example <example@example.com>
+Author: Example
+Section: Tweaks
+Tag: purpose::game
+
