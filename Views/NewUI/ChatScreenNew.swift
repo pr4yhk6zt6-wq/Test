@@ -11,6 +11,27 @@
 import SwiftUI
 
 /// ระยะจากขอบล่างของพื้นที่อ่าน — ใช้ตัดสินว่าจะเด้งปุ่ม "ข้อความใหม่" หรือไม่
+/// หนึ่งรายการในแชท: ข้อความ หรือ กลุ่มขั้นตอนของหนึ่งรอบการทำงาน
+private enum ChatStreamItem: Identifiable {
+
+    struct ToolGroup: Identifiable {
+        let messages: [ChatMessage]
+        var id: String { messages.first?.id.uuidString ?? UUID().uuidString }
+        var stepCount: Int { messages.count }
+        var totalDuration: TimeInterval { messages.compactMap { $0.toolDuration }.reduce(0, +) }
+    }
+
+    case message(ChatMessage)
+    case tools(ToolGroup)
+
+    var id: String {
+        switch self {
+        case .message(let message): return message.id.uuidString
+        case .tools(let group): return group.id
+        }
+    }
+}
+
 private struct DSBottomDistanceKey: PreferenceKey {
     static var defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
@@ -42,6 +63,8 @@ struct ChatScreenNew: View {
     @State private var showContextSheet: Bool = false
     @State private var showExportSheet: Bool = false
     @State private var showVoiceSheet: Bool = false
+    /// กลุ่มไทม์ไลน์ที่ผู้ใช้กางอยู่ (การ์ดไทม์ไลน์ในแชท — กางได้ทีละกลุ่ม)
+    @State private var expandedGroupID: String?
     @State private var showSystemPausedBanner: Bool = false
     @State private var wasRunningWhenBackgrounded: Bool = false
     @Environment(\.scenePhase) private var scenePhase
@@ -73,9 +96,48 @@ struct ChatScreenNew: View {
             composerArea
         }
         .background(DSColor.bg)
-        .navigationTitle("AI Agent")
+        .navigationTitle(currentRoomTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            // ตามแบบ: ซ้าย = รายการห้อง · กลาง = ชื่อห้อง + สถานะ Agent · ขวา = เมนูห้องนี้
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button(action: {
+                    DSHaptic.light()
+                    showRooms = true
+                }) {
+                    Image(systemName: "line.3.horizontal")
+                        .font(DSFont.font(DSFont.sHead, weight: .semibold, scale: fontScale))
+                        .foregroundColor(DSColor.t1)
+                        .frame(width: DSMetrics.touch, height: DSMetrics.touch)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityLabel(Text("รายการห้องสนทนา"))
+            }
+            ToolbarItem(placement: .principal) {
+                VStack(spacing: 1) {
+                    Text(currentRoomTitle)
+                        .font(DSFont.font(DSFont.sHead, weight: .semibold, scale: fontScale))
+                        .foregroundColor(DSColor.t1)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+
+                    if let state = headerAgentState {
+                        HStack(spacing: 5) {
+                            if state.isRunning {
+                                DSPulseDot(tone: DSColor.accent, size: 6)
+                            } else {
+                                Circle().fill(state.tone).frame(width: 6, height: 6)
+                            }
+                            Text(state.text)
+                                .font(DSFont.font(DSFont.sMicro, scale: fontScale))
+                                .foregroundColor(DSColor.t3)
+                                .lineLimit(1)
+                        }
+                    }
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(Text(headerAccessibilityLabel))
+            }
             ToolbarItem(placement: .navigationBarTrailing) {
                 Menu {
                     Button(action: { showRooms = true }) {
@@ -95,8 +157,9 @@ struct ChatScreenNew: View {
                         Label("ล้างการสนทนาทั้งหมด", systemImage: "trash")
                     }
                 } label: {
-                    Image(systemName: "ellipsis.circle")
-                        .font(DSFont.font(DSFont.sHead, scale: fontScale))
+                    Image(systemName: "ellipsis")
+                        .font(DSFont.font(DSFont.sHead, weight: .semibold, scale: fontScale))
+                        .foregroundColor(DSColor.t1)
                 }
                 .accessibilityLabel(Text("ตัวเลือกของหน้าแชท"))
             }
@@ -162,6 +225,9 @@ struct ChatScreenNew: View {
             viewModel.refreshQueue()
             openPendingRoomIfNeeded()
             handlePendingPromptIfNeeded()
+#if DEBUG
+            if let screen = UIPreview.screen { applyPreview(screen) }
+#endif
         }
         .onChange(of: router.pendingRoomID) { _ in
             openPendingRoomIfNeeded()
@@ -239,8 +305,13 @@ struct ChatScreenNew: View {
                         if viewModel.hiddenMessageCount > 0 {
                             loadEarlierRow
                         }
-                        ForEach(viewModel.visibleMessages) { message in
-                            messageRow(message)
+                        ForEach(chatItems) { item in
+                            switch item {
+                            case .message(let message):
+                                messageRow(message)
+                            case .tools(let group):
+                                activityGroupCard(group)
+                            }
                         }
                         Color.clear
                             .frame(height: 1)
@@ -336,7 +407,8 @@ struct ChatScreenNew: View {
         case .assistant:
             assistantBlock(message)
         case .tool:
-            toolHistoryRow(message)
+            // ขั้นตอนของเครื่องมือวาดรวมเป็นการ์ดไทม์ไลน์ (ดู activityGroupCard) — ไม่วาดซ้ำที่นี่
+            EmptyView()
         case .system:
             EmptyView()
         }
@@ -384,9 +456,9 @@ struct ChatScreenNew: View {
             thinkingPlaceholder
         } else if !message.isTextEmpty {
             VStack(alignment: .leading, spacing: DSMetrics.s2) {
-                MessageContentView(markdown: message.text,
-                                   textColor: DSColor.t1,
-                                   fontScale: fontScale)
+                DSMarkdownText(markdown: message.text,
+                               color: DSColor.t1,
+                               scale: fontScale)
                 if isStreaming {
                     HStack(spacing: DSMetrics.s2) {
                         DSStatusGlyph(status: .running, scale: fontScale)
@@ -419,38 +491,155 @@ struct ChatScreenNew: View {
         .accessibilityLabel(Text("Agent กำลังทำงาน: \(center.liveLabel)"))
     }
 
-    /// ประวัติการเรียกเครื่องมือ — แถวเดียวต่อหนึ่งครั้ง กดดูรายละเอียดเต็มได้
-    private func toolHistoryRow(_ message: ChatMessage) -> some View {
+    // MARK: - กลุ่มไทม์ไลน์ในแชท (ตรงกับแบบ: การ์ดเดียวต่อหนึ่งรอบ + แถวขั้นตอนแบบแบน)
+
+    /// รายการที่จะวาดในแชท: ข้อความทั่วไป + กลุ่มขั้นตอนที่อยู่ติดกัน
+    private var chatItems: [ChatStreamItem] {
+        var items: [ChatStreamItem] = []
+        var buffer: [ChatMessage] = []
+
+        func flushBuffer() {
+            guard !buffer.isEmpty else { return }
+            items.append(.tools(ChatStreamItem.ToolGroup(messages: buffer)))
+            buffer.removeAll()
+        }
+
+        for message in viewModel.visibleMessages {
+            let isStep = message.role == .tool
+            // ขั้นตอนของงานที่กำลังทำอยู่: แสดงผ่านแถบสถานะสด/ไทม์ไลน์ ไม่ซ้ำซ้อนในแชท
+            let belongsToLiveRun = isStep && isPartOfLiveRun(message)
+            if isStep && !belongsToLiveRun {
+                buffer.append(message)
+            } else {
+                flushBuffer()
+                if !belongsToLiveRun {
+                    items.append(.message(message))
+                }
+            }
+        }
+        flushBuffer()
+        return items
+    }
+
+    private func isPartOfLiveRun(_ message: ChatMessage) -> Bool {
+        guard viewModel.isBusy else { return false }
+        guard let startedAt = center.startedAt else { return true }
+        return message.createdAt >= startedAt.addingTimeInterval(-1)
+    }
+
+    /// การ์ดไทม์ไลน์ของหนึ่งรอบการทำงาน (หัวการ์ดกาง/พับได้ แถวในกางแล้วกดดูรายละเอียดได้)
+    private func activityGroupCard(_ group: ChatStreamItem.ToolGroup) -> some View {
+        let expanded = expandedGroupID == group.id
+        let failed = group.messages.filter { $0.toolIsError == true }.count
+
+        var headParts: [String] = ["ทำเสร็จแล้ว \(group.stepCount) ขั้นตอน"]
+        if failed > 0 { headParts.append("\(failed) ขั้นล้มเหลว") }
+
+        return VStack(spacing: 0) {
+            Button(action: {
+                DSHaptic.light()
+                withAnimation(DSMotion.card) {
+                    expandedGroupID = expanded ? nil : group.id
+                }
+            }) {
+                HStack(alignment: .center, spacing: DSMetrics.s3) {
+                    DSRibbon(progress: 1.0,
+                             tone: failed > 0 ? DSColor.warning : DSColor.success)
+                        .frame(width: 54)
+                        .accessibilityHidden(true)
+
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(headParts.joined(separator: " · "))
+                            .font(DSFont.font(DSFont.sSub, weight: .semibold, scale: fontScale))
+                            .foregroundColor(DSColor.t1)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                        Text("ใช้เวลา \(DSFormat.durationShort(group.totalDuration))")
+                            .font(DSFont.font(DSFont.sMicro, scale: fontScale))
+                            .foregroundColor(DSColor.t3)
+                            .lineLimit(1)
+                    }
+
+                    Spacer(minLength: DSMetrics.s1)
+
+                    Image(systemName: "chevron.down")
+                        .font(DSFont.font(DSFont.sMicro, weight: .semibold, scale: fontScale))
+                        .foregroundColor(DSColor.t3)
+                        .rotationEffect(.degrees(expanded ? 0 : 180))
+                }
+                .padding(.horizontal, DSMetrics.s3)
+                .frame(minHeight: 52)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(DSPressableStyle())
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text("\(headParts.joined(separator: " ")) · ใช้เวลา \(DSFormat.durationShort(group.totalDuration))"))
+            .accessibilityHint(Text(expanded ? "แตะเพื่อพับรายการขั้นตอน" : "แตะเพื่อดูรายการขั้นตอนทั้งหมด"))
+
+            if expanded {
+                VStack(spacing: 0) {
+                    ForEach(group.messages) { message in
+                        toolStepRow(message)
+                    }
+                }
+                .padding(.horizontal, DSMetrics.s3)
+                .padding(.bottom, DSMetrics.s3)
+            }
+        }
+        .background(
+            RoundedRectangle(cornerRadius: DSMetrics.rCard, style: .continuous).fill(DSColor.surface)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: DSMetrics.rCard, style: .continuous)
+                .stroke(DSColor.border, lineWidth: 1)
+        )
+    }
+
+    /// แถวขั้นตอนแบบแบนตามแบบ: วงกลม 22 + ชื่อขั้น 15 pt + บรรทัดย่อย + เวลาที่ใช้
+    private func toolStepRow(_ message: ChatMessage) -> some View {
         Button(action: {
             DSHaptic.light()
             detailEvent = ActivityEvent.fromToolMessage(message)
             showDetailSheet = true
         }) {
-            HStack(alignment: .center, spacing: DSMetrics.s3) {
-                DSIconBadge(icon: ActivityKind.from(toolName: message.name ?? "").symbolName,
-                            tint: DSColor.t2,
-                            background: DSColor.surface2,
-                            size: 26,
-                            scale: fontScale)
+            HStack(alignment: .top, spacing: DSMetrics.s3) {
+                VStack(spacing: 0) {
+                    DSStatusGlyph(status: message.toolIsError == true ? .failed : .succeeded,
+                                  scale: fontScale)
+                    Rectangle()
+                        .fill(DSColor.border)
+                        .frame(width: 2)
+                        .frame(maxHeight: .infinity)
+                        .opacity(isLastStep(message) ? 0 : 1)
+                }
+                .frame(width: 22)
+
                 VStack(alignment: .leading, spacing: 2) {
                     Text(message.toolDisplayName)
-                        .font(DSFont.font(DSFont.sCap, weight: .medium, scale: fontScale))
-                        .foregroundColor(DSColor.t2)
+                        .font(DSFont.font(DSFont.sCallout, weight: .medium, scale: fontScale))
+                        .foregroundColor(DSColor.t1)
                         .lineLimit(1)
+                        .truncationMode(.tail)
                     Text(historySubtitle(message))
                         .font(DSFont.font(DSFont.sMicro, scale: fontScale))
                         .foregroundColor(DSColor.t3)
                         .lineLimit(1)
+                        .truncationMode(.tail)
                 }
-                Spacer(minLength: DSMetrics.s2)
-                DSStatusLabel(status: message.toolIsError == true ? .failed : .succeeded,
-                              scale: fontScale,
-                              showsText: false)
+                .padding(.top, 1)
+
+                Spacer(minLength: DSMetrics.s1)
+
+                if let duration = message.toolDuration {
+                    Text(DSFormat.durationShort(duration))
+                        .font(DSFont.font(DSFont.sMicro, scale: fontScale))
+                        .foregroundColor(DSColor.t3)
+                        .monospacedDigit()
+                        .padding(.top, 3)
+                }
             }
-            .padding(.horizontal, DSMetrics.s3)
-            .frame(minHeight: DSMetrics.touch)
+            .padding(.vertical, DSMetrics.s2)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(DSColor.surface2))
             .contentShape(Rectangle())
         }
         .buttonStyle(DSPressableStyle())
@@ -459,17 +648,43 @@ struct ChatScreenNew: View {
         .accessibilityHint(Text("แตะเพื่อดูรายละเอียดของขั้นนี้"))
     }
 
+    private func isLastStep(_ message: ChatMessage) -> Bool {
+        let steps = viewModel.visibleMessages.filter { $0.role == .tool }
+        return steps.last?.id == message.id
+    }
+
+    /// บรรทัดย่อยของขั้นตอน: บอก "สิ่งที่เกิดขึ้นจริง" สั้น ๆ
+    /// — ไม่ซ้ำเวลาที่แสดงอยู่ทางขวาแล้ว และไม่ใส่คำว่า "แตะเพื่อดูรายละเอียด" ทุกแถวให้รก
     private func historySubtitle(_ message: ChatMessage) -> String {
-        if message.toolIsError == true { return "ขั้นนี้ไม่สำเร็จ — แตะเพื่อดูสาเหตุ" }
-        if let duration = message.toolDuration, duration >= 1 {
-            return "ใช้เวลา \(Int(duration.rounded())) วินาที — แตะเพื่อดูรายละเอียด"
+        if message.toolIsError == true { return "ไม่สำเร็จ — แตะเพื่อดูสาเหตุ" }
+        if let artifact = firstArtifactName(message) { return "ไฟล์: \(artifact)" }
+        return ActivityKind.from(toolName: message.name ?? "").donePhraseTH
+    }
+
+    /// ชื่อไฟล์แรกที่ขั้นนี้แตะ (อ่านจากอาร์กิวเมนต์จริง) — nil = ไม่ใช่ขั้นที่แตะไฟล์
+    private func firstArtifactName(_ message: ChatMessage) -> String? {
+        guard let raw = message.toolArguments,
+              let data = raw.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data, options: []),
+              let dictionary = object as? [String: Any] else { return nil }
+        for key in ["path", "file_path", "source", "target", "directory"] {
+            if let value = dictionary[key] as? String, !value.isEmpty {
+                return (value as NSString).lastPathComponent
+            }
         }
-        return "สำเร็จ — แตะเพื่อดูรายละเอียด"
+        return nil
     }
 
     private func accessibilityForHistory(_ message: ChatMessage) -> String {
-        let status = message.toolIsError == true ? "ไม่สำเร็จ" : "สำเร็จ"
-        return "\(message.toolDisplayName) สถานะ\(status)"
+        var parts: [String] = [message.toolDisplayName]
+        parts.append(message.toolIsError == true ? "ไม่สำเร็จ" : "สำเร็จ")
+        if let duration = message.toolDuration, duration >= 0.5 {
+            parts.append("ใช้เวลา \(DSFormat.durationShort(duration))")
+        }
+        if let artifact = firstArtifactName(message) {
+            parts.append("ไฟล์ \(artifact)")
+        }
+        return parts.joined(separator: " ")
     }
 
     // MARK: - ไทม์ไลน์ที่กางอยู่
@@ -532,18 +747,20 @@ struct ChatScreenNew: View {
                     MultilineInputField(text: $inputText,
                                         height: $composerHeight,
                                         font: DSFont.uiFont(DSFont.sBody, scale: fontScale),
-                                        minHeight: 22,
-                                        maxHeight: DSMetrics.composerMaxHeight - 22,
+                                        minHeight: 20,
+                                        maxHeight: (DSMetrics.isCompactWidth ? 88 : DSMetrics.composerMaxHeight) - 20,
                                         isEditable: true)
                         .frame(height: composerHeight)
                         .padding(.horizontal, DSFont.size(4, scale: fontScale))
 
                     if inputText.isEmpty {
                         Text(viewModel.isBusy
-                             ? "พิมพ์ได้ — ข้อความจะต่อคิวส่งหลังงานนี้จบ"
+                             ? "พิมพ์ได้ — ข้อความจะต่อคิว"
                              : "พิมพ์บอก Agent ว่าจะให้ทำอะไร")
-                            .font(DSFont.font(DSFont.sBody, scale: fontScale))
+                            .font(DSFont.font(DSFont.sCallout, scale: fontScale))
                             .foregroundColor(DSColor.t3)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
                             .padding(.horizontal, DSFont.size(4, scale: fontScale) + 5)
                             .padding(.top, 11)
                             .allowsHitTesting(false)
@@ -636,6 +853,40 @@ struct ChatScreenNew: View {
     }
 
     /// ดีไซน์ v2: ส่งได้เสมอ — ถ้า Agent กำลังทำงาน ข้อความจะเข้าคิว (ไม่ปิดช่องพิมพ์)
+    /// ชื่อห้องที่กำลังเปิด (ตามแบบ: หัวจอบอกว่าคุยเรื่องอะไร ไม่ใช่ชื่อแอป)
+    private var currentRoomTitle: String {
+        guard let id = viewModel.currentRoomID,
+              let room = viewModel.rooms.first(where: { $0.id == id }) else {
+            return "AI Agent"
+        }
+        return room.name
+    }
+
+    /// บรรทัดสถานะใต้ชื่อห้อง — แสดงเฉพาะตอนที่มีเรื่องต้องบอก (จริงจาก ActivityCenter เท่านั้น)
+    private var headerAgentState: (text: String, tone: Color, isRunning: Bool)? {
+        if let request = viewModel.pendingApproval {
+            return ("รอคุณอนุญาต: \(request.thaiLabel)", DSColor.warning, false)
+        }
+        if center.isRunning {
+            let label = center.liveLabel.isEmpty ? "กำลังทำงาน" : center.liveLabel
+            return (label, DSColor.accent, true)
+        }
+        if !viewModel.queuedMessages.isEmpty {
+            return ("มีข้อความรอส่ง \(viewModel.queuedMessages.count) ข้อความ", DSColor.accent, false)
+        }
+        if center.events.contains(where: { $0.status == .waitingUser }) {
+            return ("Agent รอคำตอบจากคุณ", DSColor.warning, false)
+        }
+        return nil
+    }
+
+    private var headerAccessibilityLabel: String {
+        if let state = headerAgentState {
+            return "ห้อง \(currentRoomTitle) — \(state.text)"
+        }
+        return "ห้อง \(currentRoomTitle)"
+    }
+
     private var canSend: Bool {
         !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
@@ -698,6 +949,43 @@ struct ChatScreenNew: View {
         .padding(.horizontal, DSMetrics.screenPadding)
         .padding(.top, DSMetrics.s2)
     }
+
+#if DEBUG
+    /// จัดฉากหน้าจอตาม launch argument เพื่อถ่ายภาพตรวจงานออกแบบ (เฉพาะบิลด์ Debug)
+    private func applyPreview(_ screen: String) {
+        switch screen {
+        case "chat":
+            center.previewSeed(events: UIPreview.events(), running: false, liveLabel: "",
+                               finishedTitle: "ทำเสร็จแล้ว",
+                               startedAt: Date().addingTimeInterval(-96), elapsed: 15)
+            viewModel.previewSeed(messages: UIPreview.messages(finished: true),
+                                  isBusy: false, statusText: "", approval: nil)
+        case "chat-open":
+            applyPreview("chat")
+            expandedGroupID = viewModel.visibleMessages.first(where: { $0.role == .tool })?.id.uuidString
+        case "running":
+            center.previewSeed(events: UIPreview.runningEvents(), running: true,
+                               liveLabel: "กำลังอ่านหน้าเว็บที่เกี่ยวข้อง", finishedTitle: "",
+                               startedAt: Date().addingTimeInterval(-24), elapsed: 24)
+            viewModel.previewSeed(messages: UIPreview.messages(finished: false),
+                                  isBusy: true, statusText: "กำลังอ่านหน้าเว็บ", approval: nil)
+            timelineExpanded = true
+        case "approval":
+            center.previewSeed(events: UIPreview.runningEvents(), running: true,
+                               liveLabel: "รอคุณอนุญาต: ลบไฟล์", finishedTitle: "",
+                               startedAt: Date().addingTimeInterval(-40), elapsed: 40)
+            viewModel.previewSeed(messages: UIPreview.messages(finished: false),
+                                  isBusy: true, statusText: "รออนุมัติ",
+                                  approval: UIPreview.approvalRequest())
+        case "detail":
+            applyPreview("chat")
+            detailEvent = UIPreview.events().first(where: { $0.kind == .fileWrite }) ?? UIPreview.events().first
+            showDetailSheet = true
+        default:
+            break
+        }
+    }
+#endif
 
     /// รับคำสั่ง/ไฟล์ที่ส่งมาจากแท็บอื่น (เช่น "ให้ Agent แก้ไฟล์นี้" จากหน้าดูไฟล์)
     private func handlePendingPromptIfNeeded() {
@@ -780,9 +1068,9 @@ struct ChatScreenNew: View {
     /// ค่าใช้จ่ายแสดงเฉพาะเมื่อผู้ให้บริการส่งตัวเลขจริงมา ไม่มีการประมาณเอง
     private var costSuffix: String {
         if let cost = usage.costCredits {
-            return String(format: " · ค่าใช้จ่าย %.4f เครดิต", cost)
+            return String(format: " · %.4f เครดิต", cost)
         }
-        return " · ค่าใช้จ่าย: ไม่ระบุ"
+        return " · ค่าใช้จ่ายไม่ระบุ"
     }
 
     // MARK: - การกระทำ

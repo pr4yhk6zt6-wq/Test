@@ -174,22 +174,59 @@ struct DSStatusLabel: View {
     }
 }
 
+/// วงกลมสถานะ 22 pt ตามแบบ: พื้นอ่อน + ไอคอนสี (สี + ไอคอน + ข้อความ ต้องมาครบทั้งสามเสมอ)
 struct DSStatusGlyph: View {
 
     let status: ActivityStatus
+    var size: CGFloat = 22
     var scale: Double = 1.0
     @State private var pulse: Bool = false
 
+    private var side: CGFloat { DSFont.size(size, scale: scale) }
+
     var body: some View {
-        Image(systemName: status.symbolName)
-            .font(DSFont.font(DSFont.sCallout, weight: .medium, scale: scale))
-            .foregroundColor(status.dsColor)
-            .opacity(status == .running && pulse ? 0.45 : 1)
+        ZStack {
+            Circle().fill(status.dsSoftColor)
+            if status == .running {
+                Circle().stroke(status.dsColor.opacity(pulse ? 0.15 : 0.55), lineWidth: 1.5)
+            }
+            Image(systemName: status.symbolName)
+                .font(DSFont.font(side * 0.5, weight: .semibold, scale: 1.0))
+                .foregroundColor(status.dsColor)
+        }
+        .frame(width: side, height: side)
+        .accessibilityHidden(true)
+        .onAppear {
+            guard status == .running, !DSMotion.reduceMotion else { return }
+            withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
+                pulse = true
+            }
+        }
+    }
+}
+
+/// จุดเต้นเต้น 8 pt — ใช้กับแถบสถานะสดตอนกำลังทำงาน (ตรงกับแบบ ไม่ใช่สปินเนอร์เปล่า)
+struct DSPulseDot: View {
+
+    var tone: Color = DSColor.accent
+    var size: CGFloat = 9
+    @State private var on: Bool = false
+
+    var body: some View {
+        Circle()
+            .fill(tone)
+            .frame(width: size, height: size)
+            .overlay(
+                Circle()
+                    .stroke(tone.opacity(0.35), lineWidth: on ? 5 : 1)
+                    .scaleEffect(on ? 1.6 : 1.0)
+                    .opacity(on ? 0 : 1)
+            )
             .accessibilityHidden(true)
             .onAppear {
-                guard status == .running, !DSMotion.reduceMotion else { return }
-                withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) {
-                    pulse = true
+                guard !DSMotion.reduceMotion else { return }
+                withAnimation(.easeOut(duration: 1.4).repeatForever(autoreverses: false)) {
+                    on = true
                 }
             }
     }
@@ -721,6 +758,89 @@ struct DSAttachmentChip: View {
     }
 }
 
+// MARK: - ข้อความคำตอบ (Markdown) ในฟอนต์ของดีไซน์
+
+/// ข้อความ Markdown ที่ใช้ฟอนต์ + ระยะบรรทัดของดีไซน์ v2
+/// ทำไมต้องมีตัวใหม่: ตัวเดิม (MessageContentView) ใช้ฟอนต์ระบบและไม่เว้นระยะบรรทัดสำหรับภาษาไทย
+/// ทำให้ข้อความที่ผู้ใช้เห็นไม่ตรงกับแบบ (สระบน-ล่างชิดกันเกินไป) และไม่ใช้ฟอนต์ที่ฝังมากับแอป
+struct DSMarkdownText: View {
+
+    let markdown: String
+    var color: Color = DSColor.t1
+    var scale: Double = 1.0
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: DSMetrics.s3) {
+            ForEach(MarkdownRenderer.parse(markdown)) { block in
+                switch block.kind {
+                case .text(let text):
+                    Text(MarkdownRenderer.attributedText(from: text))
+                        .font(DSFont.font(DSFont.sBody, scale: scale))
+                        .foregroundColor(color)
+                        .lineSpacing(DSFont.lineSpacing(DSFont.sBody, scale: scale))
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .textSelection(.enabled)
+
+                case .code(let language, let code):
+                    DSCodeBlock(language: language, code: code, scale: scale)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// บล็อกโค้ดแบบเรียบในโทนดีไซน์ (ฟอนต์ mono ของระบบ) — ใช้ DSColor ทุกจุด
+struct DSCodeBlock: View {
+
+    let language: String?
+    let code: String
+    var scale: Double = 1.0
+
+    @State private var copied: Bool = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: DSMetrics.s2) {
+            HStack(spacing: DSMetrics.s2) {
+                Text(language ?? "โค้ด")
+                    .font(DSFont.font(DSFont.sMicro, weight: .medium, scale: scale))
+                    .foregroundColor(DSColor.t3)
+                Spacer(minLength: 0)
+                Button(action: copy) {
+                    HStack(spacing: 4) {
+                        Image(systemName: copied ? "checkmark" : "doc.on.doc")
+                            .font(DSFont.font(DSFont.sMicro, scale: scale))
+                        Text(copied ? "คัดลอกแล้ว" : "คัดลอก")
+                            .font(DSFont.font(DSFont.sMicro, scale: scale))
+                    }
+                    .foregroundColor(DSColor.accentInk)
+                    .frame(minHeight: DSMetrics.touchSmall)
+                }
+                .buttonStyle(DSPressableStyle())
+                .accessibilityLabel(Text(copied ? "คัดลอกโค้ดแล้ว" : "คัดลอกโค้ด"))
+            }
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                Text(code)
+                    .font(.system(size: DSFont.size(DSFont.sFoot, scale: scale), design: .monospaced))
+                    .foregroundColor(DSColor.t1)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .padding(DSMetrics.s3)
+            }
+            .background(RoundedRectangle(cornerRadius: DSMetrics.rField, style: .continuous).fill(DSColor.surface2))
+        }
+    }
+
+    private func copy() {
+        #if canImport(UIKit)
+        UIPasteboard.general.string = code
+        #endif
+        DSHaptic.success()
+        copied = true
+    }
+}
+
 // MARK: - สีและข้อความของสถานะกิจกรรม
 
 extension ActivityStatus {
@@ -734,6 +854,17 @@ extension ActivityStatus {
         case .failed: return DSColor.error
         case .skipped: return DSColor.t3
         case .cancelled: return DSColor.t2
+        }
+    }
+
+    /// พื้นอ่อนของวงกลมสถานะ (ตามแบบ: ไอคอนเข้มบนพื้นอ่อน ไม่ใช่ตัวทึบสีจัด)
+    var dsSoftColor: Color {
+        switch self {
+        case .pending, .skipped, .cancelled: return DSColor.surface2
+        case .running: return DSColor.accentSoft
+        case .waitingUser: return DSColor.warningSoft
+        case .succeeded: return DSColor.successSoft
+        case .failed: return DSColor.errorSoft
         }
     }
 }

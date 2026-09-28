@@ -532,6 +532,24 @@ final class ChatViewModel: ObservableObject {
     /// เป็นการ "อ่าน" เท่านั้น — ไม่เปลี่ยนพฤติกรรมของ view model หรือ engine
     var activityObserver: ((AgentEvent) -> Void)?
 
+#if DEBUG
+    // MARK: - เครื่องมือตรวจงานออกแบบ (มีเฉพาะบิลด์ Debug — เปิดด้วย launch argument -uiPreview)
+    /// ใส่ข้อมูลตัวอย่างเพื่อถ่ายภาพหน้าจอใน iOS Simulator — ไม่ทำงานในบิลด์ Release
+    func previewSeed(messages newMessages: [ChatMessage],
+                     isBusy busy: Bool,
+                     statusText text: String,
+                     approval: ApprovalRequest?) {
+        // แอปจริงลบบับเบิลว่างเมื่อจบงาน — ข้อมูลตัวอย่างต้องสะท้อนแบบเดียวกัน ไม่มีช่องว่างโชว์
+        messages = newMessages.filter { !($0.role == .assistant && $0.isTextEmpty && !$0.hasToolCalls) }
+        resetVisibleMessages()
+        isBusy = busy
+        statusText = text
+        pendingApproval = approval
+        errorMessage = nil
+        lastNotice = nil
+    }
+#endif
+
     // MARK: - คิวข้อความระหว่าง Agent ทำงาน (ดีไซน์ v2)
 
     /// ข้อความที่ผู้ใช้พิมพ์ระหว่าง Agent ทำงาน — รอส่งให้อัตโนมัติเมื่องานนี้จบ

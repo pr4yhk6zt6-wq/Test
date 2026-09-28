@@ -74,6 +74,18 @@ struct RootTabView: View {
             .environmentObject(settings)
         }
         .onAppear {
+#if DEBUG
+            if UIPreview.isActive {
+                // โหมดตรวจงานออกแบบ (บิลด์ Debug): ถ่ายภาพหน้าที่ขอ โดยไม่ผ่านหน้าแนะนำ
+                if UIPreview.screen == "tasks" {
+                    UIPreview.seedTasks()
+                    PendingMessageQueue.shared.enqueue(text: "พิมพ์ไว้ระหว่าง Agent ทำงาน — ช่วยเพิ่มกราฟเปรียบเทียบให้ด้วย",
+                                                       roomID: nil)
+                    router.selectedTab = .log
+                }
+                return
+            }
+#endif
             // เฟส 5: แนะนำการใช้งาน 3 หน้าเมื่อเปิดแอปครั้งแรก
             if !hasCompletedOnboarding {
                 showOnboarding = true
