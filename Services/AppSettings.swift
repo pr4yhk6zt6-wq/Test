@@ -182,6 +182,11 @@ final class AppSettings: ObservableObject {
         apiKeyState != .missing
     }
 
+    /// ข้อมูลสรุปคีย์ที่ใช้อยู่จริง (ไม่เปิดเผยคีย์เต็ม) — ให้ผู้ใช้เทียบกับหน้าเว็บ OpenRouter ได้
+    var apiKeyDiagnostics: KeyDiagnostics {
+        keychain.diagnostics(for: .openRouterAPIKey)
+    }
+
     /// โมเดลปัจจุบัน (อ่านจาก UserDefaults โดยตรง — ใช้ได้จากทุกเธรด)
     static var currentModelID: String {
         UserDefaults.standard.string(forKey: SettingsKeys.modelID) ?? ""

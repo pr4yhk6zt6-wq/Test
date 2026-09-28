@@ -74,8 +74,11 @@ struct OpenRouterService {
     private static func makeHeaders(apiKey: String,
                                     reference: String?,
                                     needsJSONBody: Bool) -> [String: String] {
+        // ทำความสะอาดคีย์ก่อนส่งเสมอ: กันช่องว่าง/ขึ้นบรรทัดใหม่จากการวาง
+        // (คีย์ที่มีอักขระแปลกปลอมจะได้ 401 "User not found." จากเซิร์ฟเวอร์)
+        let cleanKey = APIKeySanitizer.sanitize(apiKey).cleaned
         var headers: [String: String] = [
-            "Authorization": "Bearer \(apiKey)",
+            "Authorization": "Bearer \(cleanKey)",
             "HTTP-Referer": (reference?.isEmpty == false ? reference ?? defaultReferer : defaultReferer),
             "X-Title": appTitle,
             "Accept": "application/json"

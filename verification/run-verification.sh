@@ -46,6 +46,8 @@ ORIGINALS=(
   "Services/PrivilegeService.swift"
   # ShellTool ต้องทดสอบว่าผลลัพธ์รายงาน "รันในนามใคร" (เฟส 3)
   "Services/Tools/ShellTool.swift"
+  # เฟส 4 — การจัดการคีย์ (ต้นเหตุบั๊ก 401 ที่ผู้ใช้เจอบนเครื่อง)
+  "Services/APIKeySanitizer.swift"
 )
 
 echo "== คัดลอกไฟล์ต้นฉบับที่ต้องทดสอบ =="

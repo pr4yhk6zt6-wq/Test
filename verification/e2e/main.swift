@@ -706,6 +706,34 @@ expect("ครั้งที่สองที่อนุญาต: คำส�
 expect("ลูปทำงานต่อจนจบและสรุปคำตอบได้", approveEveryRun.finalText.contains("ครั้งที่สอง"),
        String(approveEveryRun.finalText.prefix(160)))
 
+print("\n[18] คีย์ถูกทำความสะอาดก่อนส่งออกเครือข่าย (บั๊ก 401 ที่ผู้ใช้เจอ)")
+
+func recordedAuthorization(forPathFragment fragment: String) -> String? {
+    guard let data = FileManager.default.contents(atPath: "/tmp/mock_openrouter_auth.json"),
+          let entries = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+        return nil
+    }
+    let matching = entries.filter { (($0["path"] as? String) ?? "").contains(fragment) }
+    return matching.last?["authorization"] as? String
+}
+
+// คีย์ที่มีช่องว่างหัวท้าย เครื่องหมายคำพูด อักขระล่องหน และขึ้นบรรทัดใหม่
+let messyKey = "  \"sk-or-v1-e2e-dirty-key\u{200B}\"\n"
+
+var messyModels: [OpenRouterModel] = []
+do {
+    messyModels = try await OpenRouterService.fetchModels(apiKey: messyKey, baseURLString: base + "/auth-check")
+    expect("ยิงคำขอด้วยคีย์ที่มีอักขระแปลกปลอมได้ (ระบบทำความสะอาดให้ก่อนส่ง)", !messyModels.isEmpty,
+           "ได้ \(messyModels.count) โมเดล")
+} catch {
+    expect("ยิงคำขอด้วยคีย์ที่มีอักขระแปลกปลอมได้ (ระบบทำความสะอาดให้ก่อนส่ง)", false,
+           "\(error)")
+}
+
+let sentAuthorization = recordedAuthorization(forPathFragment: "/auth-check/")
+expect("เซิร์ฟเวอร์ได้รับ Authorization ที่ทำความสะอาดแล้วพอดี",
+       sentAuthorization == "Bearer sk-or-v1-e2e-dirty-key", sentAuthorization ?? "(ไม่มีข้อมูล)")
+
 // MARK: - 8) ตรวจว่าไม่ได้ใช้ API ของ iOS 16+ ในเส้นทางที่ทดสอบ
 
 print("\n[8] สรุปผล")

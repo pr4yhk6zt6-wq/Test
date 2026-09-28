@@ -27,6 +27,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 COUNTS = {}
 COUNTS_LOCK = threading.Lock()
 COUNTS_PATH = "/tmp/mock_openrouter_counts.json"
+AUTH_PATH = "/tmp/mock_openrouter_auth.json"
+AUTH_LOCK = threading.Lock()
 
 
 def bump(path: str) -> int:
@@ -38,6 +40,25 @@ def bump(path: str) -> int:
         except OSError:
             pass
         return COUNTS[path]
+
+
+def record_auth(path: str, authorization) -> None:
+    """บันทึกหัวข้อ Authorization ที่ได้รับจริง (ใช้ทดสอบว่าคีย์ถูกทำความสะอาดก่อนส่ง)"""
+    entry = {"path": path, "authorization": authorization if authorization is not None else ""}
+    with AUTH_LOCK:
+        try:
+            with open(AUTH_PATH) as handle:
+                entries = json.load(handle)
+                if not isinstance(entries, list):
+                    entries = []
+        except (OSError, ValueError):
+            entries = []
+        entries.append(entry)
+        try:
+            with open(AUTH_PATH, "w") as handle:
+                json.dump(entries[-50:], handle)
+        except OSError:
+            pass
 
 
 def sse(payload: str) -> bytes:
@@ -193,6 +214,7 @@ class Handler(BaseHTTPRequestHandler):
     # ---------- routes ----------
 
     def do_GET(self):
+        record_auth(self.path, self.headers.get("Authorization"))
         if self.path.endswith("/models"):
             bump("/models")
             self._send_json(200, {
@@ -216,6 +238,7 @@ class Handler(BaseHTTPRequestHandler):
         self._send_json(404, {"error": {"message": "not found"}})
 
     def do_POST(self):
+        record_auth(self.path, self.headers.get("Authorization"))
         body = self._read_body()
         path = self.path
 

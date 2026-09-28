@@ -17,6 +17,10 @@ struct SettingsView: View {
     // API Key
     @State private var apiKeyInput: String = ""
     @State private var showDeleteKeyConfirmation: Bool = false
+    /// ข้อความระบุตัวคีย์ที่ใช้อยู่จริง (ไม่เปิดเผยคีย์เต็ม)
+    @State private var keyDiagnosticsText: String = "(ยังไม่มีคีย์)"
+    /// คำเตือนเมื่อพบคีย์เก่าค้างในที่เก็บสำรองแล้วล้างให้
+    @State private var staleFallbackNotice: String?
 
     // โมเดล
     @State private var modelInput: String = ""
@@ -119,6 +123,30 @@ struct SettingsView: View {
             }
             .font(.footnote)
 
+            HStack(alignment: .firstTextBaseline) {
+                Text("คีย์ที่ใช้อยู่")
+                Spacer(minLength: 8)
+                Text(keyDiagnosticsText)
+                    .font(.system(.caption2, design: .monospaced))
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.trailing)
+            }
+            .font(.footnote)
+
+            Button {
+                refreshKeyDiagnostics()
+            } label: {
+                Label("ตรวจคีย์ที่บันทึกไว้ใหม่", systemImage: "arrow.clockwise")
+                    .frame(minHeight: 44)
+            }
+            .font(.footnote)
+
+            if let notice = staleFallbackNotice {
+                Text(notice)
+                    .font(.caption)
+                    .foregroundColor(.orange)
+            }
+
             if let warning = settings.storageWarning, settings.apiKeyState == .inFallback {
                 Text("⚠️ Keychain ใช้ไม่ได้ (\(warning)) แอปจึงเก็บ API Key ไว้ใน UserDefaults แบบไม่เข้ารหัส ควรเซ็นแอปใหม่โดยมี entitlements ด้าน Keychain หรือระวังเครื่องที่ใช้ร่วมกัน")
                     .font(.caption)
@@ -127,7 +155,9 @@ struct SettingsView: View {
         } header: {
             Text("OpenRouter API Key")
         } footer: {
-            Text("เก็บใน Keychain ของเครื่อง • ขอได้ที่ openrouter.ai/keys • ถ้าแอปเซ็นแบบไม่มี entitlement ของ Keychain ระบบจะสลับไปเก็บแบบสำรองอัตโนมัติและแจ้งเตือนที่นี่")
+            Text("เก็บใน Keychain ของเครื่อง • ขอได้ที่ openrouter.ai/keys • " +
+                 "แอปจะตัดช่องว่าง/อักขระล่องหนที่ติดมากับการคัดลอกให้อัตโนมัติ และถ้าพบคีย์เก่าค้างอยู่จะล้างทิ้งให้ " +
+                 "(คีย์ใหม่จะถูกใช้เสมอ) • ถ้า Keychain ใช้ไม่ได้ ระบบจะเก็บแบบสำรองและแจ้งเตือนที่นี่")
         }
     }
 
@@ -536,19 +566,49 @@ struct SettingsView: View {
             apiKeyInput = ""
         }
         settings.refreshAPIKeyState()
+        refreshKeyDiagnostics()
         accessReport = SystemAccessChecker.check()
         refreshPrivileges()
     }
 
+    /// อัปเดตข้อความระบุตัวคีย์ + คำเตือนกรณีเพิ่งล้างคีย์เก่าที่ค้างอยู่
+    private func refreshKeyDiagnostics() {
+        let diagnostics = KeychainHelper.shared.diagnostics(for: .openRouterAPIKey)
+        keyDiagnosticsText = diagnostics.fingerprint
+        if diagnostics.purgedStaleFallback {
+            staleFallbackNotice = "พบคีย์เก่าค้างอยู่ในที่เก็บสำรอง และล้างออกให้แล้ว — " +
+                "นี่คือสาเหตุที่คีย์ใหม่ไม่ถูกนำไปใช้ ตอนนี้ระบบใช้คีย์ใน \(diagnostics.storageText) แล้ว"
+        } else {
+            staleFallbackNotice = nil
+        }
+    }
+
     private func saveAPIKey() {
-        let trimmed = apiKeyInput.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else {
+        let cleaned = APIKeySanitizer.sanitize(apiKeyInput)
+        guard !cleaned.cleaned.isEmpty else {
             show(title: "ยังไม่ได้กรอก API Key", message: "กรอก API Key ของ OpenRouter ก่อนกดบันทึก (ขอได้ที่ openrouter.ai/keys)")
             return
         }
+        let problem = APIKeySanitizer.validate(cleaned.cleaned)
         do {
-            try settings.saveAPIKey(trimmed)
-            show(title: "บันทึกแล้ว", message: settings.apiKeyStateText)
+            try settings.saveAPIKey(cleaned.cleaned)
+            apiKeyInput = cleaned.cleaned
+            refreshKeyDiagnostics()
+
+            var message = settings.apiKeyStateText
+            message += "\n• คีย์ที่ใช้อยู่: \(keyDiagnosticsText)"
+            if let note = cleaned.changeDescription {
+                message += "\n• \(note)"
+            }
+            if KeychainHelper.shared.purgedStaleFallback {
+                message += "\n• พบคีย์เก่าค้างในที่เก็บสำรอง และล้างให้แล้ว (นี่คือสาเหตุที่คีย์ใหม่ไม่ถูกใช้)"
+            }
+            if let problem = problem {
+                message += "\n\n⚠️ \(problem)"
+                show(title: "บันทึกแล้ว (มีข้อควรระวัง)", message: message)
+            } else {
+                show(title: "บันทึกแล้ว", message: message)
+            }
         } catch {
             show(title: "บันทึก API Key ไม่สำเร็จ", message: error.localizedDescription)
         }
@@ -559,7 +619,8 @@ struct SettingsView: View {
             try settings.deleteAPIKey()
             apiKeyInput = ""
             testResult = nil
-            show(title: "ลบ API Key แล้ว", message: "ใส่คีย์ใหม่ได้ทุกเมื่อ")
+            refreshKeyDiagnostics()
+            show(title: "ลบ API Key แล้ว", message: "ลบทั้งใน Keychain และที่เก็บสำรองแล้ว — ใส่คีย์ใหม่ได้ทุกเมื่อ")
         } catch {
             show(title: "ลบ API Key ไม่สำเร็จ", message: error.localizedDescription)
         }
@@ -600,10 +661,24 @@ struct SettingsView: View {
     }
 
     private func runConnectionTest() {
+        // ถ้ามีคีย์ที่พิมพ์/วางค้างในช่อง ให้บันทึกก่อนทดสอบ → ทดสอบคีย์ที่เห็นบนจอจริง ๆ
+        let pendingKey = APIKeySanitizer.sanitize(apiKeyInput).cleaned
+        if !pendingKey.isEmpty {
+            do {
+                try settings.saveAPIKey(pendingKey)
+                apiKeyInput = pendingKey
+                refreshKeyDiagnostics()
+            } catch {
+                show(title: "บันทึกคีย์ก่อนทดสอบไม่สำเร็จ", message: error.localizedDescription)
+                return
+            }
+        }
+
         guard let apiKey = try? KeychainHelper.shared.string(for: .openRouterAPIKey), !apiKey.isEmpty else {
             show(title: "ยังไม่มี API Key", message: "บันทึก API Key ก่อนทดสอบการเชื่อมต่อ")
             return
         }
+        let diagnostics = KeychainHelper.shared.diagnostics(for: .openRouterAPIKey)
         let model = modelInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             ? settings.modelID
             : modelInput.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -623,7 +698,16 @@ struct SettingsView: View {
                 isTesting = false
             } catch {
                 isTesting = false
-                let message = error.localizedDescription
+                var message = error.localizedDescription
+                message += "\n\nคีย์ที่ส่งไป: \(diagnostics.fingerprint)"
+                message += "\nที่เก็บ: \(diagnostics.storageText)"
+                if !diagnostics.isOpenRouterFormat {
+                    message += "\n⚠️ คีย์นี้ไม่ได้ขึ้นต้นด้วย sk-or- — ตรวจว่าคัดลอกคีย์ของ OpenRouter มาจริง"
+                }
+                if message.contains("401") {
+                    message += "\n\nวิธีแก้เร็ว: กด \"ลบ API Key\" แล้ววางคีย์ใหม่จาก openrouter.ai/keys อีกครั้ง " +
+                        "(บิลด์นี้ล้างคีย์เก่าที่ค้างอยู่ในที่เก็บสำรองให้อัตโนมัติแล้ว จึงไม่ถูกคีย์เก่าบดบัง)"
+                }
                 show(title: "ทดสอบการเชื่อมต่อไม่สำเร็จ", message: message)
             }
         }

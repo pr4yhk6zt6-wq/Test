@@ -105,6 +105,8 @@ FILES=(
   "Services/EntitlementProbe.swift"
   "Services/ShellService.swift"
   "Services/PrivilegeService.swift"
+  # เฟส 4 — ทำความสะอาดคีย์ก่อนส่ง (และใช้ทดสอบหัวข้อ Authorization จริง)
+  "Services/APIKeySanitizer.swift"
 )
 for rel in "${FILES[@]}"; do
   cp "$PROJECT_ROOT/$rel" "$WORK/$(basename "$rel")"

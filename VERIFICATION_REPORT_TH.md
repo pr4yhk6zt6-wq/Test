@@ -132,22 +132,33 @@ bash Scripts/check-ios15-compat.sh .         # ห้ามใช้ API ขอ�
 * ✅ เฟส 4 ส่งมอบในบิลด์นี้: FileBrowserView (เริ่มที่ `/var/mobile`), FilePreviewView, AgentLogView + บันทึกทุกการเรียก tool,
   EntitlementExplanationView ในหน้าตั้งค่า, การทำงานเบื้องหลัง, และ **แก้ 2 บั๊กที่คุณเจอบนเครื่อง** (ถามอนุมัติทุกครั้ง / สปินเนอร์ค้าง)
 * ✅ เพิ่มเทสต์ E2E ชุดใหม่ (ข้อ 17) ที่พิสูจน์บั๊กการอนุมัติโดยตรง: กดไม่อนุมัติครั้งแรก → ครั้งที่สองต้องมีคำถามใหม่และคำสั่งต้องรันจริง
+* ✅ **แก้บั๊กที่ 9 (401 “User not found.” ที่ผู้ใช้เจอ):** `KeychainHelper.string(for:)` เดิมอ่านที่เก็บสำรองก่อน
+  ทำให้คีย์เก่าที่ค้างอยู่บดบังคีย์ใหม่ที่เพิ่งบันทึกได้ตลอดไป → เปลี่ยนเป็น "Keychain ชนะเสมอ" + ล้างคีย์เก่าที่ค้างทิ้งให้อัตโนมัติ,
+  ตัดช่องว่าง/ขึ้นบรรทัดใหม่/อักขระล่องหน/เครื่องหมายคำพูดที่ติดมากับการคัดลอกก่อนเก็บและก่อนส่งทุกคำขอ,
+  แสดง "คีย์ที่ใช้อยู่" (ไม่เปิดเผยคีย์เต็ม) ในหน้าตั้งค่า และแจ้ง "คีย์ที่ส่งไป/ที่เก็บ" ทุกครั้งที่ทดสอบการเชื่อมต่อไม่สำเร็จ
+  (คุมด้วยเทสต์ unit 26 เคส + E2E 2 ข้อ)
 * ✅ ปรับการยกเลิกคำสั่ง shell ให้ฆ่าทั้งกลุ่มโปรเซส (`POSIX_SPAWN_SETPGROUP` + `kill(-pid)`) — กดหยุดแล้วไม่มีคำสั่งลูกค้างต่อ (E2E วัดได้ < 2 วินาที)
 
-## 10) สถานะการส่งมอบไฟล์ .ipa (อัปเดต)
+## 10) สถานะการส่งมอบไฟล์ .ipa (อัปเดตล่าสุด — เฟส 4)
 
 | รายการ | ค่า |
 |---|---|
-| ไฟล์ | `iOSAgentSandbox.ipa` (**เฟส 3** — มีทั้งเฟส 1 + 2 + 3) |
-| ขนาด | 2,277,904 ไบต์ (2.2 MB) — ไบนารี 3,137,504 ไบต์ |
-| sha256 | `bbf567f048213ec9bcc37a531d6a9bc6cdc5be59f0298f41b7cd3fd99db2bf6d` |
+| ไฟล์ | `iOSAgentSandbox.ipa` (**เฟส 4** — มีครบทั้งเฟส 1 + 2 + 3 + 4) |
+| ขนาด | 2,435,009 ไบต์ (2.4 MB) — ไบนารี 3,816,960 ไบต์ |
+| sha256 | `7c06600b636d0e9faf21e3d2a8ded1059ddf1dd5fa735ef5b33df7278f370e76` |
 | ลิงก์โหลดตรง | https://github.com/pr4yhk6zt6-wq/Test/releases/download/latest-build/iOSAgentSandbox.ipa |
-| CI run | 36419973023 (commit bff82a3) — **13/13 ขั้นตอนผ่าน** |
+| CI run | 36423199379 (commit 17c38dd) — **13/13 ขั้นตอนผ่าน** |
 | MinimumOSVersion | 15.0 • UIDeviceFamily: iPhone เท่านั้น • bundle `com.example.iosagentsandbox` |
-| เซ็นด้วย | `ldid -S` พร้อม entitlements 5 คีย์ — **ตรวจซ้ำหลังดาวน์โหลดแล้วพบครบทั้ง 5** (`platform-application`, `no-container`, `no-sandbox`, `persona-mgmt`, `container-required=false`) |
-| ผลทดสอบบน runner (macOS) | unit **141/141** • E2E **99/99** (รวม posix_spawn จริงบน Darwin + เทสต์อนุมัติทุกครั้ง) • build ไม่ลงนามสำเร็จ • deployment target ผ่าน |
+| เซ็นด้วย | `ldid -S` พร้อม entitlements 5 คีย์ — **ตรวจซ้ำในไบนารีที่ส่งมอบจริงแล้วพบครบทั้ง 5** (`platform-application`, `no-container`, `no-sandbox`, `persona-mgmt`, `container-required=false`) |
+| ตรวจว่าโค้ดเฟส 4 อยู่ในบิลด์นี้ | พบ `FileBrowserView`, `FilePreviewView`, `AgentLogView`, `AgentLogStore`, `AgentLogEntry`, `EntitlementExplanationView` ในไบนารี + ข้อความหน้าต่างอนุมัติแบบใหม่ ("การอนุญาตมีผลเฉพาะครั้งนี้เท่านั้น") |
+| ผลทดสอบบน runner (macOS) | unit **167/167** • E2E **101/101** (posix_spawn จริงบน Darwin + อนุมัติทุกครั้ง + ทำความสะอาดคีย์) • build ไม่ลงนามสำเร็จ • deployment target ผ่าน |
 
-**เฟส 2 ที่อยู่ในไฟล์นี้:** ReAct loop 20 รอบ, tools 9 ตัว (read_file, write_file, list_directory, search_files,
-execute_shell, http_request, download_file, web_search, fetch_webpage), โหมดอนุมัติก่อนรันคำสั่ง/เขียนทับ,
-เพดานเวลา 30 วินาที, ผลลัพธ์จำกัด 10,000 ตัวอักษร, ตัวเลือกอินเทอร์เน็ต/เฉพาะ Wi-Fi/เพดานดาวน์โหลด 200MB,
-การตัด context เมื่อใช้เกิน 80% และการบันทึกประวัติแชทเป็น JSON
+**เฟส 2–4 ที่อยู่ในไฟล์นี้:**
+* **เฟส 2** — ReAct loop ไม่เกิน 20 รอบ, tools 9 ตัว (read_file, write_file, list_directory, search_files, execute_shell,
+  http_request, download_file, web_search, fetch_webpage), เพดานเวลา 30 วินาที, ผลลัพธ์จำกัด 10,000 ตัวอักษร,
+  สวิตช์อินเทอร์เน็ต/เฉพาะ Wi-Fi/เพดานดาวน์โหลด 200MB, ตัด context เมื่อใช้เกิน 80%, ประวัติแชทเป็น JSON
+* **เฟส 3** — `posix_spawn` + persona 99 (root ผ่าน TrollStore) พร้อมถอยกลับอัตโนมัติ, `FileSystemService` ใช้ร่วมกันทั้งแอป,
+  หน้าจอตรวจสิทธิ์ 8 ข้อ + คำอธิบาย entitlements ทั้ง 5 คีย์, เซ็นไบนารีด้วย `ldid -S`
+* **เฟส 4** — แท็บ **ไฟล์** (เริ่มที่ `/var/mobile`, เข้าโฟลเดอร์, ดูข้อความ/รูป/hex), แท็บ **บันทึก** (ทุกการเรียก tool พร้อม arguments/ผลลัพธ์/เวลา),
+  ทำงานเบื้องหลังด้วย `beginBackgroundTask`, **ถามอนุมัติทุกครั้ง** (ตัดปุ่ม "อนุญาตตลอดเซสชัน" ออก), เก็บกวาดบับเบิลหมุนค้างทุกกรณี,
+  ฆ่าทั้งกลุ่มโปรเซสเมื่อกดหยุด (ไม่มีคำสั่งลูกค้างต่อ)
