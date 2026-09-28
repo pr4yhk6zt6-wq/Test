@@ -31,6 +31,10 @@ enum SettingsKeys {
     static let preferRootShell = "settings.preferRootShell"
     /// การส่งรูปให้โมเดล: automatic / always / never (เฟส 5)
     static let visionOverride = "settings.visionOverride"
+    /// ใช้หน้าจอดีไซน์ใหม่ (ค่าเริ่มต้น: เปิด — ปิดเพื่อกลับไปใช้หน้าจอเดิมได้ทันที)
+    static let newChatUI = "settings.newChatUI"
+    /// ระดับรายละเอียดกิจกรรม: concise / normal / detailed
+    static let activityLevel = "settings.activityLevel"
 }
 
 /// ค่าเริ่มต้นของตัวเลือกที่เพิ่มในเฟส 2
@@ -160,6 +164,10 @@ final class AppSettings: ObservableObject {
         // เฟส 5 — การส่งรูปให้โมเดล (ค่าเริ่มต้น: ให้แอปเดาจากชื่อโมเดล)
         self.visionOverrideRaw = defaults.string(forKey: SettingsKeys.visionOverride)
             ?? VisionOverride.automatic.rawValue
+        // เฟส 5 — หน้าจอดีไซน์ใหม่เปิดไว้เป็นค่าเริ่มต้น แต่ปิดกลับไปใช้หน้าจอเดิมได้
+        self.useNewChatUI = defaults.object(forKey: SettingsKeys.newChatUI) as? Bool ?? true
+        self.activityLevelRaw = defaults.string(forKey: SettingsKeys.activityLevel)
+            ?? ActivityDetailLevel.normal.rawValue
 
         refreshAPIKeyState()
     }
@@ -209,6 +217,22 @@ final class AppSettings: ObservableObject {
     /// ข้อมูลสรุปคีย์ที่ใช้อยู่จริง (ไม่เปิดเผยคีย์เต็ม) — ให้ผู้ใช้เทียบกับหน้าเว็บ OpenRouter ได้
     var apiKeyDiagnostics: KeyDiagnostics {
         keychain.diagnostics(for: .openRouterAPIKey)
+    }
+
+    // MARK: - หน้าจอดีไซน์ใหม่ (เฟส 5)
+
+    /// เปิดใช้หน้าแชทแบบใหม่ — ปิดได้ทุกเมื่อเพื่อกลับไปใช้หน้าจอเดิม (ไม่กระทบข้อมูล)
+    @Published var useNewChatUI: Bool {
+        didSet { defaults.set(useNewChatUI, forKey: SettingsKeys.newChatUI) }
+    }
+
+    /// ระดับรายละเอียดของไทม์ไลน์กิจกรรม (น้อย / ปกติ / ละเอียด)
+    @Published var activityLevelRaw: String {
+        didSet { defaults.set(activityLevelRaw, forKey: SettingsKeys.activityLevel) }
+    }
+
+    var activityLevel: ActivityDetailLevel {
+        ActivityDetailLevel(rawValue: activityLevelRaw) ?? .normal
     }
 
     /// โมเดลปัจจุบัน (อ่านจาก UserDefaults โดยตรง — ใช้ได้จากทุกเธรด)

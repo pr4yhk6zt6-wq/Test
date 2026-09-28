@@ -24,7 +24,13 @@ struct RootTabView: View {
     var body: some View {
         TabView(selection: $router.selectedTab) {
             NavigationView {
-                ChatView()
+                Group {
+                    if settings.useNewChatUI {
+                        ChatScreenNew()
+                    } else {
+                        ChatView()
+                    }
+                }
             }
             .navigationViewStyle(.stack)
             .tabItem {

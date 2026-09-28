@@ -61,6 +61,7 @@ struct SettingsView: View {
             toolsSection
             attachmentSection
             appearanceSection
+            screenSection
             accessSection
             privilegeSection
             aboutSection
@@ -508,6 +509,37 @@ struct SettingsView: View {
     }
 
     // MARK: - Section: รูปลักษณ์ (เฟส 5)
+
+    /// ส่วน "หน้าจอ" — สวิตช์ระหว่างหน้าจอใหม่/เดิม และระดับรายละเอียดกิจกรรม (ดีไซน์ v2)
+    private var screenSection: some View {
+        Section {
+            Toggle("ใช้หน้าจอดีไซน์ใหม่", isOn: $settings.useNewChatUI)
+                .frame(minHeight: 44)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Picker("ระดับรายละเอียดกิจกรรม", selection: $settings.activityLevelRaw) {
+                    ForEach(ActivityDetailLevel.allCases) { level in
+                        Text(level.thaiName).tag(level.rawValue)
+                    }
+                }
+                .pickerStyle(SegmentedPickerStyle())
+                .frame(minHeight: 44)
+
+                Text(settings.activityLevel.explanation)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .frame(minHeight: 44)
+
+            Text("หน้าจอใหม่แสดงไทม์ไลน์ว่า Agent ทำอะไรบ้าง โดยไม่เปลี่ยนข้อมูลหรือสิทธิ์ใด ๆ — ปิดสวิตช์นี้เพื่อกลับไปใช้หน้าจอเดิมได้ทุกเมื่อ")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        } header: {
+            Text("หน้าจอ")
+        } footer: {
+            Text("ระดับรายละเอียดเปลี่ยนแค่สิ่งที่เห็นบนจอ ไม่ได้เปลี่ยนข้อมูลที่ระบบเก็บหรือส่งให้โมเดล")
+        }
+    }
 
     private var appearanceSection: some View {
         Section {

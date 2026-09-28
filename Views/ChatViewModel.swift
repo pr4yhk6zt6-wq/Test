@@ -522,12 +522,17 @@ final class ChatViewModel: ObservableObject {
 
     // MARK: - ประมวลผล event จาก engine
 
+    /// จุดเชื่อมสำหรับ UI ใหม่ (ดีไซน์ v2): รับทุกเหตุการณ์ของ engine เพื่อแสดงไทม์ไลน์
+    /// เป็นการ "อ่าน" เท่านั้น — ไม่เปลี่ยนพฤติกรรมของ view model หรือ engine
+    var activityObserver: ((AgentEvent) -> Void)?
+
     private var currentEngine: AgentEngine?
     /// id ของข้อความ assistant ที่กำลังสตรีมอยู่ (ชั่วคราว ยังไม่ถูก append จนจบข้อความ)
     private var streamingAssistantID: UUID?
     private var streamingText: String = ""
 
     private func handle(event: AgentEvent) {
+        activityObserver?(event)
         switch event {
         case .assistantStarted(let id):
             streamingAssistantID = id
