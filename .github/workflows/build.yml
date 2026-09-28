@@ -91,8 +91,10 @@ jobs:
               [ -f /tmp/ldid-src/ldid ] && sudo cp /tmp/ldid-src/ldid /usr/local/bin/ldid && sudo chmod +x /usr/local/bin/ldid || true
             fi
           fi
+          # หมายเหตุ: ldid --version พิมพ์เวอร์ชันแต่ "คืน exit code 1" จึงต้องกันไว้ไม่ให้ขั้นนี้ล้ม
           if command -v ldid >/dev/null 2>&1; then
-            ldid --version 2>&1 | head -2
+            ldid --version 2>&1 | head -2 || true
+            echo "ldid พร้อมใช้งานที่: $(command -v ldid)"
           else
             echo "::warning title=ไม่มี ldid::จะใช้ codesign ad-hoc แทน ทำให้ entitlements สิทธิ์สูง (no-sandbox) ไม่ถูกฝัง — TrollStore จะติดตั้งได้แต่ Agent จะอ่านไฟล์ทั้งเครื่องไม่ได้"
           fi
