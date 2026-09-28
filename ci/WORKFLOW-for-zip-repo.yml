@@ -6,8 +6,8 @@ name: Build iOS Agent Sandbox (from ZIP, 2-file repo)
 #   2) .github/workflows/build.yml  ← สร้างใหม่แล้ววางเนื้อหาไฟล์นี้
 # แล้วกด Run workflow (หรือ push) — CI จะแตก zip, รันเทสต์, build, เซ็น ldid และเผยแพร่ .ipa ขึ้น Releases
 #
-# workflow นี้จะทำงานได้ทั้งกรณี:
-#   • อัปแค่ zip (แตกไฟล์เอง)                    → ใช้ได้
+# workflow นี้ทำงานได้ทั้งกรณี:
+#   • อัปแค่ zip (แตกไฟล์เอง)                                  → ใช้ได้
 #   • อัปโปรเจกต์แบบแตกไฟล์ครบทุกไฟล์ (มี project.yml ที่ root) → ใช้ได้เหมือนกัน
 
 on:
@@ -21,7 +21,7 @@ permissions:
 jobs:
   build:
     name: Unzip + Build + ldid + IPA
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 60
 
     steps:
@@ -58,33 +58,28 @@ jobs:
           echo "พบโปรเจกต์ที่: $DIR"
           echo "dir=$DIR" >> "$GITHUB_OUTPUT"
 
-      - name: เลือก Xcode ที่รองรับ deployment target iOS 15.0
+      - name: เลือก Xcode ใหม่สุดที่ยังรองรับ deployment target iOS 15.0
         env:
           PROJECT_DIR: ${{ steps.source.outputs.dir }}
         run: |
           printf 'import UIKit\n' > /tmp/probe.swift
+          python3 "$PROJECT_DIR/Scripts/ci/pick-xcode.py" > /tmp/xcode-candidates.txt || true
+          cat /tmp/xcode-candidates.txt || true
+
           chosen=""
-          try_xcode() {
-            local app="$1"
-            [ -d "$app" ] || return 1
-            sudo xcode-select -s "$app" >/dev/null 2>&1 || return 1
-            local sdk
-            sdk="$(xcrun --sdk iphoneos --show-sdk-path 2>/dev/null)" || return 1
-            [ -n "$sdk" ] || return 1
-            if swiftc -target arm64-apple-ios15.0 -sdk "$sdk" -typecheck /tmp/probe.swift >/dev/null 2>&1; then
-              chosen="$app"; return 0
+          while IFS=$'\t' read -r app version; do
+            [ -d "$app" ] || continue
+            if sudo xcode-select -s "$app" >/dev/null 2>&1; then
+              sdk="$(xcrun --sdk iphoneos --show-sdk-path 2>/dev/null || true)"
+              if [ -n "$sdk" ] && swiftc -target arm64-apple-ios15.0 -sdk "$sdk" -typecheck /tmp/probe.swift >/dev/null 2>&1; then
+                chosen="$app"
+                echo "เลือกใช้: $app (Xcode $version)"
+                break
+              fi
+              echo "  ข้าม Xcode $version — คอมไพล์ให้ iOS 15.0 ไม่ได้"
             fi
-            echo "  ข้าม $(basename "$app") — ไม่รองรับ iOS 15.0"
-            return 1
-          }
-          for app in /Applications/Xcode_15.4.app /Applications/Xcode_15.3.app \
-                     /Applications/Xcode_15.2.app /Applications/Xcode_15.1.app \
-                     /Applications/Xcode_15.0.1.app /Applications/Xcode_15.0.app; do
-            try_xcode "$app" && break
-          done
-          if [ -z "$chosen" ]; then
-            for app in /Applications/Xcode*.app /Applications/Xcode.app; do try_xcode "$app" && break; done
-          fi
+          done < /tmp/xcode-candidates.txt
+
           [ -n "$chosen" ] || echo "::warning title=ไม่พบ Xcode ที่รองรับ iOS 15.0::จะใช้ค่าเริ่มต้นของ runner"
           xcodebuild -version
 
@@ -106,10 +101,17 @@ jobs:
       - name: ติดตั้ง XcodeGen และ ldid
         run: |
           set -uo pipefail
-          brew install xcodegen || (brew update && brew install xcodegen)
-          brew install ldid-procursus || brew install ldid || \
-            echo "::warning title=ไม่มี ldid::จะใช้ codesign ad-hoc (แอปจะขาด entitlements no-sandbox)"
-          command -v ldid >/dev/null 2>&1 && ldid --version 2>&1 | head -1 || true
+          brew install xcodegen || (brew update && brew install xcodegen) || true
+          if brew install ldid-procursus; then
+            echo "ติดตั้ง ldid (procursus) สำเร็จ"
+          elif brew install ldid; then
+            echo "ติดตั้ง ldid (saurik) สำเร็จ"
+          else
+            echo "::warning title=ติดตั้ง ldid ไม่ได้::จะใช้ codesign ad-hoc แทน"
+          fi
+          if command -v ldid >/dev/null 2>&1; then
+            ldid --version 2>&1 | head -2 || true   # ldid --version คืน exit 1 จึงต้องกันไว้
+          fi
 
       - name: สร้างโปรเจกต์ Xcode + Build แบบไม่ลงนาม
         env:
@@ -118,6 +120,13 @@ jobs:
           set -o pipefail
           cd "$PROJECT_DIR"
           xcodegen generate
+          PBX="iOSAgentSandbox.xcodeproj/project.pbxproj"
+          XCODE_MAJOR="$(xcodebuild -version | head -1 | awk '{print $2}' | cut -d. -f1)"
+          if [ "${XCODE_MAJOR:-0}" -lt 16 ] 2>/dev/null && grep -q "objectVersion = 77" "$PBX" 2>/dev/null; then
+            sed -i '' 's/objectVersion = 77;/objectVersion = 60;/' "$PBX"
+            sed -i '' '/preferredProjectObjectVersion = 77;/d' "$PBX" || true
+            echo "ปรับ project format 77 → 60 ให้เปิดได้กับ Xcode $XCODE_MAJOR"
+          fi
           xcodebuild \
             -project iOSAgentSandbox.xcodeproj \
             -scheme iOSAgentSandbox \

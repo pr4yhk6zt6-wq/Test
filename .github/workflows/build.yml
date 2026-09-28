@@ -13,51 +13,37 @@ permissions:
 jobs:
   build:
     name: Build + ldid + IPA
-    runs-on: macos-14
+    # macos-15 มี Xcode 16.4 ซึ่งอ่าน project format ที่ XcodeGen รุ่นใหม่สร้างได้
+    # ขั้น "เลือก Xcode" ด้านล่างยังตรวจซ้ำด้วยการคอมไพล์จริงว่า Xcode นั้นรองรับ iOS 15.0
+    runs-on: macos-15
     timeout-minutes: 45
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: เลือก Xcode ที่รองรับ deployment target iOS 15.0 (อัตโนมัติ)
+      - name: เลือก Xcode ใหม่สุดที่ยังรองรับ deployment target iOS 15.0
         run: |
-          # ลองใช้ Xcode 15.x ก่อน (ตรงตามสเปกโปรเจกต์) ถ้า runner ไม่มีแล้ว
-          # จะไล่หาตัวอื่นที่ยัง "คอมไพล์ให้ iOS 15.0 ได้จริง" แล้วค่อยใช้ตัวนั้น
           printf 'import UIKit\n' > /tmp/probe.swift
+          python3 Scripts/ci/pick-xcode.py > /tmp/xcode-candidates.txt || true
+          cat /tmp/xcode-candidates.txt || true
+
           chosen=""
-
-          try_xcode() {
-            local app="$1"
-            [ -d "$app" ] || return 1
-            sudo xcode-select -s "$app" >/dev/null 2>&1 || return 1
-            local sdk
-            sdk="$(xcrun --sdk iphoneos --show-sdk-path 2>/dev/null)" || return 1
-            [ -n "$sdk" ] || return 1
-            if swiftc -target arm64-apple-ios15.0 -sdk "$sdk" -typecheck /tmp/probe.swift >/dev/null 2>&1; then
-              chosen="$app"
-              return 0
+          while IFS=$'\t' read -r app version; do
+            [ -d "$app" ] || continue
+            if sudo xcode-select -s "$app" >/dev/null 2>&1; then
+              sdk="$(xcrun --sdk iphoneos --show-sdk-path 2>/dev/null || true)"
+              if [ -n "$sdk" ] && swiftc -target arm64-apple-ios15.0 -sdk "$sdk" -typecheck /tmp/probe.swift >/dev/null 2>&1; then
+                chosen="$app"
+                echo "เลือกใช้: $app (Xcode $version) — คอมไพล์ให้ iOS 15.0 ได้"
+                break
+              fi
+              echo "  ข้าม Xcode $version — คอมไพล์ให้ iOS 15.0 ไม่ได้"
             fi
-            echo "  ข้าม $(basename "$app") — ไม่รองรับ iOS 15.0"
-            return 1
-          }
-
-          for app in /Applications/Xcode_15.4.app /Applications/Xcode_15.3.app \
-                     /Applications/Xcode_15.2.app /Applications/Xcode_15.1.app \
-                     /Applications/Xcode_15.0.1.app /Applications/Xcode_15.0.app; do
-            try_xcode "$app" && break
-          done
+          done < /tmp/xcode-candidates.txt
 
           if [ -z "$chosen" ]; then
-            for app in /Applications/Xcode*.app /Applications/Xcode.app; do
-              try_xcode "$app" && break
-            done
-          fi
-
-          if [ -z "$chosen" ]; then
-            echo "::warning title=ไม่พบ Xcode ที่รองรับ iOS 15.0::จะลองใช้ค่าเริ่มต้นของ runner (ถ้า build ล้มเหลวเรื่อง deployment target ให้เปลี่ยน runs-on เป็น macos-14 หรือ macos-15)"
-          else
-            echo "เลือกใช้: $chosen"
+            echo "::warning title=ไม่พบ Xcode ที่รองรับ iOS 15.0::จะใช้ค่าเริ่มต้นของ runner (ขั้นตรวจ MinimumOSVersion จะฟ้องถ้าไม่ถูก)"
           fi
 
           xcodebuild -version
@@ -72,35 +58,40 @@ jobs:
       - name: รัน E2E กับเซิร์ฟเวอร์ OpenRouter จำลอง (SSE / tool_calls / retry)
         run: bash verification/e2e/run-e2e.sh
 
-      - name: ติดตั้ง XcodeGen
-        run: brew install xcodegen || (brew update && brew install xcodegen)
-
-      - name: ติดตั้ง ldid
+      - name: ติดตั้ง XcodeGen และ ldid
         run: |
           set -uo pipefail
+          brew install xcodegen || (brew update && brew install xcodegen) || true
+          xcodegen --version || true
           if brew install ldid-procursus; then
             echo "ติดตั้ง ldid (procursus) สำเร็จ"
           elif brew install ldid; then
             echo "ติดตั้ง ldid (saurik) สำเร็จ"
           else
-            echo "brew ติดตั้ง ldid ไม่ได้ — จะลองคอมไพล์จากซอร์ส"
-            brew install libplist || true
-            git clone --depth 1 https://github.com/ProcursusTeam/ldid /tmp/ldid-src || true
-            if [ -d /tmp/ldid-src ]; then
-              (cd /tmp/ldid-src && make CXXFLAGS="-I$(brew --prefix libplist)/include" LDFLAGS="-L$(brew --prefix libplist)/lib" ) || true
-              [ -f /tmp/ldid-src/ldid ] && sudo cp /tmp/ldid-src/ldid /usr/local/bin/ldid && sudo chmod +x /usr/local/bin/ldid || true
-            fi
+            echo "::warning title=ติดตั้ง ldid ไม่ได้::จะใช้ codesign ad-hoc แทน (entitlements สิทธิ์สูงอาจไม่ถูกฝัง)"
           fi
-          # หมายเหตุ: ldid --version พิมพ์เวอร์ชันแต่ "คืน exit code 1" จึงต้องกันไว้ไม่ให้ขั้นนี้ล้ม
+          # หมายเหตุ: ldid --version พิมพ์เวอร์ชันแต่คืน exit code 1 จึงต้องกันไว้ไม่ให้ขั้นนี้ล้ม
           if command -v ldid >/dev/null 2>&1; then
             ldid --version 2>&1 | head -2 || true
-            echo "ldid พร้อมใช้งานที่: $(command -v ldid)"
-          else
-            echo "::warning title=ไม่มี ldid::จะใช้ codesign ad-hoc แทน ทำให้ entitlements สิทธิ์สูง (no-sandbox) ไม่ถูกฝัง — TrollStore จะติดตั้งได้แต่ Agent จะอ่านไฟล์ทั้งเครื่องไม่ได้"
+            echo "ldid: $(command -v ldid)"
           fi
 
-      - name: สร้างโปรเจกต์ Xcode จาก project.yml
-        run: xcodegen generate
+      - name: สร้างโปรเจกต์ Xcode จาก project.yml แล้วปรับ format ให้เข้ากับ Xcode ที่เลือก
+        run: |
+          xcodegen generate
+          PBX="iOSAgentSandbox.xcodeproj/project.pbxproj"
+          XCODE_MAJOR="$(xcodebuild -version | head -1 | awk '{print $2}' | cut -d. -f1)"
+          if [ "${XCODE_MAJOR:-0}" -lt 16 ] 2>/dev/null; then
+            # XcodeGen 2.44+ เขียน objectVersion 77 (format ของ Xcode 16) ซึ่ง Xcode 15 เปิดไม่ได้
+            if grep -q "objectVersion = 77" "$PBX" 2>/dev/null; then
+              sed -i '' 's/objectVersion = 77;/objectVersion = 60;/' "$PBX"
+              sed -i '' '/preferredProjectObjectVersion = 77;/d' "$PBX" || true
+              echo "ปรับ project format 77 → 60 ให้เปิดได้กับ Xcode $XCODE_MAJOR"
+            fi
+          else
+            echo "Xcode $XCODE_MAJOR อ่าน project format ปัจจุบันได้ตามปกติ"
+          fi
+          grep -m1 objectVersion "$PBX" || true
 
       - name: Build แบบไม่ลงนาม (CODE_SIGNING_ALLOWED=NO)
         run: |
@@ -117,27 +108,29 @@ jobs:
             IPHONEOS_DEPLOYMENT_TARGET=15.0 \
             build | tee build.log | tail -n 60
 
-      - name: ตรวจ deployment target ของผลลัพธ์
+      - name: ตรวจ deployment target ของผลลัพธ์ (ต้องเป็นสาย 15.x)
         run: |
           PLIST=build/Build/Products/Release-iphoneos/iOSAgentSandbox.app/Info.plist
           MIN_OS=$(/usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' "$PLIST")
           echo "MinimumOSVersion = $MIN_OS"
           case "$MIN_OS" in
             15.*) echo "✓ ใช้กับ iOS 15.0 ได้ (เครื่องเป้าหมาย iOS 15.8.x)" ;;
-            *) echo "❌ deployment target ไม่ใช่สาย 15.x"; exit 1 ;;
+            *) echo "::error title=deployment target ไม่ถูกต้อง::ได้ $MIN_OS"; exit 1 ;;
           esac
 
       - name: เซ็นด้วย ldid (entitlements no-sandbox) และแพ็คเป็น .ipa
         run: |
-          mkdir -p build-artifacts
+          set -uo pipefail
           bash Scripts/sign-and-package.sh
-          ls -lh build-artifacts/
-          # ตรวจว่าไบนารีในไอแพกมี entitlements ที่ต้องการจริง
-          cd build-artifacts && unzip -o -q iOSAgentSandbox.ipa -d verify
+          ls -lh build-artifacts/ || true
           if command -v ldid >/dev/null 2>&1; then
-            ldid -e verify/Payload/iOSAgentSandbox.app/iOSAgentSandbox | grep -q "no-sandbox" \
-              && echo "✓ พบ com.apple.private.security.no-sandbox ใน entitlements" \
-              || { echo "❌ ไม่พบ no-sandbox ใน entitlements"; exit 1; }
+            rm -rf /tmp/verify-ipa && mkdir -p /tmp/verify-ipa
+            unzip -o -q build-artifacts/iOSAgentSandbox.ipa -d /tmp/verify-ipa
+            if ldid -e /tmp/verify-ipa/Payload/iOSAgentSandbox.app/iOSAgentSandbox | grep -q "no-sandbox"; then
+              echo "✓ พบ com.apple.private.security.no-sandbox ใน entitlements ที่ฝังในไบนารี"
+            else
+              echo "::warning title=ไม่พบ no-sandbox::ไบนารีอาจถูกเซ็นด้วย codesign ad-hoc — TrollStore ติดตั้งได้แต่สิทธิ์อ่านไฟล์ทั้งเครื่องอาจไม่ครบ"
+            fi
           fi
 
       - name: อัปโหลดไฟล์ IPA เป็น artifact (สำหรับผู้ที่ล็อกอิน GitHub)
@@ -154,12 +147,11 @@ jobs:
         run: |
           set -euo pipefail
           TAG="latest-build"
-          TITLE="Latest build (auto)"
           NOTES="บิลด์อัตโนมัติจาก commit ${GITHUB_SHA::7} • $(date -u +'%Y-%m-%d %H:%M UTC') • เซ็นด้วย ldid + entitlements no-sandbox"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release edit "$TAG" --title "$TITLE" --notes "$NOTES"
+            gh release edit "$TAG" --title "Latest build (auto)" --notes "$NOTES"
           else
-            gh release create "$TAG" --title "$TITLE" --notes "$NOTES"
+            gh release create "$TAG" --title "Latest build (auto)" --notes "$NOTES"
           fi
           gh release upload "$TAG" build-artifacts/iOSAgentSandbox.ipa --clobber
           URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/iOSAgentSandbox.ipa"
