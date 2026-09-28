@@ -72,22 +72,14 @@ jobs:
           set -euo pipefail
           mkdir -p shots
 
-          UDID=$(xcrun simctl list devices available -j | python3 -c "
-import json,sys
-data=json.load(sys.stdin)['devices']
-for runtime, devices in data.items():
-    if 'iOS' not in runtime: continue
-    for device in devices:
-        if device['name'] == 'iPhone SE (3rd generation)':
-            print(device['udid']); raise SystemExit
-")
+          UDID="$(python3 Scripts/ci/pick-simulator.py)"
           echo "UDID=$UDID"
           xcrun simctl boot "$UDID" 2>/dev/null || true
-          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl bootstatus "$UDID" -b || true
           xcrun simctl status_bar "$UDID" override --time "9:41" --batteryState charged \
             --batteryLevel 100 --cellularBars 4 --wifiBars 3 || true
 
-          APP=$(find /tmp/dd/Build/Products -maxdepth 3 -name "iOSAgentSandbox.app" | head -1)
+          APP="$(find /tmp/dd/Build/Products -maxdepth 3 -name 'iOSAgentSandbox.app' | head -1)"
           echo "APP=$APP"
           xcrun simctl install "$UDID" "$APP"
 
