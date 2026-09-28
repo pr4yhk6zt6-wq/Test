@@ -345,6 +345,26 @@ final class ErrorAndRetryTests: XCTestCase {
         XCTAssertFalse(OpenRouterError.missingAPIKey.isRetryable)
     }
 
+    func testProviderReturnedErrorIsRetryableButRealBadRequestsAreNot() {
+        // บั๊กที่ผู้ใช้เจอบนเครื่องจริง: โมเดลฟรีตอบ 400 "Provider returned error" เป็นครั้งคราว
+        // สาเหตุอยู่ที่ผู้ให้บริการปลายทาง ไม่ใช่คำขอของแอป → ต้องลองใหม่ให้อัตโนมัติ
+        XCTAssertTrue(OpenRouterError.apiError(status: 400, code: "400", message: "Provider returned error").isRetryable)
+        XCTAssertTrue(OpenRouterError.apiError(status: 400, code: "provider_error", message: "x").isRetryable)
+        XCTAssertTrue(OpenRouterError.apiError(status: 400,
+                                              code: "400",
+                                              message: "Provider returned error\nผู้ให้บริการ: MockProvider").isRetryable)
+        // แต่คำขอที่ผิดจริงต้องไม่ลองใหม่ (จะยิ่งกินโควตาโดยเปล่าประโยชน์)
+        XCTAssertFalse(OpenRouterError.apiError(status: 400, code: "invalid_request", message: "Invalid model ID").isRetryable)
+        XCTAssertFalse(OpenRouterError.apiError(status: 400, code: "context_length_exceeded", message: "too long").isRetryable)
+        XCTAssertFalse(OpenRouterError.apiError(status: 422, code: "unprocessable", message: "bad").isRetryable)
+    }
+
+    func testTransientHTTPStatusesAreRetryable() {
+        XCTAssertTrue(OpenRouterError.apiError(status: 408, code: "timeout", message: "x").isRetryable)
+        XCTAssertTrue(OpenRouterError.apiError(status: 409, code: "conflict", message: "x").isRetryable)
+        XCTAssertTrue(OpenRouterError.apiError(status: 425, code: "too_early", message: "x").isRetryable)
+    }
+
     func testBackoffGrowsExponentiallyAndIsCapped() {
         let attempts = [1, 2, 3, 4, 5, 6]
         let delays = attempts.map { Double(RetryPolicy.delayNanoseconds(forAttempt: $0)) / 1_000_000_000 }
@@ -405,8 +425,29 @@ final class JSONAndPayloadTests: XCTestCase {
         let json = try XCTUnwrap(JSONValue.decode(fromJSONString: String(data: data, encoding: .utf8) ?? ""))
         XCTAssertEqual(json["role"]?.stringValue, "tool")
         XCTAssertEqual(json["tool_call_id"]?.stringValue, "call_1")
-        XCTAssertEqual(json["name"]?.stringValue, "read_file")
+        // ไม่ส่งฟิลด์ name ของ role=tool: สเปก OpenAI ไม่มีฟิลด์นี้ และผู้ให้บริการที่ตรวจเข้ม
+        // (โดยเฉพาะโมเดลฟรี) ตอบ 400 กลับมาถ้าได้รับ — ดูบั๊ก "400 Provider returned error"
+        XCTAssertNil(json["name"])
         XCTAssertEqual(json["content"]?.stringValue, "ผลลัพธ์")
+    }
+
+    func testEmptyToolResultGetsPlaceholderContent() throws {
+        // ผู้ให้บริการบางรายปฏิเสธข้อความผลลัพธ์ของ tool ที่ว่างเปล่า → ต้องแทนด้วยข้อความสั้น ๆ
+        let message = ChatMessage.toolResult("", toolCallID: "call_9", name: "read_file")
+        let data = try JSONEncoder().encode(message.payload())
+        let json = try XCTUnwrap(JSONValue.decode(fromJSONString: String(data: data, encoding: .utf8) ?? ""))
+        XCTAssertEqual(json["role"]?.stringValue, "tool")
+        XCTAssertEqual(json["content"]?.stringValue, "(ไม่มีผลลัพธ์)")
+        XCTAssertEqual(json["tool_call_id"]?.stringValue, "call_9")
+    }
+
+    func testEmptyAssistantMessageSendsNullContent() throws {
+        let message = ChatMessage.assistant("", toolCalls: [ToolCall(id: "call_1",
+                                                                     function: FunctionCall(name: "read_file", arguments: "{}"))])
+        let data = try JSONEncoder().encode(message.payload())
+        let json = try XCTUnwrap(JSONValue.decode(fromJSONString: String(data: data, encoding: .utf8) ?? ""))
+        XCTAssertTrue(json["content"]?.isNull ?? false, "assistant ที่มีแต่ tool_calls ต้องส่ง content เป็น null")
+        XCTAssertNotNil(json["tool_calls"]?.arrayValue)
     }
 
     func testUserAndSystemMessagesHaveStringContent() throws {

@@ -734,6 +734,69 @@ let sentAuthorization = recordedAuthorization(forPathFragment: "/auth-check/")
 expect("เซิร์ฟเวอร์ได้รับ Authorization ที่ทำความสะอาดแล้วพอดี",
        sentAuthorization == "Bearer sk-or-v1-e2e-dirty-key", sentAuthorization ?? "(ไม่มีข้อมูล)")
 
+// MARK: - 18) 400 "Provider returned error" (บั๊กที่ผู้ใช้รายงานบนเครื่องจริง)
+
+print("\n[19] 400 จากผู้ให้บริการปลายทาง: แสดงสาเหตุจริง + ลองใหม่อัตโนมัติ")
+
+func bodySummary(forPathFragment fragment: String) -> [String: Any]? {
+    guard let data = FileManager.default.contents(atPath: "/tmp/mock_openrouter_body.json"),
+          let entries = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+        return nil
+    }
+    return entries.last { (($0["path"] as? String) ?? "").contains(fragment) }
+}
+
+var recoveredText = ""
+do {
+    let result = try await OpenRouterService.completeChat(modelID: "cohere/north-mini-code:free",
+                                                          messages: sampleMessages,
+                                                          apiKey: "sk-or-v1-e2e-retry",
+                                                          baseURLString: base + "/provider-400")
+    recoveredText = result.text
+} catch {
+    recoveredText = "error:\(error.localizedDescription)"
+}
+expect("400 \"Provider returned error\" ถูกลองใหม่ให้อัตโนมัติแล้วสำเร็จ", recoveredText.contains("Agent ทดสอบ"),
+       String(recoveredText.prefix(120)))
+let provider400Count = readCounts()["/provider-400"] ?? 0
+expect("ยิงคำขอซ้ำจริง (2 ครั้ง)", provider400Count == 2, "จำนวน: \(provider400Count)")
+
+var alwaysFailureMessage = ""
+do {
+    _ = try await OpenRouterService.completeChat(modelID: "cohere/north-mini-code:free",
+                                                messages: sampleMessages,
+                                                apiKey: "sk-or-v1-e2e-retry",
+                                                baseURLString: base + "/provider-400-always")
+} catch {
+    alwaysFailureMessage = error.localizedDescription
+}
+expect("ข้อความ error บอกชื่อผู้ให้บริการปลายทาง", alwaysFailureMessage.contains("MockProvider"),
+       String(alwaysFailureMessage.prefix(200)))
+expect("ข้อความ error แนบสาเหตุจริง (raw) จากผู้ให้บริการ", alwaysFailureMessage.contains("upstream said"),
+       String(alwaysFailureMessage.prefix(240)))
+expect("ข้อความ error มีคำแนะนำภาษาไทยให้ผู้ใช้ทำต่อ", alwaysFailureMessage.contains("คำแนะนำ"),
+       String(alwaysFailureMessage.prefix(240)))
+
+// MARK: - 19) รูปคำขอที่แอปส่งจริงตอนเรียก tool
+
+print("\n[20] รูปคำขอที่ส่งจริงเมื่อใช้ tool")
+
+let toolRoundBody = bodySummary(forPathFragment: "/react/chat/completions")
+expect("คำขอมี tools แนบไปด้วย", toolRoundBody?["has_tools"] as? Bool == true,
+       "จำนวน tools: \(String(describing: toolRoundBody?["tool_count"]))")
+expect("บังคับให้ OpenRouter เลือกผู้ให้บริการที่รองรับพารามิเตอร์ครบ (provider.require_parameters)",
+       toolRoundBody?["provider_require_parameters"] as? Bool == true,
+       "ไม่พบคีย์ provider ในคำขอ")
+expect("ไม่ส่ง parallel_tool_calls (ผู้ให้บริการบางรายไม่รองรับ)",
+       toolRoundBody?["parallel_tool_calls_present"] as? Bool == false,
+       "พบคีย์ parallel_tool_calls ในคำขอ")
+expect("ข้อความผลลัพธ์ของ tool ไม่มีฟิลด์ name (สเปก OpenAI ไม่มี)",
+       toolRoundBody?["tool_messages_have_name_field"] as? Bool == false,
+       "พบฟิลด์ name ในข้อความ role=tool")
+expect("ข้อความผลลัพธ์ของ tool ไม่มี content ว่างเปล่า",
+       toolRoundBody?["tool_messages_have_empty_content"] as? Bool == false,
+       "พบ content ว่างในข้อความ role=tool")
+
 // MARK: - 8) ตรวจว่าไม่ได้ใช้ API ของ iOS 16+ ในเส้นทางที่ทดสอบ
 
 print("\n[8] สรุปผล")

@@ -108,10 +108,27 @@ struct OpenRouterService {
     private static func errorFromResponse(status: Int, data: Data) -> OpenRouterError {
         let body = String(data: data, encoding: .utf8) ?? ""
         let decoded = JSONValue.decode(fromJSONString: body)
-        let message = decoded?["error"]?["message"]?.stringValue
+        let baseMessage = decoded?["error"]?["message"]?.stringValue
             ?? decoded?["message"]?.stringValue
             ?? fallbackMessage(for: status)
         let code = decoded?["error"]?["code"]?.stringValue
+
+        // OpenRouter ซ่อนสาเหตุจริงจากผู้ให้บริการปลายทางไว้ใน error.metadata
+        // (เช่น raw: "... 400 ..." และ provider_name) — ดึงมาแสดงให้ผู้ใช้เห็นจะได้รู้ว่าต้องแก้ตรงไหน
+        let metadata = decoded?["error"]?["metadata"]
+        var details: [String] = []
+        if let providerName = metadata?["provider_name"]?.stringValue, !providerName.isEmpty {
+            details.append("ผู้ให้บริการ: \(providerName)")
+        }
+        if let modelName = metadata?["model"]?.stringValue, !modelName.isEmpty {
+            details.append("โมเดลที่ผู้ให้บริการใช้: \(modelName)")
+        }
+        if let raw = metadata?["raw"]?.stringValue, !raw.isEmpty {
+            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            let limit = 400
+            details.append("สาเหตุจากผู้ให้บริการ: \(trimmed.count > limit ? String(trimmed.prefix(limit)) + "…" : trimmed)")
+        }
+        let message = details.isEmpty ? baseMessage : baseMessage + "\n" + details.joined(separator: "\n")
 
         switch status {
         case 401:
@@ -122,6 +139,11 @@ struct OpenRouterService {
             return .rateLimited(message)
         case 500...599:
             return .serverError(status: status, message: message)
+        case 400:
+            return .apiError(status: status, code: code,
+                             message: message + "\n\nคำแนะนำ: 400 แบบนี้มักเกิดจากผู้ให้บริการปลายทางขัดข้องชั่วคราว " +
+                                "(พบบ่อยกับโมเดลฟรี) — แอปลองใหม่ให้อัตโนมัติแล้ว กด \"ลองส่งอีกครั้ง\" ได้ " +
+                                "หรือเปลี่ยนเป็นโมเดลอื่นที่ขึ้นป้าย \"ใช้ tools ได้\"")
         default:
             return .apiError(status: status, code: code, message: message)
         }
@@ -221,6 +243,18 @@ struct OpenRouterService {
 
     // MARK: - Body ของ chat completion
 
+    /// การเลือกผู้ให้บริการของ OpenRouter
+    struct ProviderPreferences: Encodable {
+        /// true = เลือกเฉพาะผู้ให้บริการที่รองรับ "ทุกพารามิเตอร์" ในคำขอ
+        /// ใช้เมื่อมีการเรียก tool เพื่อไม่ให้ OpenRouter ส่งงานไปยังผู้ให้บริการที่รองรับไม่ครบ
+        /// (ต้นเหตุของ 400 "Provider returned error" ที่พบบ่อยกับโมเดลฟรี)
+        let requireParameters: Bool
+
+        enum CodingKeys: String, CodingKey {
+            case requireParameters = "require_parameters"
+        }
+    }
+
     struct ChatRequestBody: Encodable {
         let model: String
         let messages: [ChatMessagePayload]
@@ -229,6 +263,7 @@ struct OpenRouterService {
         let maxTokens: Int?
         let tools: [ToolDefinition]?
         let parallelToolCalls: Bool?
+        let provider: ProviderPreferences?
 
         enum CodingKeys: String, CodingKey {
             case model
@@ -238,6 +273,7 @@ struct OpenRouterService {
             case tools
             case maxTokens = "max_tokens"
             case parallelToolCalls = "parallel_tool_calls"
+            case provider
         }
 
         /// ส่งเฉพาะฟิลด์ที่มีค่า — กันผู้ให้บริการที่ปฏิเสธคำขอเมื่อเจอฟิลด์ null
@@ -258,6 +294,11 @@ struct OpenRouterService {
             if let parallelToolCalls = parallelToolCalls {
                 try container.encode(parallelToolCalls, forKey: .parallelToolCalls)
             }
+            if let provider = provider {
+                // บังคับให้ OpenRouter เลือกผู้ให้บริการที่รองรับ "ทุกพารามิเตอร์" ในคำขอ (รวม tools)
+                // — ตัวลด 400 "Provider returned error" ที่พบบ่อยกับโมเดลฟรี
+                try container.encode(provider, forKey: .provider)
+            }
         }
     }
 
@@ -267,14 +308,18 @@ struct OpenRouterService {
                                  tools: [ToolDefinition]?,
                                  temperature: Double?,
                                  maxTokens: Int?,
-                                 parallelToolCalls: Bool?) throws -> Data {
+                                 parallelToolCalls: Bool?,
+                                 requireParameters: Bool) throws -> Data {
+        let hasTools = tools?.isEmpty == false
         let payload = ChatRequestBody(model: modelID,
                                       messages: messages,
                                       stream: stream,
                                       temperature: temperature,
                                       maxTokens: maxTokens,
-                                      tools: (tools?.isEmpty == false) ? tools : nil,
-                                      parallelToolCalls: (tools?.isEmpty == false) ? parallelToolCalls : nil)
+                                      tools: hasTools ? tools : nil,
+                                      parallelToolCalls: hasTools ? parallelToolCalls : nil,
+                                      provider: (hasTools && requireParameters)
+                                          ? ProviderPreferences(requireParameters: true) : nil)
         do {
             return try JSONEncoder().encode(payload)
         } catch {
@@ -295,7 +340,9 @@ struct OpenRouterService {
                            tools: [ToolDefinition]? = nil,
                            temperature: Double? = 0.3,
                            maxTokens: Int? = nil,
-                           parallelToolCalls: Bool = true,
+                           // ไม่ส่ง parallel_tool_calls โดยค่าเริ่มต้น: ผู้ให้บริการปลายทางหลายราย
+                           // (โดยเฉพาะโมเดลฟรี) ไม่รองรับพารามิเตอร์นี้และตอบ 400 กลับมา
+                           parallelToolCalls: Bool? = nil,
                            apiKey: String,
                            reference: String? = nil,
                            baseURLString: String = OpenRouterService.baseURLString) -> AsyncThrowingStream<ChatStreamEvent, Error> {
@@ -310,6 +357,10 @@ struct OpenRouterService {
                     let url = try endpoint("/chat/completions", baseURLString: baseURLString)
 
                     var attempt = 1
+                    // ให้ OpenRouter เลือกเฉพาะผู้ให้บริการที่รองรับ "ทุกพารามิเตอร์" (รวม tools)
+                    // นี่คือวิธีที่ OpenRouter แนะนำให้ใช้เมื่อเรียก tool → ลด 400 "Provider returned error"
+                    // ที่เกิดจากการถูกส่งไปยังผู้ให้บริการซึ่งรองรับไม่ครบ
+                    var requireParameters = tools?.isEmpty == false
                     while true {
                         do {
                             _ = try await performStreamRequest(
@@ -320,6 +371,7 @@ struct OpenRouterService {
                                 temperature: temperature,
                                 maxTokens: maxTokens,
                                 parallelToolCalls: parallelToolCalls,
+                                requireParameters: requireParameters,
                                 apiKey: apiKey,
                                 reference: reference,
                                 continuation: continuation
@@ -331,6 +383,16 @@ struct OpenRouterService {
                             if mapped == .cancelled {
                                 continuation.finish(throwing: OpenRouterError.cancelled)
                                 return
+                            }
+                            // 404 ที่บอกว่าไม่มี endpoint รองรับ tool → ลองใหม่แบบไม่บังคับพารามิเตอร์ (ครั้งเดียว)
+                            // เพื่อไม่ให้ผู้ใช้ที่โมเดลรองรับ tool แบบมีเงื่อนไขต้องเจอทางตัน
+                            if requireParameters, case .notFound(let notFoundMessage) = mapped,
+                               notFoundMessage.lowercased().contains("tool") {
+                                requireParameters = false
+                                continuation.yield(.notice("ไม่พบผู้ให้บริการที่รองรับการเรียก tool แบบบังคับพารามิเตอร์ทั้งหมด — ลองใหม่โดยไม่บังคับให้"))
+                                try await RetryPolicy.sleep(forAttempt: attempt)
+                                attempt += 1
+                                continue
                             }
                             guard mapped.isRetryable, attempt < RetryPolicy.maxAttempts else {
                                 continuation.finish(throwing: mapped)
@@ -359,7 +421,8 @@ struct OpenRouterService {
                                              tools: [ToolDefinition]?,
                                              temperature: Double?,
                                              maxTokens: Int?,
-                                             parallelToolCalls: Bool,
+                                             parallelToolCalls: Bool?,
+                                             requireParameters: Bool,
                                              apiKey: String,
                                              reference: String?,
                                              continuation: AsyncThrowingStream<ChatStreamEvent, Error>.Continuation) async throws -> Bool {
@@ -369,7 +432,8 @@ struct OpenRouterService {
                                 tools: tools,
                                 temperature: temperature,
                                 maxTokens: maxTokens,
-                                parallelToolCalls: parallelToolCalls)
+                                parallelToolCalls: parallelToolCalls,
+                                requireParameters: requireParameters)
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"

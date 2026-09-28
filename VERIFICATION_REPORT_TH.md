@@ -138,20 +138,28 @@ bash Scripts/check-ios15-compat.sh .         # ห้ามใช้ API ขอ�
   แสดง "คีย์ที่ใช้อยู่" (ไม่เปิดเผยคีย์เต็ม) ในหน้าตั้งค่า และแจ้ง "คีย์ที่ส่งไป/ที่เก็บ" ทุกครั้งที่ทดสอบการเชื่อมต่อไม่สำเร็จ
   (คุมด้วยเทสต์ unit 26 เคส + E2E 2 ข้อ)
 * ✅ ปรับการยกเลิกคำสั่ง shell ให้ฆ่าทั้งกลุ่มโปรเซส (`POSIX_SPAWN_SETPGROUP` + `kill(-pid)`) — กดหยุดแล้วไม่มีคำสั่งลูกค้างต่อ (E2E วัดได้ < 2 วินาที)
+* ✅ **แก้บั๊กที่ 10 (400 “Provider returned error” ที่ผู้ใช้เจอบนเครื่อง):** ข้อความนี้มาจาก **ผู้ให้บริการปลายทาง** ของ OpenRouter
+  ไม่ใช่คำขอของแอป และพบบ่อยกับโมเดล `:free` เพราะ OpenRouter ส่งงานไปยังผู้ให้บริการที่รองรับพารามิเตอร์ไม่ครบ
+  → จัดเป็นความผิดพลาดชั่วคราวและ **ลองใหม่สูงสุด 3 ครั้งพร้อม backoff** (ส่วน 400 ที่เป็นคำขอผิดจริงยังไม่ลองใหม่),
+  ส่ง `provider.require_parameters = true` เมื่อเรียก tool เพื่อให้เลือกเฉพาะผู้ให้บริการที่รองรับ `tools`
+  (ถ้าไม่มีเลยจะถอยไปลองแบบไม่บังคับให้ 1 ครั้ง), ตัด `parallel_tool_calls` และฟิลด์ `name` ของข้อความ `role=tool`,
+  แทน `content` ว่างของผลลัพธ์ tool ด้วย `(ไม่มีผลลัพธ์)`, แสดงชื่อผู้ให้บริการ + `raw` ที่ OpenRouter ส่งมาในข้อความ error,
+  เพิ่มปุ่ม “ลองส่งอีกครั้ง” บนแถบ error และกันบับเบิลผู้ใช้ซ้ำเมื่อส่งข้อความเดิมซ้ำหลังเกิดข้อผิดพลาด
+  (คุมด้วยเทสต์ unit 4 เคส + E2E 10 ข้อที่ยืนยันรูป JSON ที่ส่งจริงจากฝั่งเซิร์ฟเวอร์)
 
 ## 10) สถานะการส่งมอบไฟล์ .ipa (อัปเดตล่าสุด — เฟส 4)
 
 | รายการ | ค่า |
 |---|---|
-| ไฟล์ | `iOSAgentSandbox.ipa` (**เฟส 4** — มีครบทั้งเฟส 1 + 2 + 3 + 4) |
-| ขนาด | 2,435,009 ไบต์ (2.4 MB) — ไบนารี 3,816,960 ไบต์ |
-| sha256 | `7c06600b636d0e9faf21e3d2a8ded1059ddf1dd5fa735ef5b33df7278f370e76` |
+| ไฟล์ | `iOSAgentSandbox.ipa` (**เฟส 4.1** — เฟส 1 + 2 + 3 + 4 + แก้บั๊ก 401 จากคีย์เก่าบดบังคีย์ใหม่) |
+| ขนาด | 2,443,450 ไบต์ (2.4 MB) — ไบนารี 3,842,688 ไบต์ |
+| sha256 | `00cf083bc820ed176ea6fb87142bab5d392e14f6fe6428dec6e8eee611dd3857` |
 | ลิงก์โหลดตรง | https://github.com/pr4yhk6zt6-wq/Test/releases/download/latest-build/iOSAgentSandbox.ipa |
-| CI run | 36423199379 (commit 17c38dd) — **13/13 ขั้นตอนผ่าน** |
+| CI run | 36425885795 (commit d7e0d3b) — **ทุกขั้นตอนผ่าน (15/15)** |
 | MinimumOSVersion | 15.0 • UIDeviceFamily: iPhone เท่านั้น • bundle `com.example.iosagentsandbox` |
 | เซ็นด้วย | `ldid -S` พร้อม entitlements 5 คีย์ — **ตรวจซ้ำในไบนารีที่ส่งมอบจริงแล้วพบครบทั้ง 5** (`platform-application`, `no-container`, `no-sandbox`, `persona-mgmt`, `container-required=false`) |
-| ตรวจว่าโค้ดเฟส 4 อยู่ในบิลด์นี้ | พบ `FileBrowserView`, `FilePreviewView`, `AgentLogView`, `AgentLogStore`, `AgentLogEntry`, `EntitlementExplanationView` ในไบนารี + ข้อความหน้าต่างอนุมัติแบบใหม่ ("การอนุญาตมีผลเฉพาะครั้งนี้เท่านั้น") |
-| ผลทดสอบบน runner (macOS) | unit **167/167** • E2E **101/101** (posix_spawn จริงบน Darwin + อนุมัติทุกครั้ง + ทำความสะอาดคีย์) • build ไม่ลงนามสำเร็จ • deployment target ผ่าน |
+| ตรวจว่าโค้ดที่แก้อยู่ในบิลด์นี้ | พบ `FileBrowserView`, `FilePreviewView`, `AgentLogView`, `AgentLogStore`, `EntitlementExplanationView`, `APIKeySanitizer`, `APIKeyStoragePolicy`, `KeyDiagnostics` ในไบนารี + ข้อความใหม่ "คีย์ที่ใช้อยู่" |
+| ผลทดสอบบน runner (macOS) | unit **171/171** • E2E **111/111** (posix_spawn จริงบน Darwin + อนุมัติทุกครั้ง + ทำความสะอาดคีย์ + ลองใหม่เมื่อผู้ให้บริการปลายทางตอบ 400) • build ไม่ลงนามสำเร็จ • deployment target ผ่าน |
 
 **เฟส 2–4 ที่อยู่ในไฟล์นี้:**
 * **เฟส 2** — ReAct loop ไม่เกิน 20 รอบ, tools 9 ตัว (read_file, write_file, list_directory, search_files, execute_shell,
@@ -159,6 +167,7 @@ bash Scripts/check-ios15-compat.sh .         # ห้ามใช้ API ขอ�
   สวิตช์อินเทอร์เน็ต/เฉพาะ Wi-Fi/เพดานดาวน์โหลด 200MB, ตัด context เมื่อใช้เกิน 80%, ประวัติแชทเป็น JSON
 * **เฟส 3** — `posix_spawn` + persona 99 (root ผ่าน TrollStore) พร้อมถอยกลับอัตโนมัติ, `FileSystemService` ใช้ร่วมกันทั้งแอป,
   หน้าจอตรวจสิทธิ์ 8 ข้อ + คำอธิบาย entitlements ทั้ง 5 คีย์, เซ็นไบนารีด้วย `ldid -S`
+* **เฟส 4.2** — ทนทานต่อ 400 จากผู้ให้บริการปลายทาง (ลองใหม่ + `require_parameters` + แสดงสาเหตุจริง + ปุ่มลองส่งอีกครั้ง)
 * **เฟส 4** — แท็บ **ไฟล์** (เริ่มที่ `/var/mobile`, เข้าโฟลเดอร์, ดูข้อความ/รูป/hex), แท็บ **บันทึก** (ทุกการเรียก tool พร้อม arguments/ผลลัพธ์/เวลา),
   ทำงานเบื้องหลังด้วย `beginBackgroundTask`, **ถามอนุมัติทุกครั้ง** (ตัดปุ่ม "อนุญาตตลอดเซสชัน" ออก), เก็บกวาดบับเบิลหมุนค้างทุกกรณี,
   ฆ่าทั้งกลุ่มโปรเซสเมื่อกดหยุด (ไม่มีคำสั่งลูกค้างต่อ)

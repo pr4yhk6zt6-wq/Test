@@ -54,6 +54,22 @@ final class TokenUsageTracker: ObservableObject, UsageRecording {
         "↑\(promptTokens) ↓\(completionTokens) รวม \(totalTokens)"
     }
 
+    /// ข้อความสั้นแบบย่อตัวเลข (เช่น "↑3.2k ↓412 รวม 3.6k")
+    /// ใช้บนแถบล่างของหน้าแชท เพื่อไม่ให้ข้อความถูกตัดบนจอเล็ก
+    var compactShortText: String {
+        "↑\(TokenUsageTracker.compact(promptTokens)) ↓\(TokenUsageTracker.compact(completionTokens)) รวม \(TokenUsageTracker.compact(totalTokens))"
+    }
+
+    /// ย่อตัวเลขเป็น k เมื่อเกินพัน (อ่านง่ายบนจอ 4.7 นิ้ว)
+    static func compact(_ value: Int) -> String {
+        if value < 1_000 { return "\(value)" }
+        let thousands = Double(value) / 1_000
+        if thousands < 10 {
+            return String(format: "%.1fk", thousands)
+        }
+        return String(format: "%.0fk", thousands)
+    }
+
     /// ผลรวมแบบ TokenUsage (ใช้ส่งต่อ/บันทึก)
     var totals: TokenUsage {
         TokenUsage(promptTokens: promptTokens,

@@ -61,37 +61,92 @@ final class ChatViewModel: ObservableObject {
             lastNotice = "กำลังทำงานอยู่ — กดปุ่มหยุดก่อนส่งข้อความใหม่"
             return
         }
+        guard let credentials = resolveCredentials() else { return }
 
+        // กันบับเบิลผู้ใช้ซ้ำ (เห็นได้ในภาพหน้าจอที่ผู้ใช้ส่งมา): ถ้าเป็นข้อความเดิมกับ
+        // ข้อความผู้ใช้ล่าสุดที่ยังไม่ได้รับคำตอบ และเพิ่งเกิดข้อผิดพลาด (เช่น 400)
+        // ให้ถือว่าเป็นการ "ส่งซ้ำ" → ใช้บับเบิลเดิมและส่งให้โมเดลใหม่ ไม่สร้างบับเบิลซ้ำ
+        let isRepeatOfUnansweredMessage: Bool = {
+            guard errorMessage != nil, let last = messages.last, last.role == .user else { return false }
+            return last.text.trimmingCharacters(in: .whitespacesAndNewlines) == text
+        }()
+
+        errorMessage = nil
+        lastNotice = nil
+        usedRounds = 0
+
+        let userMessage: ChatMessage
+        if isRepeatOfUnansweredMessage, let last = messages.last {
+            userMessage = last
+            lastNotice = "ส่งข้อความเดิมซ้ำ — ใช้บับเบิลเดิมและให้โมเดลตอบใหม่"
+        } else {
+            userMessage = ChatMessage.user(text)
+            messages.append(userMessage)
+            persistSoon()
+        }
+
+        startRun(userMessage: userMessage, credentials: credentials)
+    }
+
+    /// มีบับเบิลของผู้ใช้ให้ส่งซ้ำได้หรือไม่ (ใช้โชว์ปุ่ม "ลองส่งอีกครั้ง" บนแถบ error)
+    var canRetryLastRun: Bool {
+        !isBusy && messages.contains { $0.role == .user }
+    }
+
+    /// ลองส่งข้อความล่าสุดของผู้ใช้อีกครั้ง โดยไม่สร้างบับเบิลซ้ำ
+    /// (ใช้กับกรณี 400/เน็ตสะดุด — ไม่ต้องให้ผู้ใช้พิมพ์ใหม่)
+    func retryLastFailedRun() {
+        guard !isBusy else {
+            lastNotice = "กำลังทำงานอยู่ — กดปุ่มหยุดก่อนส่งข้อความใหม่"
+            return
+        }
+        guard let lastUser = messages.last(where: { $0.role == .user }) else { return }
+        guard let credentials = resolveCredentials() else { return }
+        errorMessage = nil
+        lastNotice = "ลองส่งข้อความเดิมอีกครั้ง"
+        startRun(userMessage: lastUser, credentials: credentials)
+    }
+
+    /// ปิดแถบข้อผิดพลาด
+    func dismissError() {
+        errorMessage = nil
+    }
+
+    // MARK: - เริ่มงาน (ใช้ร่วมกันระหว่าง "ส่งใหม่" และ "ลองส่งอีกครั้ง")
+
+    private struct RunCredentials {
+        let apiKey: String
+        let modelID: String
+    }
+
+    /// ตรวจ API Key + Model ID ก่อนเริ่มงาน (ตั้ง errorMessage ให้เองถ้าไม่ผ่าน)
+    private func resolveCredentials() -> RunCredentials? {
         let settings = AppSettings.shared
         let apiKey: String
         do {
             guard let stored = try KeychainHelper.shared.string(for: .openRouterAPIKey),
                   !stored.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
                 errorMessage = OpenRouterError.missingAPIKey.localizedDescription
-                return
+                return nil
             }
             apiKey = stored
         } catch {
             errorMessage = "อ่าน API Key ไม่สำเร็จ: \(error.localizedDescription)"
-            return
+            return nil
         }
 
         let modelID = settings.modelID.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !modelID.isEmpty else {
             errorMessage = OpenRouterError.invalidModelID.localizedDescription
-            return
+            return nil
         }
+        return RunCredentials(apiKey: apiKey, modelID: modelID)
+    }
 
-        errorMessage = nil
-        lastNotice = nil
-        usedRounds = 0
-
-        let userMessage = ChatMessage.user(text)
-        messages.append(userMessage)
-        persistSoon()
-
-        let configuration = AgentConfiguration(modelID: modelID,
-                                              apiKey: apiKey,
+    private func startRun(userMessage: ChatMessage, credentials: RunCredentials) {
+        let settings = AppSettings.shared
+        let configuration = AgentConfiguration(modelID: credentials.modelID,
+                                              apiKey: credentials.apiKey,
                                               workspacePath: settings.workspacePath,
                                               allowInternet: settings.allowInternet,
                                               wifiOnly: settings.wifiOnly,

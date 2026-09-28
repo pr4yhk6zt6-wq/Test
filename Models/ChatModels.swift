@@ -127,6 +127,9 @@ struct ChatMessage: Identifiable, Codable, Equatable {
         let content: JSONValue
         if role == .assistant && isTextEmpty {
             content = .null
+        } else if role == .tool && isTextEmpty {
+            // ผู้ให้บริการบางราย (โดยเฉพาะโมเดลฟรี) ปฏิเสธข้อความผลลัพธ์ของ tool ที่ว่างเปล่า
+            content = .string("(ไม่มีผลลัพธ์)")
         } else {
             content = .string(text)
         }
@@ -134,7 +137,9 @@ struct ChatMessage: Identifiable, Codable, Equatable {
                                   content: content,
                                   toolCallID: toolCallID,
                                   toolCalls: hasToolCalls ? toolCalls : nil,
-                                  name: role == .tool ? name : nil)
+                                  // ไม่ส่งฟิลด์ name ของ role=tool: สเปก OpenAI ไม่มีฟิลด์นี้
+                                  // และผู้ให้บริการที่ตรวจเข้มจะตอบ 400 ถ้าได้รับ
+                                  name: nil)
     }
 }
 

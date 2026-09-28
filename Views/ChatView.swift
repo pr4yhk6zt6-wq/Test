@@ -258,12 +258,40 @@ struct ChatView: View {
     @ViewBuilder
     private var errorRow: some View {
         if let error = viewModel.errorMessage {
-            HStack(alignment: .top, spacing: 6) {
-                Image(systemName: "xmark.octagon.fill")
-                    .font(.caption)
-                Text(error)
-                    .font(.caption)
-                    .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .top, spacing: 6) {
+                    Image(systemName: "xmark.octagon.fill")
+                        .font(.caption)
+                    Text(error)
+                        .font(.caption)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 0)
+                    Button {
+                        viewModel.dismissError()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.caption)
+                            .frame(width: 32, height: 32)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("ปิดข้อความผิดพลาด")
+                }
+                if viewModel.canRetryLastRun {
+                    Button {
+                        viewModel.retryLastFailedRun()
+                    } label: {
+                        Label("ลองส่งอีกครั้ง", systemImage: "arrow.clockwise")
+                            .font(.caption)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 10)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .fill(Color.red.opacity(0.15))
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("ลองส่งข้อความเดิมอีกครั้ง")
+                }
             }
             .foregroundColor(.red)
             .padding(8)
@@ -282,7 +310,7 @@ struct ChatView: View {
             Image(systemName: "chart.bar.doc.horizontal")
                 .font(.caption2)
                 .foregroundColor(.secondary)
-            Text(usage.hasData ? "Token – \(usage.shortText)" : "Token – ยังไม่มีข้อมูล")
+            Text(usage.hasData ? "Token – \(usage.compactShortText)" : "Token – ยังไม่มีข้อมูล")
                 .font(.caption2.monospacedDigit())
                 .foregroundColor(.secondary)
                 .lineLimit(1)

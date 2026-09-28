@@ -63,6 +63,17 @@ enum OpenRouterError: LocalizedError, Equatable {
         switch self {
         case .rateLimited, .serverError, .network, .invalidResponse:
             return true
+        case .apiError(let status, let code, let message):
+            // 400 "Provider returned error" ของ OpenRouter คือ "ผู้ให้บริการปลายทางขัดข้อง"
+            // ซึ่งพบบ่อยมากกับโมเดลฟรีและมักหายไปเมื่อลองใหม่ (ไม่ใช่คำขอผิดจริง)
+            if status == 400 {
+                let text = message.lowercased()
+                return text.contains("provider returned error")
+                    || text.contains("provider error")
+                    || code == "provider_error"
+            }
+            // 408/409/425 เป็นความขัดข้องชั่วคราวตามสเปก HTTP
+            return status == 408 || status == 409 || status == 425
         default:
             return false
         }

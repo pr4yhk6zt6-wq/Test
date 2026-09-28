@@ -29,6 +29,8 @@ COUNTS_LOCK = threading.Lock()
 COUNTS_PATH = "/tmp/mock_openrouter_counts.json"
 AUTH_PATH = "/tmp/mock_openrouter_auth.json"
 AUTH_LOCK = threading.Lock()
+BODY_PATH = "/tmp/mock_openrouter_body.json"
+BODY_LOCK = threading.Lock()
 
 
 def bump(path: str) -> int:
@@ -59,6 +61,47 @@ def record_auth(path: str, authorization) -> None:
                 json.dump(entries[-50:], handle)
         except OSError:
             pass
+
+
+def record_body(path: str, body) -> None:
+    """บันทึกข้อเท็จจริงของคำขอที่ได้รับ (ใช้ตรวจว่ารูป payload ที่แอปส่งถูกต้อง)"""
+    messages = body.get("messages") if isinstance(body, dict) else None
+    if not isinstance(messages, list):
+        messages = []
+    tools = body.get("tools") if isinstance(body, dict) else None
+    provider = body.get("provider") if isinstance(body, dict) else None
+    tool_messages = [m for m in messages if isinstance(m, dict) and m.get("role") == "tool"]
+    summary = {
+        "path": path,
+        "has_tools": isinstance(tools, list) and len(tools) > 0,
+        "tool_count": len(tools) if isinstance(tools, list) else 0,
+        "parallel_tool_calls_present": bool(isinstance(body, dict) and "parallel_tool_calls" in body),
+        "provider_require_parameters": bool(isinstance(provider, dict) and provider.get("require_parameters") is True),
+        "tool_message_count": len(tool_messages),
+        "tool_messages_have_name_field": any("name" in m for m in tool_messages),
+        "tool_messages_have_empty_content": any(not str(m.get("content") or "").strip() for m in tool_messages),
+    }
+    with BODY_LOCK:
+        try:
+            with open(BODY_PATH) as handle:
+                entries = json.load(handle)
+                if not isinstance(entries, list):
+                    entries = []
+        except (OSError, ValueError):
+            entries = []
+        entries.append(summary)
+        try:
+            with open(BODY_PATH, "w") as handle:
+                json.dump(entries[-50:], handle)
+        except OSError:
+            pass
+
+
+def provider_error_body(raw_detail: str) -> dict:
+    """รูปเดียวกับที่ OpenRouter ตอบเมื่อผู้ให้บริการปลายทางปฏิเสธคำขอ"""
+    return {"error": {"code": 400,
+                      "message": "Provider returned error",
+                      "metadata": {"provider_name": "MockProvider", "raw": raw_detail}}}
 
 
 def sse(payload: str) -> bytes:
@@ -240,7 +283,21 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         record_auth(self.path, self.headers.get("Authorization"))
         body = self._read_body()
+        record_body(self.path, body)
         path = self.path
+
+        if "/provider-400-always/" in path:
+            bump("/provider-400-always")
+            self._send_json(400, provider_error_body("upstream said: invalid request for this provider (mock)"))
+            return
+
+        if "/provider-400/" in path:
+            attempt = bump("/provider-400")
+            if attempt == 1:
+                self._send_json(400, provider_error_body("upstream said: temporary provider failure (mock)"))
+                return
+            self._stream_text_reply(body)
+            return
 
         if "/notfound/" in path:
             bump("/notfound")
