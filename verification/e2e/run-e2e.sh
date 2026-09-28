@@ -99,6 +99,9 @@ FILES=(
   "Services/Tools/ShellTool.swift"
   "Services/Tools/HttpTools.swift"
   "Services/Tools/ToolRegistry.swift"
+  # เฟส 6 — tools ใหม่ (แก้ไฟล์/ย้าย/คัดลอก/ลบ/สร้างโฟลเดอร์/ค้นหาเนื้อหา)
+  "Services/Tools/FileEditTools.swift"
+  "Services/Tools/ContentSearchTool.swift"
   # เฟส 3 — ชั้นไฟล์ สิทธิ์ และ shell จริง (posix_spawn)
   "Services/Tools/PrivilegePolicy.swift"
   "Services/FileSystemService.swift"

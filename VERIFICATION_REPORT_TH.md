@@ -43,7 +43,7 @@ DuckDuckGo, นโยบายเครือข่าย และการต�
 
 > หมายเหตุ: Apple ไม่ได้แจก iOS SDK บน Linux และผมไม่ใช้มิเรอร์ SDK เถื่อน — จึงจำลองเท่าที่ทำได้อย่างถูกต้อง
 
-## 3) สิ่งที่พิสูจน์ด้วยการรันจริง (Unit — 141 เคส)
+## 3) สิ่งที่พิสูจน์ด้วยการรันจริง (Unit — 251 เคส)
 
 | กลุ่ม | จำนวน | ตัวอย่างสิ่งที่ยืนยัน |
 |---|---|---|
@@ -55,7 +55,7 @@ DuckDuckGo, นโยบายเครือข่าย และการต�
 | ชุดเฟส 2 (8 คลาส: `Phase2ToolArgumentsTests` 10, `Phase2HTMLTests` 9, `Phase2NetworkPolicyTests` 9, `Phase2RiskyCommandTests` 9, `Phase2PathGuardTests` 8, `Phase2ContextTrimmerTests` 7, `Phase2GlobMatcherTests` 4, `Phase2ToolOutputLimiterTests` 4) | 60 | arguments ที่ผิดชนิด/ว่าง/ถูกตัดกลางทาง, การยุบ `..`/`~` ของ path, path ของระบบที่ต้องขออนุมัติ, การประเมินความเสี่ยงของคำสั่ง shell และการเขียนไฟล์, การตัดผลลัพธ์ที่ 10,000 ตัวอักษร, การจับคู่ glob, HTML→ข้อความ, ผลค้นหา DuckDuckGo (รวมลิงก์ `uddg`), นโยบาย HTTPS/internet/ Wi-Fi เท่านั้น/เพดานดาวน์โหลด, การตัด context ที่ 80% |
 | `Phase3Tests` (เฟส 3) | 48 | **entitlements 5 คีย์** (ครบ/ค่า true-false/คำอธิบายไทยทุกรายการ) + ไฟล์ `.entitlements` ที่สร้างขึ้นต้อง parse กลับเป็น plist ได้ครบ, การเลือกโหมดรัน 4 กรณี, ลำดับ shell `/var/jb/bin/sh`→`/bin/sh`, `PATH`/`HOME` ของ root กับ mobile, การจำแนกชนิดการติดตั้ง, **FileSystemService** (เขียน/ต่อท้าย/สร้างโฟลเดอร์ย่อย/ลิสต์/สิทธิ์/ลบ/ย้าย/คัดลอก/พื้นที่ว่าง/ข้อความ error ไทย), กฎ RAM (อ่านไฟล์ 3MB โดยได้ไม่เกิน 4KB), **ShellService จริง** (stdout, stderr, exit code, working directory, timeout 1s แล้วฆ่าโปรเซส, คำสั่งว่าง), `ShellTool` ต้องรายงาน “รันในนาม:”, **EntitlementProbe** (ไฟล์ฝัง entitlements / คีย์ขาด / คีย์ตกขอบก้อน 256KB / ไฟล์หาย), **PrivilegeService** (ทดสอบเขียนจริง, รายงาน 8 ข้อ, ไฟล์ entitlements, แคช) |
 
-## 4) สิ่งที่พิสูจน์ด้วยการยิงเครือข่ายจริง (E2E — 92 ข้อ)
+## 4) สิ่งที่พิสูจน์ด้วยการยิงเครือข่ายจริง (E2E — 134 ข้อ)
 
 ไคลเอนต์คือ `OpenRouterService.swift` ของแอป ยิงไปยังเซิร์ฟเวอร์จำลองที่ "โหด" กว่าของจริง
 (ส่ง SSE แบบ chunked, **หั่นกลาง JSON**, แทรก keep-alive, ส่งบรรทัดเสีย, ตอบ 429/404/401/503):
@@ -158,18 +158,27 @@ bash Scripts/check-ios15-compat.sh .         # ห้ามใช้ API ขอ�
 * ✅ อัปเดตรีสต์ของ `Scripts/preflight.py` (64 ไฟล์ที่ต้องมี) และ `Scripts/audit-swift-symbols.py` (+25 type ของเฟส 5,
   รู้จัก type ที่ประกาศซ้อนใน View และสมาชิกที่คอมไพเลอร์สังเคราะห์ให้อย่าง `allCases`) → ตรวจครบ 72 ไฟล์ / 201 type ผ่าน
 
-## 10) สถานะการส่งมอบไฟล์ .ipa (อัปเดตล่าสุด — เฟส 5)
+## 10) สถานะการส่งมอบไฟล์ .ipa (อัปเดตล่าสุด — เฟส 6)
 
 | รายการ | ค่า |
 |---|---|
-| ไฟล์ | `iOSAgentSandbox.ipa` (**เฟส 5** — เฟส 1–4.2 + ไฟล์แนบ/หลายห้องสนทนา/จัดการไฟล์/Onboarding) |
-| ขนาด / sha256 | กรอกหลัง CI รอบนี้ (ดูไฟล์ที่ส่งมอบ — ค่า sha ของเฟส 4.2 เดิม: `59e25666…`) |
+| ไฟล์ | `iOSAgentSandbox.ipa` (**เฟส 6** — เฟส 1–5 + tools จัดการ/แก้ไขไฟล์, ค้นข้อความย้อนหลัง, ประหยัด RAM) |
+| ขนาด | 2,843,598 ไบต์ (2.7 MB) — ไบนารี 5,700,160 ไบต์ |
+| sha256 | `782b66f0d0e9098fb5ae2271b2c338746d7789192e0ce44a5aabdc1fdb28a383` |
 | ลิงก์โหลดตรง | https://github.com/pr4yhk6zt6-wq/Test/releases/download/latest-build/iOSAgentSandbox.ipa |
-| CI run | commit ของเฟส 5 (ดู run ล่าสุดของ workflow "Build unsigned iOS app") |
+| CI run | 36432520585 (commit 4f25bc6) — **ทุกขั้นตอนผ่าน (13/13 + 2 ขั้นหลังงาน)** |
 | MinimumOSVersion | 15.0 • UIDeviceFamily: iPhone เท่านั้น • bundle `com.example.iosagentsandbox` |
-| เซ็นด้วย | `ldid -S` พร้อม entitlements 5 คีย์ — **ตรวจซ้ำในไบนารีที่ส่งมอบจริงแล้วพบครบทั้ง 5** (`platform-application`, `no-container`, `no-sandbox`, `persona-mgmt`, `container-required=false`) |
+| เซ็นด้วย | `ldid -S` พร้อม entitlements 5 คีย์ — **ตรวจซ้ำในไบนารีที่ส่งมอบจริงแล้วพบครบทั้ง 5** โดยแกะ `LC_CODE_SIGNATURE` จากไฟล์ .ipa ที่โหลดมาตรง (blob `0xfade7171` เป็น XML + `0xfade7172` เป็น DER): `platform-application`, `com.apple.private.security.no-container`, `com.apple.private.security.no-sandbox`, `com.apple.private.persona-mgmt`, `com.apple.private.security.container-required` |
 | ตรวจว่าโค้ดที่แก้อยู่ในบิลด์นี้ | พบ `AttachmentStore`, `AttachmentMessageBuilder`, `VisionSupport`, `ChatRoomStore`, `AppRouter`, `OnboardingView`, `ChatRoomsView`, `SystemStatusView`, `FileEditorView`, `PDFPreviewView`, `QuickPromptsView` ในไบนารี + ข้อความใหม่ "ไฟล์แนบจากผู้ใช้", "ห้องสนทนา", "ส่งออกเป็น Markdown", "ให้ Agent แก้ไฟล์นี้", "ยังไม่มี API Key" |
-| ผลทดสอบบน runner (macOS) | unit **205/205** • E2E **121/121** (posix_spawn จริงบน Darwin + อนุมัติทุกครั้ง + ทำความสะอาดคีย์ + ลองใหม่เมื่อผู้ให้บริการปลายทางตอบ 400 + ไฟล์แนบส่งเป็น image_url/พาธ) • build ไม่ลงนามสำเร็จ • deployment target ผ่าน |
+| ผลทดสอบบน runner (macOS) | unit **251/251** • E2E **134/134** (posix_spawn จริงบน Darwin + อนุมัติทุกครั้ง + ทำความสะอาดคีย์ + ลองใหม่เมื่อผู้ให้บริการปลายทางตอบ 400 + ไฟล์แนบส่งเป็น image_url/พาธ) • build ไม่ลงนามสำเร็จ • deployment target ผ่าน |
+
+**เฟส 6 ที่อยู่ในไฟล์นี้:**
+* **tools เพิ่มใหม่ 6 ตัว** — `edit_file` (ค้นหา→แทนที่, กันแก้ผิดจุดเมื่อข้อความซ้ำ, จำกัดไฟล์ ≤512KB, ขออนุมัติ),
+  `copy_file`, `move_file` (ไม่เขียนทับถ้าไม่ตั้ง `overwrite`), `create_directory`, `delete_file` (ถามอนุมัติทุกครั้ง),
+  `search_content` (regex ได้, ข้ามไฟล์ไบนารี/ใหญ่เกิน, แสดง `path:line: ข้อความ`) → รวมเป็น 15 tools
+* **ค้นข้อความย้อนหลังในทุกห้อง** — ปุ่มค้นหาในหน้าแชท, แตะผลลัพธ์แล้วข้ามไปห้องนั้นทันที
+* **ประหยัด RAM สำหรับเครื่อง 2GB** — วาดข้อความล่าสุด 120 รายการ + ปุ่ม "โหลดข้อความก่อนหน้า",
+  รวมข้อความที่สตรีมมาแล้ววาดเป็นช่วง ๆ (ทุก 80ms), แถบบริบทในหน้าแชท + ปุ่ม "ตัดประวัติเก่า"
 
 **เฟส 2–4 ที่อยู่ในไฟล์นี้:**
 * **เฟส 2** — ReAct loop ไม่เกิน 20 รอบ, tools 9 ตัว (read_file, write_file, list_directory, search_files, execute_shell,

@@ -42,6 +42,14 @@ final class ChatViewModel: ObservableObject {
     /// true = กำลังเตรียมไฟล์แนบ (ย่อรูป) ก่อนเริ่มงาน
     @Published private(set) var isPreparingAttachments: Bool = false
 
+    /// จำนวนข้อความที่วาดบนจอจริง (เฟส 6) — ข้อความที่เหลือยังอยู่ในหน่วยความจำแต่ไม่ถูกวาด
+    /// ช่วยลดภาระการวาด/หน่วยความจำบนเครื่อง RAM 2GB เมื่อคุยกันยาว ๆ
+    @Published private(set) var visibleMessageCount: Int = ChatViewModel.defaultVisibleMessages
+
+    /// ค่าเริ่มต้น/ก้าวการโหลดข้อความย้อนหลัง
+    static let defaultVisibleMessages = 120
+    static let visibleMessageStep = 120
+
     let backgroundKeeper = BackgroundTaskKeeper()
     private let historyStore = ChatHistoryStore()
     private let roomStore = ChatRoomStore()
@@ -309,6 +317,7 @@ final class ChatViewModel: ObservableObject {
 
     /// ยกเลิกงานที่กำลังทำอยู่ (kill คำสั่ง shell ที่ค้างด้วย)
     func stop() {
+        flushPendingStreamDelta()
         runTask?.cancel()
         runTask = nil
         currentEngine?.cancel()
@@ -399,6 +408,7 @@ final class ChatViewModel: ObservableObject {
         persistNow()
         currentRoomID = room.id
         messages = roomStore.loadMessages(roomID: room.id)
+        resetVisibleMessages()
         errorMessage = nil
         lastNotice = messages.isEmpty ? "เปิดห้อง \(room.name) แล้ว" : "เปิดห้อง \(room.name) — \(messages.count) ข้อความ"
     }
@@ -690,6 +700,104 @@ final class ChatViewModel: ObservableObject {
         } catch {
             historyWarning = "บันทึกประวัติไม่สำเร็จ: \(error.localizedDescription)"
         }
+    }
+
+    // MARK: - การแสดงผล/บริบท (เฟส 6)
+
+    /// ข้อความที่จะวาดบนจอ (ล่าสุด N รายการ) — ส่วนอื่นยังใช้ประมวลผลเต็มชุดตามปกติ
+    var visibleMessages: [ChatMessage] {
+        guard messages.count > visibleMessageCount else { return messages }
+        return Array(messages.suffix(visibleMessageCount))
+    }
+
+    /// จำนวนข้อความที่ยังซ่อนอยู่ (ถ้ามากกว่า 0 ให้แสดงปุ่ม "โหลดข้อความก่อนหน้า")
+    var hiddenMessageCount: Int {
+        max(0, messages.count - visibleMessageCount)
+    }
+
+    /// โหลดข้อความย้อนหลังเพิ่มขึ้นทีละก้าว
+    func loadEarlierMessages() {
+        let before = visibleMessageCount
+        visibleMessageCount = min(messages.count, visibleMessageCount + ChatViewModel.visibleMessageStep)
+        let added = visibleMessageCount - before
+        lastNotice = added > 0
+            ? "แสดงข้อความย้อนหลังเพิ่ม \(added) รายการ (ยังซ่อนอยู่ \(hiddenMessageCount))"
+            : "แสดงครบทุกข้อความแล้ว"
+    }
+
+    private func resetVisibleMessages() {
+        visibleMessageCount = ChatViewModel.defaultVisibleMessages
+    }
+
+    /// ประเมินจำนวนโทเคนของบทสนทนาที่จะส่งไป (หยาบ ๆ อักษรละ ~0.35 โทเคน) — เตือนก่อนชนเพดานบริบท
+    var estimatedContextTokens: Int {
+        var total = 0
+        for message in messages {
+            total += ChatViewModel.estimateTokens(message.text)
+            if let attachments = message.attachments {
+                for attachment in attachments where attachment.isInlineText {
+                    total += ChatViewModel.estimateTokens(attachment.inlineText ?? "")
+                }
+            }
+        }
+        return total
+    }
+
+    static func estimateTokens(_ text: String) -> Int {
+        guard !text.isEmpty else { return 0 }
+        return max(1, Int(Double(text.count) * 0.35) + 4)
+    }
+
+    /// เพดานบริบทที่ตั้งไว้ (โทเคน)
+    var contextLimitTokens: Int {
+        max(1_000, AppSettings.shared.contextLengthTokens)
+    }
+
+    /// สัดส่วนการใช้บริบท 0.0–1.0+ (ใช้เปลี่ยนสีเตือนที่ 80%)
+    var contextUsageRatio: Double {
+        Double(estimatedContextTokens) / Double(contextLimitTokens)
+    }
+
+    /// ข้อความสรุปการใช้บริบทแบบสั้น เช่น "12% • 3.9K/32K"
+    var contextUsageText: String {
+        let percent = Int((contextUsageRatio * 100).rounded())
+        return "\(percent)% • \(ChatViewModel.shortTokenText(estimatedContextTokens))/\(ChatViewModel.shortTokenText(contextLimitTokens))"
+    }
+
+    static func shortTokenText(_ tokens: Int) -> String {
+        if tokens >= 1_000_000 { return String(format: "%.1fM", Double(tokens) / 1_000_000) }
+        if tokens >= 1_000 { return String(format: "%.1fK", Double(tokens) / 1_000) }
+        return "\(tokens)"
+    }
+
+    /// ตัดประวัติเก่าออกจากบทสนทนาปัจจุบัน (ไม่เรียกโมเดล) — เหลือข้อความล่าสุดตามจำนวนที่กำหนด
+    func trimHistoryKeepingLast(_ keep: Int = 60) {
+        guard !isBusy else {
+            lastNotice = "กำลังทำงานอยู่ — กดปุ่มหยุดก่อนตัดประวัติ"
+            return
+        }
+        let originalCount = messages.count
+        guard originalCount > keep else {
+            lastNotice = "ยังมีข้อความไม่มากพอที่จะตัด (มี \(originalCount) รายการ)"
+            return
+        }
+
+        let removed = originalCount - keep
+        let divider = ChatMessage.system("(ตัดประวัติเก่า \(removed) ข้อความเพื่อประหยัดบริบท — เหลือข้อความล่าสุด \(keep) รายการ)")
+        messages = [divider] + Array(messages.suffix(keep))
+        resetVisibleMessages()
+        persistNow()
+        lastNotice = "ตัดประวัติเก่า \(removed) ข้อความแล้ว — เหลือ \(messages.count) รายการ"
+    }
+
+    /// ค้นข้อความย้อนหลังในทุกห้อง (เฟส 6)
+    func searchHistory(query: String) -> [ChatSearchHit] {
+        ChatSearchIndex.search(query: query,
+                               rooms: rooms,
+                               messagesForRoom: { roomID in
+                                   if roomID == self.currentRoomID { return self.messages }
+                                   return self.roomStore.loadMessages(roomID: roomID)
+                               })
     }
 
     // MARK: - ข้อมูลสำหรับหน้าตั้งค่า

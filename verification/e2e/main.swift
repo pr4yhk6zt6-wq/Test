@@ -872,6 +872,130 @@ expect("โมเดล gpt-4o ถูกจัดว่ารับรูปไ�
 expect("โมเดลโค้ดอย่าง north-mini-code ถูกจัดว่าไม่รับรูป",
        !VisionSupport.markerDecision(modelID: "cohere/north-mini-code:free"))
 
+// MARK: - 22) tools จัดการไฟล์ของเฟส 6 ทำงานจริงบนดิสก์
+
+print("\n[22] tools เฟส 6: edit_file / create_directory / move / copy / delete / search_content")
+
+let phase6Root = "/tmp/e2e-phase6-" + UUID().uuidString
+try? FileManager.default.createDirectory(atPath: phase6Root, withIntermediateDirectories: true)
+defer { try? FileManager.default.removeItem(atPath: phase6Root) }
+
+func phase6Args(_ pairs: [(String, JSONValue)]) -> [String: JSONValue] {
+    var map: [String: JSONValue] = [:]
+    for pair in pairs { map[pair.0] = pair.1 }
+    return map
+}
+
+func phase6Context(approved: Bool) -> ToolExecutionContext {
+    ToolExecutionContext(workspacePath: phase6Root,
+                         allowInternet: false,
+                         wifiOnly: false,
+                         isWiFiConnected: false,
+                         maxDownloadBytes: NetworkPolicy.maxDownloadBytes(megabytes: 200),
+                         isApproved: approved)
+}
+
+let phase6Registry = ToolRegistry.makeDefault()
+expect("ทะเบียน tools มี 15 ตัวและชื่อไม่ซ้ำ",
+       phase6Registry.tools.count == 15 && Set(phase6Registry.toolNames).count == 15,
+       "ได้: \(phase6Registry.tools.count)")
+expect("ทะเบียนมี edit_file + search_content + เครื่องมือจัดการไฟล์",
+       phase6Registry.tool(named: "edit_file") != nil
+       && phase6Registry.tool(named: "search_content") != nil
+       && phase6Registry.tool(named: "move_file") != nil
+       && phase6Registry.tool(named: "copy_file") != nil
+       && phase6Registry.tool(named: "create_directory") != nil)
+expect("delete_file ถูกทำเครื่องหมายว่าต้องอนุมัติทุกครั้ง",
+       phase6Registry.tool(named: "delete_file")?.descriptor.alwaysRequiresApproval == true)
+
+let phase6CreatedDirectory = await CreateDirectoryTool().execute(
+    arguments: phase6Args([("path", .string("งาน-ลึก"))]),
+    context: phase6Context(approved: true))
+var phase6IsDirectory: ObjCBool = false
+let phase6NestedDirectoryExists = FileManager.default.fileExists(atPath: phase6Root + "/งาน-ลึก",
+                                                          isDirectory: &phase6IsDirectory)
+    && phase6IsDirectory.boolValue
+expect("create_directory สร้างโฟลเดอร์ซ้อนได้จริง",
+       !phase6CreatedDirectory.isError && phase6NestedDirectoryExists, phase6CreatedDirectory.text)
+
+let phase6NotePath = phase6Root + "/note.txt"
+try? "alpha\nbeta\ngamma\n".write(toFile: phase6NotePath, atomically: true, encoding: .utf8)
+
+let phase6EditResult = await EditFileTool().execute(
+    arguments: phase6Args([
+        ("path", .string(phase6NotePath)),
+        ("find", .string("beta")),
+        ("replace", .string("BETA-แก้แล้ว"))
+    ]),
+    context: phase6Context(approved: true))
+let phase6EditedContent = (try? String(contentsOfFile: phase6NotePath, encoding: .utf8)) ?? ""
+expect("edit_file แก้ข้อความในไฟล์จริง (ไฟล์บนดิสก์เปลี่ยน)",
+       !phase6EditResult.isError && phase6EditedContent.contains("BETA-แก้แล้ว") && !phase6EditedContent.contains("\nbeta\n"),
+       phase6EditResult.text)
+
+let phase6AmbiguousEdit = await EditFileTool().execute(
+    arguments: phase6Args([
+        ("path", .string(phase6NotePath)),
+        ("find", .string("a")),
+        ("replace", .string("A"))
+    ]),
+    context: phase6Context(approved: true))
+let phase6AfterAmbiguous = (try? String(contentsOfFile: phase6NotePath, encoding: .utf8)) ?? ""
+expect("edit_file ไม่แก้เมื่อข้อความเป้าหมายซ้ำ (กันแก้ผิดที่)",
+       phase6AmbiguousEdit.isError && phase6AmbiguousEdit.kind == .invalidArguments && phase6AfterAmbiguous == phase6EditedContent,
+       phase6AmbiguousEdit.text)
+
+let phase6MissingEdit = await EditFileTool().execute(
+    arguments: phase6Args([
+        ("path", .string(phase6NotePath)),
+        ("find", .string("ไม่มีข้อความนี้แน่นอน-42")),
+        ("replace", .string("x"))
+    ]),
+    context: phase6Context(approved: true))
+expect("edit_file บอกทางแก้เมื่อหาข้อความไม่เจอ", phase6MissingEdit.isError && phase6MissingEdit.text.contains("read_file"),
+       phase6MissingEdit.text)
+
+let phase6CopiedPath = phase6Root + "/สำเนา-note.txt"
+let phase6CopyResult = await CopyFileTool().execute(
+    arguments: phase6Args([("source", .string(phase6NotePath)), ("destination", .string(phase6CopiedPath))]),
+    context: phase6Context(approved: false))
+expect("copy_file คัดลอกจริงและต้นฉบับยังอยู่",
+       !phase6CopyResult.isError && FileManager.default.fileExists(atPath: phase6CopiedPath)
+       && FileManager.default.fileExists(atPath: phase6NotePath), phase6CopyResult.text)
+
+let phase6MovedPath = phase6Root + "/ย้าย-note.txt"
+let phase6MoveResult = await MoveFileTool().execute(
+    arguments: phase6Args([("source", .string(phase6CopiedPath)), ("destination", .string(phase6MovedPath))]),
+    context: phase6Context(approved: false))
+expect("move_file ย้ายไฟล์จริง (ต้นทางหาย ปลายทางเกิด)",
+       !phase6MoveResult.isError && FileManager.default.fileExists(atPath: phase6MovedPath)
+       && !FileManager.default.fileExists(atPath: phase6CopiedPath), phase6MoveResult.text)
+
+let phase6DeleteDenied = await DeleteFileTool().execute(
+    arguments: phase6Args([("path", .string(phase6MovedPath))]),
+    context: phase6Context(approved: false))
+expect("delete_file ไม่ลบเมื่อยังไม่ได้รับอนุมัติ",
+       phase6DeleteDenied.isError && phase6DeleteDenied.kind == .blocked
+       && FileManager.default.fileExists(atPath: phase6MovedPath), phase6DeleteDenied.text)
+
+let phase6DeleteAllowed = await DeleteFileTool().execute(
+    arguments: phase6Args([("path", .string(phase6MovedPath))]),
+    context: phase6Context(approved: true))
+expect("delete_file ลบจริงเมื่ออนุมัติแล้ว",
+       !phase6DeleteAllowed.isError && !FileManager.default.fileExists(atPath: phase6MovedPath), phase6DeleteAllowed.text)
+
+let phase6ContentSearch = await SearchContentTool().execute(
+    arguments: phase6Args([("pattern", .string("BETA-แก้แล้ว")), ("path", .string(phase6Root))]),
+    context: phase6Context(approved: true))
+expect("search_content เจอข้อความพร้อมเลขบรรทัด",
+       !phase6ContentSearch.isError && phase6ContentSearch.text.contains("note.txt:2"), phase6ContentSearch.text)
+
+let phase6BrokenRegex = await SearchContentTool().execute(
+    arguments: phase6Args([("pattern", .string("([")), ("path", .string(phase6Root))]),
+    context: phase6Context(approved: true))
+expect("search_content ปฏิเสธ regex ที่ผิดรูปแบบ",
+       phase6BrokenRegex.isError && phase6BrokenRegex.kind == .invalidArguments, phase6BrokenRegex.text)
+
 // MARK: - 8) ตรวจว่าไม่ได้ใช้ API ของ iOS 16+ ในเส้นทางที่ทดสอบ
 
 print("\n[8] สรุปผล")

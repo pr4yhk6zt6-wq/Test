@@ -54,6 +54,11 @@ ORIGINALS=(
   "Services/AttachmentMessageBuilder.swift"
   "Services/VisionSupport.swift"
   "Services/ChatRoomStore.swift"
+  # เฟส 6 — tools จัดการ/แก้ไขไฟล์ และค้นหาข้อความในไฟล์ (Foundation ล้วน)
+  "Services/Tools/FileEditTools.swift"
+  "Services/Tools/ContentSearchTool.swift"
+  # เฟส 6 — ดัชนีค้นข้อความย้อนหลังในทุกห้อง
+  "Services/ChatSearchIndex.swift"
 )
 
 echo "== คัดลอกไฟล์ต้นฉบับที่ต้องทดสอบ =="

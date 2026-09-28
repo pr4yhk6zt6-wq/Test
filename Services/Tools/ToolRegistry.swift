@@ -26,13 +26,22 @@ final class ToolRegistry {
         self.index = map
     }
 
-    /// ทะเบียนมาตรฐานของเฟส 2 — ครบทั้ง 9 tools ตามข้อกำหนด
+    /// ทะเบียนมาตรฐาน — เฟส 2 ให้ tools ครบ 9 ตัว และเฟส 6 เพิ่มชุดจัดการ/แก้ไขไฟล์อีก 6 ตัว
     static func makeDefault() -> ToolRegistry {
         ToolRegistry(tools: [
+            // อ่านและสำรวจ
             ReadFileTool(),
-            WriteFileTool(),
             ListDirectoryTool(),
             SearchFilesTool(),
+            SearchContentTool(),
+            // เขียนและแก้ไข
+            WriteFileTool(),
+            EditFileTool(),
+            CreateDirectoryTool(),
+            MoveFileTool(),
+            CopyFileTool(),
+            DeleteFileTool(),
+            // ระบบและเครือข่าย
             ExecuteShellTool(),
             HttpRequestTool(),
             DownloadFileTool(),

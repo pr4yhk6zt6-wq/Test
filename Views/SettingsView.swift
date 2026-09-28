@@ -58,6 +58,7 @@ struct SettingsView: View {
             agentSection
             connectionSection
             usageSection
+            toolsSection
             attachmentSection
             appearanceSection
             accessSection
@@ -388,6 +389,68 @@ struct SettingsView: View {
     }
 
     // MARK: - Section: สิทธิ์การเข้าถึง
+
+    // MARK: - Section: เครื่องมือของ Agent (เฟส 6)
+
+    private var toolsSection: some View {
+        Section {
+            NavigationLink {
+                toolsInventoryView
+            } label: {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("เครื่องมือที่ Agent ใช้ได้")
+                    Text("\(ToolRegistry.makeDefault().tools.count) รายการ — แตะเพื่อดูทั้งหมด")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .frame(minHeight: 44)
+            }
+
+            HStack {
+                Text("เพดานบริบทที่ตั้งไว้")
+                Spacer()
+                Text(verbatim: NumberFormatter.localizedString(from: NSNumber(value: settings.contextLengthTokens),
+                                                               number: .decimal) + " โทเคน")
+                    .foregroundColor(.secondary)
+            }
+            .font(.footnote)
+        } header: {
+            Text("ความสามารถของ Agent")
+        } footer: {
+            Text("นับรวมเครื่องมือจัดการไฟล์ (คัดลอก/ย้าย/ลบ/สร้างโฟลเดอร์) และการค้นหาข้อความในไฟล์ • การลบไฟล์จะถามอนุมัติทุกครั้ง")
+        }
+    }
+
+    private var toolsInventoryView: some View {
+        List {
+            Section {
+                ForEach(ToolRegistry.makeDefault().tools, id: \.descriptor.name) { tool in
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack(spacing: 6) {
+                            Text(tool.descriptor.name)
+                                .font(.system(.footnote, design: .monospaced))
+                            Spacer(minLength: 0)
+                            Text(tool.descriptor.category.thaiName)
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                        Text(tool.descriptor.thaiLabel)
+                            .font(.caption)
+                        Text(tool.descriptor.summary)
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .frame(minHeight: 44)
+                }
+            } footer: {
+                Text("Agent จะเลือกใช้เครื่องมือเองตามคำสั่งของคุณ และจะขออนุมัติก่อนทำสิ่งที่เปลี่ยนเครื่อง (เขียนทับ/ลบ/รันคำสั่ง)")
+            }
+        }
+        .listStyle(.insetGrouped)
+        .navigationTitle("เครื่องมือของ Agent")
+        .navigationBarTitleDisplayMode(.inline)
+    }
 
     // MARK: - Section: ไฟล์แนบ (เฟส 5)
 

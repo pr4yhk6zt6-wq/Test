@@ -34,6 +34,7 @@ struct ChatView: View {
     @State private var showClearConfirmation: Bool = false
     @State private var showAttachmentPicker: Bool = false
     @State private var showRooms: Bool = false
+    @State private var showSearch: Bool = false
     @State private var exportFile: ShareableURL?
     @State private var shareText: ShareableText?
     @State private var accessReport: SystemAccessReport?
@@ -60,6 +61,11 @@ struct ChatView: View {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Menu {
                     Button {
+                        showSearch = true
+                    } label: {
+                        Label("ค้นหาในแชท", systemImage: "magnifyingglass")
+                    }
+                    Button {
                         showRooms = true
                     } label: {
                         Label("ห้องสนทนา", systemImage: "bubble.left.and.bubble.right")
@@ -76,6 +82,12 @@ struct ChatView: View {
                         Label("ส่งออกเป็น JSON (.json)", systemImage: "curlybraces")
                     }
                     .disabled(viewModel.messages.isEmpty)
+                    Button {
+                        viewModel.trimHistoryKeepingLast()
+                    } label: {
+                        Label("ตัดประวัติเก่า (ประหยัดบริบท)", systemImage: "scissors")
+                    }
+                    .disabled(viewModel.messages.count <= 60)
                     Button {
                         showClearConfirmation = true
                     } label: {
@@ -132,6 +144,14 @@ struct ChatView: View {
                                       viewModel.showNotice(message)
                                   })
         }
+        .sheet(isPresented: $showSearch) {
+            ChatSearchView(search: { query in viewModel.searchHistory(query: query) },
+                           onSelect: { hit in
+                               guard let room = viewModel.rooms.first(where: { $0.id == hit.roomID }) else { return }
+                               viewModel.selectRoom(room)
+                               viewModel.showNotice("ข้ามไปห้อง \"\(room.name)\" — ค้นหาด้วยคำเดิมเพื่อดูข้อความนั้น")
+                           })
+        }
         .sheet(isPresented: $showRooms) {
             ChatRoomsView(viewModel: viewModel)
         }
@@ -166,7 +186,19 @@ struct ChatView: View {
                         if viewModel.messages.isEmpty {
                             emptyState
                         }
-                        ForEach(viewModel.messages) { message in
+                        if viewModel.hiddenMessageCount > 0 {
+                            Button {
+                                viewModel.loadEarlierMessages()
+                            } label: {
+                                Label("โหลดข้อความก่อนหน้า (ยังซ่อน \(viewModel.hiddenMessageCount))",
+                                      systemImage: "arrow.up.circle")
+                                    .font(.caption)
+                                    .frame(maxWidth: .infinity, minHeight: 44)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("โหลดข้อความย้อนหลังเพิ่ม")
+                        }
+                        ForEach(viewModel.visibleMessages) { message in
                             if message.isToolResult {
                                 ToolActivityView(message: message,
                                                  fontScale: chatFontScale,
@@ -378,6 +410,13 @@ struct ChatView: View {
                 .font(.caption2.monospacedDigit())
                 .foregroundColor(.secondary)
                 .lineLimit(1)
+            if viewModel.estimatedContextTokens > 0 {
+                Text("• บริบท \(viewModel.contextUsageText)")
+                    .font(.caption2.monospacedDigit())
+                    .foregroundColor(viewModel.contextUsageRatio >= 0.8 ? .orange : .secondary)
+                    .lineLimit(1)
+                    .accessibilityLabel("การใช้บริบท \(viewModel.contextUsageText)")
+            }
             if viewModel.usedRounds > 0 {
                 Text("• รอบ \(viewModel.usedRounds)/\(AgentEngine.maximumToolRounds)")
                     .font(.caption2.monospacedDigit())

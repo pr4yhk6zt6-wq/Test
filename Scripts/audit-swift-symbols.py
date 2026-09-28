@@ -176,6 +176,10 @@ REQUIRED_TYPES = [
     "AttachmentPickerSheet", "QuickPrompt", "QuickPromptsView", "ChatRoomsView", "OnboardingView",
     "SystemStatusView", "PDFPreviewView", "FileEditorView",
     "PHPickerRepresentable", "DocumentPickerRepresentable", "ImagePickerRepresentable",
+    # เฟส 6: tools จัดการ/แก้ไขไฟล์ + ค้นหาเนื้อหา + ค้นประวัติแชท
+    "EditFileTool", "EditFileSupport", "MoveFileTool", "CopyFileTool", "DeleteFileTool",
+    "CreateDirectoryTool", "FileOpSupport", "SearchContentTool", "ContentSearchSupport",
+    "ChatSearchIndex", "ChatSearchHit", "ChatSearchView",
 ]
 for name in REQUIRED_TYPES:
     if name not in declared_types:

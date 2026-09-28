@@ -22,12 +22,15 @@ AI Agent สำหรับ iPhone 7 (iOS 15.8.x) ที่เข้าถึง
 | **4** | ChatView/FileBrowserView/AgentLogView ฉบับเต็ม + background task + แก้บั๊กที่ผู้ใช้รายงาน 2 จุด | ✅ เสร็จ (ผู้ใช้ติดตั้งแล้ว) |
 | **4.1** | แก้ 401 (คีย์เก่าบดบังคีย์ใหม่ + ทำความสะอาดคีย์ + แสดงคีย์ที่ใช้อยู่) | ✅ เสร็จ (ผู้ใช้ยืนยันว่าเชื่อมต่อได้) |
 | **4.2** | แก้ `400 [400] – Provider returned error` + ปุ่ม «ลองส่งอีกครั้ง» + กันบับเบิลผู้ใช้ซ้ำ | ✅ ส่งมอบแล้ว (ผู้ใช้ยืนยันว่าใช้งานได้) |
-| **5** | แนบไฟล์/รูป (กล้อง/คลิปบอร์ด), หลายห้องสนทนา, ส่งออก .md/.json, จัดการ+แก้ไฟล์ในแอป, ธีม/ขนาดตัวอักษร, Onboarding, สถานะระบบ | ✅ เสร็จในบิลด์นี้ (unit 205/205 • E2E 121/121) |
+| **5** | แนบไฟล์/รูป (กล้อง/คลิปบอร์ด), หลายห้องสนทนา, ส่งออก .md/.json, จัดการ+แก้ไฟล์ในแอป, ธีม/ขนาดตัวอักษร, Onboarding, สถานะระบบ | ✅ เสร็จ + ผู้ใช้ยืนยัน |
+| **6** | tools จัดการ/แก้ไขไฟล์ (`edit_file`, `move_file`, `copy_file`, `delete_file`, `create_directory`, `search_content`), ค้นข้อความย้อนหลังในทุกห้อง, ประหยัด RAM บนเครื่อง 2GB (จำกัดข้อความที่วาด/โหลดย้อนหลัง/รวมสตรีม/แถบบริบท + ตัดประวัติเก่า) | ✅ เสร็จในบิลด์นี้ (unit 251/251 • E2E 134/134) |
 
 > ทุกแท็บทำงานจริงแล้ว: แชท (Agent + อนุมัติทีละครั้ง) • ไฟล์ (เริ่มที่ `/var/mobile`) • บันทึกการเรียก tool • ตั้งค่า
-> **บิลด์นี้คือเฟส 5** — แนบไฟล์/รูปได้จริง (Files/Photos/กล้อง/คลิปบอร์ด) พร้อมชิปไฟล์แนบและรูปย่อ,
-> หลายห้องสนทนา (สร้าง/เปลี่ยนชื่อ/ลบ/ค้นหา), ส่งออกบทสนทนาเป็น `.md`/`.json`, จัดการไฟล์ครบ (นำเข้า/เปลี่ยนชื่อ/คัดลอก/ย้าย/ลบ/แชร์/ส่งให้ Agent),
-> ดู PDF ในแอป, แก้ไฟล์ข้อความในแอป (พร้อมนับบรรทัด/ค้นหา), ธีม + ขนาดตัวอักษรในแชท, Onboarding 3 หน้า และหน้าสถานะระบบ (เครือข่าย/สิทธิ์)
+> **บิลด์นี้คือเฟส 6** — Agent แก้ไฟล์เป็นจุด ๆ ได้ (`edit_file` ค้นหา→แทนที่ ไม่ต้องเขียนทั้งไฟล์),
+> คัดลอก/ย้าย/ลบ/สร้างโฟลเดอร์เป็นเครื่องมือของ Agent แล้ว, ค้น "เนื้อหาในไฟล์" ด้วย regex (`search_content`),
+> ค้นข้อความย้อนหลังได้ทุกห้อง (แตะผลลัพธ์ = ข้ามไปห้องนั้น),
+> และปรับให้ลื่นบนเครื่อง RAM 2GB: วาดข้อความล่าสุด 120 รายการ + ปุ่ม "โหลดข้อความก่อนหน้า",
+> รวมข้อความที่สตรีมแล้ววาดเป็นช่วง ๆ (ทุก 80 มิลลิวินาที), แถบการใช้บริบท + ปุ่ม "ตัดประวัติเก่า"
 
 ---
 
@@ -72,8 +75,8 @@ iOSAgentSandbox/
 │   └── RootTabView.swift, MultilineInputField.swift
 ├── Resources/ (Info.plist + AppIcon) • Entitlements/ (5 คีย์)
 ├── verification/                          # ชุดทดสอบที่รันได้โดยไม่ต้องมี Xcode
-│   ├── Package.swift, run-verification.sh # ★ unit test 205 เคส (แกนกลางทั้งหมด)
-│   └── e2e/                               # ★ เซิร์ฟเวอร์ OpenRouter จำลอง + harness 121 ข้อ
+│   ├── Package.swift, run-verification.sh # ★ unit test 251 เคส (แกนกลางทั้งหมด)
+│   └── e2e/                               # ★ เซิร์ฟเวอร์ OpenRouter จำลอง + harness 134 ข้อ
 ├── Scripts/ (preflight.py, audit-swift-symbols.py, check-ios15-compat.sh,
 │            build-local.sh, sign-and-package.sh, ci/publish-with-token.sh, hash.sh)
 ├── project.yml (XcodeGen → .xcodeproj, iOS 15.0)
@@ -121,8 +124,8 @@ bash Scripts/build-local.sh            # ตรวจ API + build + ldid + ไ�
 ถูกทดสอบด้วยการ **รันจริง** ทั้งแบบ unit test และแบบยิงเครือข่ายจริงกับเซิร์ฟเวอร์ OpenRouter จำลอง
 
 ```bash
-bash verification/run-verification.sh        # unit 171 เคส (ตรวจ sha256 ของไฟล์ต้นฉบับก่อนรัน)
-bash verification/e2e/run-e2e.sh             # E2E 111 ข้อ (SSE หั่นกลาง JSON / ReAct + tools จริง / posix_spawn / entitlements / อนุมัติทุกครั้ง / ทำความสะอาดคีย์ / 400 จากผู้ให้บริการ + รูป payload ที่ส่งจริง)
+bash verification/run-verification.sh        # unit 251 เคส (ตรวจ sha256 ของไฟล์ต้นฉบับก่อนรัน)
+bash verification/e2e/run-e2e.sh             # E2E 134 ข้อ (SSE หั่นกลาง JSON / ReAct + tools จริง / posix_spawn / entitlements / อนุมัติทุกครั้ง / ทำความสะอาดคีย์ / 400 จากผู้ให้บริการ / ไฟล์แนบเป็น image_url หรือพาธ / tools เฟส 6 ครบ 15 ตัว)
 python3 Scripts/audit-swift-symbols.py .     # ตรวจโครงสร้างและสัญลักษณ์ที่อ้างอิงผิด
 bash Scripts/check-ios15-compat.sh .         # ห้ามใช้ API ของ iOS 16+
 ```
