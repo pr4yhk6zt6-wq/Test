@@ -97,7 +97,7 @@ jobs:
 
           for appearance in light dark; do
             xcrun simctl ui "$UDID" appearance "$appearance"
-            for screen in chat chat-open running approval detail tasks; do
+            for screen in chat chat-open running approval detail tasks files settings; do
               xcrun simctl terminate "$UDID" com.example.iosagentsandbox 2>/dev/null || true
               sleep 1
               xcrun simctl launch "$UDID" com.example.iosagentsandbox -uiPreview "$screen" >/dev/null

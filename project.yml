@@ -37,7 +37,13 @@ targets:
     platform: iOS
     deploymentTarget: "15.0"
     sources:
+      # AgentApp = ที่อยู่ของ UI ที่สร้างจากแบบ (ดีไซน์ v2) — เริ่มใช้เป็นหน้าจอจริงของแอป
+      - path: AgentApp
       - path: App
+        excludes:
+          # จุดเริ่มต้นเดิม (RootTabView) ถูกแทนที่ด้วย AgentApp/App/AgentAppMain.swift
+          # เก็บไฟล์ไว้เป็นประวัติ ไม่ให้คอมไพล์ซ้ำเพื่อเลี่ยง @main ซ้อนกัน
+          - "iOSAgentSandboxApp.swift"
       - path: Models
       - path: Services
       - path: Views
