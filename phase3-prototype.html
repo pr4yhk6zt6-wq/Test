@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>AgentAI — Phase 3: Background + Support Pages</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=Noto+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --font-main: 'IBM Plex Sans Thai', 'Noto Sans Thai', -apple-system, sans-serif;
+  --radius-card: 18px;
+  --radius-pill: 28px;
+  --shadow-card: 0 2px 10px rgba(0,0,0,0.05);
+  --shadow-sheet: 0 8px 30px rgba(0,0,0,0.12);
+  --spacing-8: 8px; --spacing-12: 12px; --spacing-16: 16px; --spacing-24: 24px; --spacing-32: 32px;
+  --bg: #F5F3F0; --surface: #FFFFFF; --surface-2: #EDEAE6;
+  --text-primary: #1C1916; --text-secondary: #6B6058; --text-muted: #9A9088;
+  --accent: #B07A2A; --accent-soft: #F2E6CE; --accent-deep: #8A5E1E;
+  --success: #2D5A3F; --success-soft: #E2EBE5; --warning: #9A6B1E; --warning-soft: #F5EDD8;
+  --error: #8B2E2E; --error-soft: #F4E4E4; --border: #E2DDD8; --overlay: rgba(28,25,22,0.30); --glass: rgba(255,255,255,0.90);
+}
+[data-theme="dark"] {
+  --bg: #161310; --surface: #1E1C18; --surface-2: #2A2721;
+  --text-primary: #F0EDE8; --text-secondary: #A89F94; --text-muted: #6B5E56;
+  --accent: #D49A4A; --accent-soft: rgba(212,154,74,0.12); --accent-deep: #A87D2E;
+  --success: #4A8F6A; --success-soft: rgba(74,143,106,0.12);
+  --warning: #C48A3A; --warning-soft: rgba(196,138,58,0.12);
+  --error: #C06A6A; --error-soft: rgba(192,106,106,0.12);
+  --border: #2A2721; --overlay: rgba(240,237,232,0.30); --glass: rgba(30,28,24,0.92);
+}
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; -webkit-text-size-adjust: 100%; }
+body { font-family: var(--font-main); background: #3D342E; color: var(--text-primary); margin: 0; padding: 0; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; }
+.phone-frame { position: relative; width: 390px; height: 844px; background: var(--bg); border-radius: 44px; box-shadow: 0 24px 60px rgba(0,0,0,0.35), 0 8px 20px rgba(0,0,0,0.15), inset 0 0 0 1px rgba(255,255,255,0.06); overflow: hidden; display: flex; flex-direction: column; }
+.phone-frame::before { content:''; position:absolute; top:0; left:50%; transform:translateX(-50%); width:160px; height:28px; background:var(--surface); border-bottom-left-radius:20px; border-bottom-right-radius:20px; z-index:100; pointer-events:none; box-shadow:inset 0 -1px 0 var(--border); }
+.phone-frame::after { content:''; position:absolute; top:10px; left:50%; transform:translateX(-50%); width:60px; height:4px; background:#2A2A2A; border-radius:2px; z-index:101; }
+
+.app-header { position:sticky; top:0; z-index:50; padding:60px var(--spacing-16) 12px; background:linear-gradient(180deg, var(--glass) 50%, rgba(255,255,255,0) 100%); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:var(--spacing-12); }
+.phone-frame .app-header { padding-top: 60px; }
+.header-left { display:flex; align-items:center; gap:10px; min-width:0; }
+.header-avatar { width:36px; height:36px; border-radius:50%; background:linear-gradient(135deg, var(--accent-deep), var(--accent)); display:flex; align-items:center; justify-content:center; font-weight:700; color:#fff; font-size:14px; flex-shrink:0; letter-spacing:0.02em; }
+.header-info { min-width:0; }
+.header-title { font-size:16px; font-weight:600; color:var(--text-primary); line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.header-sub { font-size:12px; color:var(--text-secondary); line-height:1.2; }
+.header-right { display:flex; gap:8px; align-items:center; flex-shrink:0; }
+.status-pill { display:inline-flex; align-items:center; gap:6px; padding:5px 12px; border-radius:20px; font-size:11px; font-weight:600; letter-spacing:0.01em; white-space:nowrap; }
+.status-working { background:var(--accent-soft); color:var(--accent-deep); }
+
+.chat-scroll { flex:1; overflow-y:auto; overflow-x:hidden; padding:var(--spacing-16); scroll-behavior:smooth; -ms-overflow-style:none; scrollbar-width:none; }
+.chat-scroll::-webkit-scrollbar { display:none; }
+
+/* === COMMON COMPONENTS === */
+.section-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin: var(--spacing-24) 0 var(--spacing-12); font-weight: 700; }
+
+/* Card (no bubble for agent — document style) */
+.card-document { max-width: 100%; color: var(--text-primary); font-size: 15px; line-height: 1.7; margin-bottom: var(--spacing-16); }
+.card-document h3 { font-size: 17px; font-weight: 600; margin: 0 0 10px; color: var(--text-primary); line-height: 1.3; }
+.card-document p { margin: 0 0 14px; }
+
+/* Voice Mode Status */
+.voice-status { background: var(--surface); border: 1.5px solid var(--border); border-radius: 20px; padding: 16px; box-shadow: var(--shadow-card); margin-bottom: var(--spacing-16); }
+.voice-status .voice-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.voice-status .voice-icon { width: 40px; height: 40px; border-radius: 50%; background: var(--accent-soft); border: 2px solid var(--accent); display: flex; align-items: center; justify-content: center; flex-shrink: 0; animation: pulse-ring 2s infinite; }
+.voice-status .voice-icon svg { width: 18px; height: 18px; stroke: var(--accent-deep); stroke-width: 2; fill: none; }
+@keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 rgba(176,122,42,0.3); } 70% { box-shadow: 0 0 0 10px rgba(176,122,42,0); } 100% { box-shadow: 0 0 0 0 rgba(176,122,42,0); } }
+.voice-status .voice-body h4 { font-size: 14px; font-weight: 600; margin: 0 0 4px; color: var(--text-primary); }
+.voice-status .voice-body .voice-sub { font-size: 12px; color: var(--text-secondary); }
+.voice-status .voice-sub .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 1.5s infinite; margin-right: 6px; vertical-align: middle; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+/* Background Task Banner */
+.bg-task-banner { background: linear-gradient(135deg, var(--surface-2), var(--surface)); border: 1px solid var(--border); border-radius: 16px; padding: 14px 16px; margin-bottom: var(--spacing-16); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.bg-task-banner .bg-info .bg-name { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.bg-task-banner .bg-info .bg-status { font-size: 12px; color: var(--text-secondary); }
+.bg-task-banner .bg-progress { height: 4px; background: var(--surface-2); border-radius: 2px; overflow: hidden; width: 80px; flex-shrink: 0; }
+.bg-task-banner .bg-progress-bar { height: 100%; width: 65%; background: linear-gradient(90deg, var(--accent), var(--accent-deep)); border-radius: 2px; }
+
+/* Live Activity Simulation (iOS) */
+.live-activity { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 14px; box-shadow: var(--shadow-card); margin-bottom: var(--spacing-16); }
+.live-activity .la-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.live-activity .la-title { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.live-activity .la-badge { font-size: 10px; padding: 3px 8px; border-radius: 10px; background: var(--accent-soft); color: var(--accent-deep); font-weight: 600; letter-spacing: 0.02em; }
+.live-activity .la-progress-text { font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; }
+.live-activity .la-progress-bar { height: 6px; background: var(--surface-2); border-radius: 3px; overflow: hidden; }
+.live-activity .la-progress-fill { height: 100%; width: 42%; background: linear-gradient(90deg, var(--accent), var(--accent-deep)); border-radius: 3px; }
+
+/* Notification Simulation (Android) */
+.ongoing-notif { background: var(--surface); border: 1.5px solid var(--warning); border-radius: 16px; padding: 14px; box-shadow: var(--shadow-card); margin-bottom: var(--spacing-16); }
+.ongoing-notif .notif-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.ongoing-notif .notif-icon { width: 28px; height: 28px; border-radius: 50%; background: var(--warning-soft); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.ongoing-notif .notif-icon svg { width: 16px; height: 16px; stroke: var(--warning); stroke-width: 2; fill: none; }
+.ongoing-notif .notif-title { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.ongoing-notif .notif-body { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+.ongoing-notif .notif-btn { margin-top: 10px; padding: 8px 14px; border-radius: 12px; border: 1.5px solid var(--warning); background: var(--surface); color: var(--warning); font-size: 12px; font-weight: 600; cursor: pointer; font-family: var(--font-main); transition: all 0.15s; }
+.ongoing-notif .notif-btn:hover { background: var(--warning); color: #fff; }
+
+/* My Tasks Page */
+.task-tabs { display: flex; gap: 8px; margin-bottom: var(--spacing-16); border-bottom: 1.5px solid var(--border); padding-bottom: 8px; }
+.task-tab { flex: 1; padding: 8px 4px; text-align: center; font-size: 12px; font-weight: 600; color: var(--text-muted); border: none; background: transparent; cursor: pointer; font-family: var(--font-main); border-bottom: 2px solid transparent; transition: all 0.15s; }
+.task-tab.active { color: var(--accent-deep); border-bottom-color: var(--accent); }
+
+.task-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); padding: 14px; box-shadow: var(--shadow-card); margin-bottom: var(--spacing-12); }
+.task-card .task-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.task-card .task-name { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.task-card .task-status { font-size: 10px; padding: 2px 8px; border-radius: 10px; background: var(--success-soft); color: var(--success); font-weight: 600; }
+.task-card .task-status.running { background: var(--accent-soft); color: var(--accent-deep); }
+.task-card .task-status.waiting { background: var(--warning-soft); color: var(--warning); }
+.task-card .task-meta { font-size: 11px; color: var(--text-muted); line-height: 1.4; }
+.task-card .task-progress { height: 4px; background: var(--surface-2); border-radius: 2px; overflow: hidden; margin-top: 8px; }
+.task-card .task-progress-fill { height: 100%; width: 42%; background: linear-gradient(90deg, var(--accent), var(--accent-deep)); border-radius: 2px; }
+
+/* Cost / Quota */
+.cost-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.cost-row:last-child { border-bottom: none; }
+.cost-label { color: var(--text-secondary); }
+.cost-value { font-weight: 600; color: var(--text-primary); }
+.cost-warning { background: var(--warning-soft); border: 1px solid var(--warning); border-radius: 12px; padding: 12px; font-size: 12px; color: var(--warning); line-height: 1.5; margin-top: var(--spacing-12); }
+
+/* Voice Mode Section */
+.voice-section { background: var(--surface-2); border: 1.5px solid var(--border); border-radius: 20px; padding: 20px; margin-bottom: var(--spacing-24); }
+.voice-section .voice-mode-title { font-size: 16px; font-weight: 700; color: var(--text-primary); margin-bottom: 16px; }
+.voice-state-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.voice-state-row:last-child { border-bottom: none; }
+.voice-state-icon { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.voice-state-icon.listen { background: var(--success-soft); }
+.voice-state-icon.think { background: var(--accent-soft); animation: pulse-ring 2s infinite; }
+.voice-state-icon.speak { background: var(--warning-soft); }
+.voice-state-icon.wait { background: var(--surface); border: 1.5px solid var(--border); }
+.voice-state-icon svg { width: 14px; height: 14px; stroke-width: 2; fill: none; }
+.voice-state-icon.listen svg { stroke: var(--success); }
+.voice-state-icon.think svg { stroke: var(--accent-deep); }
+.voice-state-icon.speak svg { stroke: var(--warning); }
+.voice-state-icon.wait svg { stroke: var(--text-muted); }
+.voice-state-label { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.voice-state-desc { font-size: 11px; color: var(--text-muted); }
+
+/* Support Pages (Tabs simulation) */
+.support-tabs { display: flex; gap: 6px; margin-bottom: var(--spacing-16); overflow-x: auto; scrollbar-width: none; padding-bottom: 4px; }
+.support-tabs::-webkit-scrollbar { display: none; }
+.support-tab { padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary); font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; font-family: var(--font-main); transition: all 0.15s; flex-shrink: 0; }
+.support-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+/* Onboarding */
+.onboarding-slide { display: none; }
+.onboarding-slide.active { display: block; }
+.onboarding-slide .slide-num { font-size: 48px; font-weight: 700; color: var(--accent-soft); line-height: 1; margin-bottom: 8px; }
+.onboarding-slide h2 { font-size: 20px; font-weight: 700; margin: 0 0 8px; color: var(--text-primary); line-height: 1.25; }
+.onboarding-slide p { font-size: 15px; color: var(--text-secondary); line-height: 1.6; margin: 0 0 24px; }
+.onboarding-slide .slide-illustration { width: 120px; height: 120px; border-radius: 28px; background: linear-gradient(135deg, var(--accent-soft), var(--surface-2)); display: flex; align-items: center; justify-content: center; margin-bottom: 20px; box-shadow: 0 8px 24px rgba(176,122,42,0.08); }
+
+/* Chat History */
+.history-item { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.history-item:last-child { border-bottom: none; }
+.history-item .history-icon { width: 36px; height: 36px; border-radius: 50%; background: var(--surface-2); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.history-item .history-icon svg { width: 16px; height: 16px; stroke: var(--text-muted); stroke-width: 2; fill: none; }
+.history-item .history-body { flex: 1; min-width: 0; }
+.history-item .history-title { font-size: 14px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.history-item .history-sub { font-size: 12px; color: var(--text-muted); }
+.history-item .history-pin { color: var(--accent); font-weight: 700; font-size: 16px; flex-shrink: 0; }
+
+/* Connector List */
+.connector-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.connector-item:last-child { border-bottom: none; }
+.connector-item .connector-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.connector-item .connector-logo-small { width: 32px; height: 32px; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.connector-item .connector-logo-small svg { width: 16px; height: 16px; stroke: var(--text-muted); stroke-width: 2; fill: none; }
+.connector-item .connector-info .connector-name { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.connector-item .connector-info .connector-perm { font-size: 11px; color: var(--text-muted); }
+.connector-item .connector-switch { width: 44px; height: 24px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--border); position: relative; cursor: pointer; flex-shrink: 0; transition: all 0.2s; }
+.connector-item .connector-switch.on { background: var(--success); border-color: var(--success); }
+.connector-item .connector-switch .switch-knob { position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: all 0.2s; }
+.connector-item .connector-switch.on .switch-knob { left: 22px; }
+
+/* File List */
+.file-list-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.file-list-row:last-child { border-bottom: none; }
+.file-list-row .file-type-icon { width: 28px; height: 28px; border-radius: 6px; background: var(--surface-2); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.file-list-row .file-type-icon svg { width: 14px; height: 14px; stroke: var(--text-muted); stroke-width: 2; fill: none; }
+.file-list-row .file-info .file-name { font-size: 13px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.file-list-row .file-info .file-meta { font-size: 11px; color: var(--text-muted); }
+
+/* Share / Export */
+.export-option { display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface); margin-bottom: 8px; transition: all 0.15s; cursor: pointer; }
+.export-option:hover { border-color: var(--accent); background: var(--accent-soft); }
+.export-option .export-icon { width: 36px; height: 36px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.export-option .export-icon svg { width: 18px; height: 18px; stroke: var(--text-muted); stroke-width: 2; fill: none; }
+.export-option .export-body .export-title { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.export-option .export-body .export-desc { font-size: 11px; color: var(--text-muted); }
+
+/* Settings */
+.setting-group { margin-bottom: var(--spacing-24); }
+.setting-group .group-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 8px; font-weight: 700; }
+.setting-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.setting-row:last-child { border-bottom: none; }
+.setting-row .setting-label { font-size: 14px; color: var(--text-primary); }
+.setting-row .setting-value { font-size: 13px; color: var(--text-secondary); }
+
+/* Alert (sensitive data warning) */
+.alert-sensitive { background: var(--warning-soft); border: 1px solid var(--warning); border-radius: 14px; padding: 12px; font-size: 13px; color: var(--warning); line-height: 1.5; margin-top: var(--spacing-12); }
+
+/* Scroll to bottom */
+.scroll-bottom-btn { position: fixed; bottom: 88px; right: 16px; width: 44px; height: 44px; border-radius: 50%; background: var(--surface); border: 1px solid var(--border); color: var(--text-secondary); box-shadow: var(--shadow-card); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 40; transition: all 0.2s; opacity: 0; pointer-events: none; transform: translateY(10px); }
+.scroll-bottom-btn.visible { opacity: 1; pointer-events: auto; transform: translateY(0); }
+.scroll-bottom-btn:hover { background: var(--surface-2); color: var(--accent-deep); border-color: var(--accent); }
+
+/* Controls */
+.controls-bar { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 500; display: flex; gap: 10px; background: rgba(30,28,24,0.90); backdrop-filter: blur(12px); padding: 8px 14px; border-radius: 24px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+.controls-bar button { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.10); color: #F2F0EC; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: var(--font-main); transition: all 0.15s; }
+.controls-bar button:hover { background: rgba(255,255,255,0.18); border-color: rgba(255,255,255,0.25); }
+.controls-bar button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+</style>
+</head>
+<body>
+
+<div class="controls-bar" role="toolbar" aria-label="ตัวเลือกการดูต้นแบบ">
+  <button onclick="setTheme('light')" id="btn-light" class="active">Light</button>
+  <button onclick="setTheme('dark')" id="btn-dark">Dark</button>
+</div>
+
+<div class="phone-frame" id="phone" role="region" aria-label="ต้นแบบเฟส 3: งานเบื้องหลังและหน้ารอง" data-theme="light">
+  <header class="app-header" role="banner">
+    <div class="header-left">
+      <div class="header-avatar" aria-label="ไอคอน Agent">AI</div>
+      <div class="header-info">
+        <div class="header-title">งานของฉัน</div>
+        <div class="header-sub">2 งานกำลังทำ · 1 รอคุณ · 3 เสร็จแล้ว</div>
+      </div>
+    </div>
+    <div class="header-right" aria-label="สถานะระบบ">
+      <span class="status-pill status-working" aria-live="polite">
+        <span style="width:6px;height:6px;border-radius:50%;background:var(--accent-deep);display:inline-block;animation:pulse 1.5s infinite;"></span>
+        ออนไลน์
+      </span>
+    </div>
+  </header>
+
+  <main class="chat-scroll" id="chat-scroll" role="main" aria-label="พื้นที่แสดงงานและหน้ารอง">
+
+    <!-- === BACKGROUND TASK === -->
+    <section aria-label="งานเบื้องหลัง">
+      <div class="section-label">งานเบื้องหลัง</div>
+      <div class="bg-task-banner" aria-label="งานกำลังทำในพื้นหลัง">
+        <div class="bg-info">
+          <div class="bg-name">วางแผนทริปเชียงใหม่</div>
+          <div class="bg-status">กำลังเลือกที่พัก · 65%</div>
+        </div>
+        <div class="bg-progress" aria-label="ความคืบหน้า 65%"><div class="bg-progress-bar"></div></div>
+        <button onclick="alert('หยุดงานเบื้องหลัง')" style="padding:6px 12px;border-radius:12px;border:1.5px solid var(--border);background:var(--surface);color:var(--text-secondary);font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font-main);margin-left:4px;flex-shrink:0;">หยุด</button>
+      </div>
+    </section>
+
+    <!-- === LIVE ACTIVITY (iOS) === -->
+    <section aria-label="Live Activity">
+      <div class="live-activity" aria-label="Live Activity บน Lock Screen">
+        <div class="la-header">
+          <span class="la-title">วางแผนทริปเชียงใหม่</span>
+          <span class="la-badge">กำลังทำ</span>
+        </div>
+        <div class="la-progress-text">กำลังเลือกที่พัก · ประมาณ 2 นาทีที่เหลือ</div>
+        <div class="la-progress-bar"><div class="la-progress-fill"></div></div>
+      </div>
+    </section>
+
+    <!-- === ONGOING NOTIFICATION (Android) === -->
+    <section aria-label="การแจ้งเตือนต่อเนื่อง Android">
+      <div class="ongoing-notif" aria-label="การแจ้งเตือนต่อเนื่องบน Android">
+        <div class="notif-header">
+          <div class="notif-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/></svg></div>
+          <div class="notif-title">Agent กำลังทำงาน</div>
+        </div>
+        <div class="notif-body">วางแผนทริปเชียงใหม่ — กำลังเลือกที่พักที่เหมาะสมกับงบประมาณ</div>
+        <button class="notif-btn" onclick="alert('หยุดงานจากการแจ้งเตือน')">หยุดงาน</button>
+      </div>
+    </section>
+
+    <!-- === MY TASKS === -->
+    <section aria-label="งานของฉัน" style="margin-bottom: var(--spacing-24);">
+      <div class="section-label">งานของฉัน</div>
+      <div class="task-tabs" role="tablist" aria-label="แท็บงาน">
+        <button class="task-tab active" onclick="showTab('running')" role="tab" aria-selected="true" aria-controls="tab-running">กำลังทำ <span style="color:var(--accent);font-weight:700;">2</span></button>
+        <button class="task-tab" onclick="showTab('waiting')" role="tab" aria-selected="false" aria-controls="tab-waiting">รอคุณ <span style="color:var(--warning);font-weight:700;">1</span></button>
+        <button class="task-tab" onclick="showTab('done')" role="tab" aria-selected="false" aria-controls="tab-done">เสร็จแล้ว <span style="color:var(--success);font-weight:700;">3</span></button>
+      </div>
+
+      <div id="tab-running" role="tabpanel" aria-labelledby="tab-running">
+        <article class="task-card" aria-label="งานกำลังทำ: วางแผนทริป">
+          <div class="task-header">
+            <div class="task-name">วางแผนทริปเชียงใหม่ 3 วัน</div>
+            <span class="task-status running">กำลังทำ</span>
+          </div>
+          <div class="task-meta">เริ่ม 14:32 · ใช้เวลา 42 วินาที · คาดว่าจะเสร็จใน 2 นาที</div>
+          <div class="task-progress"><div class="task-progress-fill"></div></div>
+        </article>
+        <article class="task-card" aria-label="งานกำลังทำ: สรุปไฟล์">
+          <div class="task-header">
+            <div class="task-name">สรุปไฟล์ PDF ที่ส่งมา</div>
+            <span class="task-status running">กำลังทำ</span>
+          </div>
+          <div class="task-meta">เริ่ม 14:45 · ใช้เวลา 15 วินาที</div>
+          <div class="task-progress"><div class="task-progress-fill" style="width:30%;"></div></div>
+        </article>
+      </div>
+
+      <div id="tab-waiting" style="display:none;" role="tabpanel" aria-labelledby="tab-waiting">
+        <article class="task-card" aria-label="งานรอคำตอบ: ยืนยันการส่งอีเมล">
+          <div class="task-header">
+            <div class="task-name">ส่งอีเมลยืนยันการจองโรงแรม</div>
+            <span class="task-status waiting">รอคุณ</span>
+          </div>
+          <div class="task-meta">รอการอนุมัติก่อนส่งอีเมล · ต้องการคำตอบภายใน 10 นาที</div>
+        </article>
+      </div>
+
+      <div id="tab-done" style="display:none;" role="tabpanel" aria-labelledby="tab-done">
+        <article class="task-card" aria-label="งานเสร็จแล้ว: ค้นหาข้อมูล">
+          <div class="task-header">
+            <div class="task-name">ค้นหาข้อมูลพื้นฐานเชียงใหม่</div>
+            <span class="task-status">เสร็จแล้ว</span>
+          </div>
+          <div class="task-meta">เสร็จ 14:33 · ใช้เวลา 1 นาที 12 วินาที</div>
+        </article>
+        <article class="task-card" aria-label="งานเสร็จแล้ว: สรุปไฟล์">
+          <div class="task-header">
+            <div class="task-name">สรุปไฟล์ PDF รายงานการขาย</div>
+            <span class="task-status">เสร็จแล้ว</span>
+          </div>
+          <div class="task-meta">เสร็จ 14:28 · ใช้เวลา 45 วินาที · บางส่วนสำเร็จ</div>
+        </article>
+      </div>
+    </section>
+
+    <!-- === COST / QUOTA === -->
+    <section aria-label="ต้นทุนและโควตา">
+      <div class="section-label">ต้นทุนและโควตา</div>
+      <article class="card-document" aria-label="รายละเอียดต้นทุน">
+        <h3>การใช้ทรัพยากรงานนี้</h3>
+        <div class="cost-row"><span class="cost-label">เวลาที่ใช้</span><span class="cost-value">42 วินาที</span></div>
+        <div class="cost-row"><span class="cost-label">เครดิตที่ใช้</span><span class="cost-value">0.8</span></div>
+        <div class="cost-row"><span class="cost-label">โควตารายวัน</span><span class="cost-value">ใช้ไป 65% (65/100)</span></div>
+        <div class="cost-row"><span class="cost-label">ประมาณเวลาที่เหลือ</span><span class="cost-value">2 นาที</span></div>
+        <div class="cost-warning" aria-label="คำเตือนโควตา">โควตาใกล้หมด — ใช้ไป 65% ของโควตารายวัน · ประมาณเวลาที่เหลือ 2 นาที · หากใกล้หมดระบบจะหยุดการทำงานอัตโนมัติ</div>
+      </article>
+    </section>
+
+    <!-- === VOICE MODE === -->
+    <section aria-label="โหมดเสียง">
+      <div class="section-label">โหมดเสียง</div>
+      <div class="voice-section" aria-label="สถานะการทำงานด้วยเสียง">
+        <div class="voice-mode-title">สถานะการทำงานด้วยเสียง</div>
+        <div class="voice-state-row">
+          <span class="voice-state-icon listen" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg></span>
+          <div>
+            <div class="voice-state-label">กำลังฟัง</div>
+            <div class="voice-state-desc">ไมค์ทำงาน — พูดคำสั่งของคุณได้เลย</div>
+          </div>
+        </div>
+        <div class="voice-state-row">
+          <span class="voice-state-icon think" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg></span>
+          <div>
+            <div class="voice-state-label">กำลังคิด</div>
+            <div class="voice-state-desc">Agent กำลังประมวลผลคำสั่งที่ได้ยิน — รอสักครู่</div>
+          </div>
+        </div>
+        <div class="voice-state-row">
+          <span class="voice-state-icon speak" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg></span>
+          <div>
+            <div class="voice-state-label">กำลังพูด</div>
+            <div class="voice-state-desc">Agent กำลังอ่านคำตอบให้ฟัง — ฟังจนจบหรือแตะเพื่อหยุด</div>
+          </div>
+        </div>
+        <div class="voice-state-row">
+          <span class="voice-state-icon wait" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg></span>
+          <div>
+            <div class="voice-state-label">รอคำสั่ง</div>
+            <div class="voice-state-desc">Agent พร้อมฟังคำสั่งใหม่ — แตะเพื่อเริ่มพูด</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- === SUPPORT PAGES === -->
+    <section aria-label="หน้ารอง">
+      <div class="section-label">หน้ารอง</div>
+
+      <!-- Onboarding -->
+      <article aria-label="คำแนะนำการใช้งาน">
+        <div class="card-document">
+          <h3>คำแนะนำการใช้งาน (Onboarding)</h3>
+          <div class="onboarding-slide active" id="slide-1">
+            <div class="slide-num" aria-hidden="true">01</div>
+            <h2>เห็นทุกขั้นตอนที่ Agent ทำ</h2>
+            <p>Agent ไม่ทำงานลับหลัง — คุณเห็นทุกการค้นหา ทุกการเรียกเครื่องมือ และทุกไฟล์ที่สร้างได้เสมอ ผ่าน Live Status Line และ Timeline</p>
+            <div class="slide-illustration" aria-hidden="true"><svg viewBox="0 0 24 24" width="56" height="56" stroke="var(--accent)" stroke-width="1.5" fill="none"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></div>
+          </div>
+          <div class="onboarding-slide" id="slide-2">
+            <div class="slide-num" aria-hidden="true">02</div>
+            <h2>ควบคุมได้ทุกเมื่อ</h2>
+            <p>คุณหยุดงาน แทรกคำสั่ง แก้ไขแผน หรืออนุมัติได้ทุกขั้นตอน — ไม่มีการทำสิ่งที่มีผลกระทบโดยไม่ขออนุญาต</p>
+          </div>
+          <div class="onboarding-slide" id="slide-3">
+            <div class="slide-num" aria-hidden="true">03</div>
+            <h2>ปลอดภัยและโปร่งใส</h2>
+            <p>Agent ไม่เห็นรหัสที่คุณพิมพ์ ไม่ทำตามคำสั่งแปลกจากเว็บ และบอกสาเหตุทุกครั้งที่ล้มเหลว — คุณเลือกได้ว่าจะดำเนินงานต่อหรือหยุด</p>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:16px;">
+            <button onclick="document.getElementById('slide-1').classList.add('active');document.getElementById('slide-2').classList.remove('active');document.getElementById('slide-3').classList.remove('active');" style="padding:6px 14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--text-secondary);font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font-main);">หน้า 1</button>
+            <button onclick="document.getElementById('slide-1').classList.remove('active');document.getElementById('slide-2').classList.add('active');document.getElementById('slide-3').classList.remove('active');" style="padding:6px 14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--text-secondary);font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font-main);">หน้า 2</button>
+            <button onclick="document.getElementById('slide-1').classList.remove('active');document.getElementById('slide-2').classList.remove('active');document.getElementById('slide-3').classList.add('active');" style="padding:6px 14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--text-secondary);font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font-main);">หน้า 3</button>
+          </div>
+        </div>
+      </article>
+
+      <!-- Chat History -->
+      <article aria-label="ประวัติแชท">
+        <div class="card-document">
+          <h3>ประวัติแชท</h3>
+          <div style="display:flex;gap:8px;margin-bottom:var(--spacing-12);">
+            <input type="text" placeholder="ค้นหาจากข้อความในทุกห้อง..." style="flex:1;padding:8px 12px;border-radius:14px;border:1px solid var(--border);background:var(--surface);font-family:var(--font-main);font-size:13px;color:var(--text-primary);outline:none;" oninput="this.parentElement.nextElementSibling.style.display='none';if(this.value.length>0){this.value='';}" aria-label="ค้นหาประวัติแชท">
+            <button onclick="alert('ปักหมุดห้องสำคัญ')" style="padding:8px 12px;border-radius:14px;border:1px solid var(--border);background:var(--surface);color:var(--text-secondary);font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font-main);">ปักหมุด</button>
+          </div>
+          <div aria-label="รายการห้องสนทนา">
+            <div class="history-item">
+              <span class="history-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></span>
+              <div class="history-body">
+                <div class="history-title">วางแผนทริปเชียงใหม่ 3 วัน</div>
+                <div class="history-sub">เสร็จแล้ว · 14:35 · 6 ขั้นตอน</div>
+              </div>
+              <span class="history-pin" aria-label="ปักหมุดแล้ว">&#9733;</span>
+            </div>
+            <div class="history-item">
+              <span class="history-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></span>
+              <div class="history-body">
+                <div class="history-title">สรุปไฟล์ PDF รายงานการขาย</div>
+                <div class="history-sub">เสร็จแล้ว · 14:28 · บางส่วนสำเร็จ</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- Connector -->
+      <article aria-label="เชื่อมต่อแอปและเครื่องมือ">
+        <div class="card-document">
+          <h3>เชื่อมต่อแอปและเครื่องมือ</h3>
+          <div aria-label="รายการเครื่องมือ">
+            <div class="connector-item">
+              <div class="connector-left">
+                <span class="connector-logo-small" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="15" y2="21"/></svg></span>
+                <div class="connector-info">
+                  <div class="connector-name">Calendar</div>
+                  <div class="connector-perm">อ่าน + เขียน</div>
+                </div>
+              </div>
+              <button class="connector-switch on" onclick="this.classList.toggle('on')" aria-label="สลับสถานะ Calendar" title="สลับสถานะ"><span class="switch-knob" aria-hidden="true"></span></button>
+            </div>
+            <div class="connector-item">
+              <div class="connector-left">
+                <span class="connector-logo-small" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></span>
+                <div class="connector-info">
+                  <div class="connector-name">Email</div>
+                  <div class="connector-perm">ส่งได้</div>
+                </div>
+              </div>
+              <button class="connector-switch" onclick="this.classList.toggle('on')" aria-label="สลับสถานะ Email" title="สลับสถานะ"><span class="switch-knob" aria-hidden="true"></span></button>
+            </div>
+            <div class="connector-item">
+              <div class="connector-left">
+                <span class="connector-logo-small" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 1v6m0 6v6m-9-9h6m6 0h6"/></svg></span>
+                <div class="connector-info">
+                  <div class="connector-name">Web Search</div>
+                  <div class="connector-perm">อ่านอย่างเดียว</div>
+                </div>
+              </div>
+              <button class="connector-switch on" onclick="this.classList.toggle('on')" aria-label="สลับสถานะ Web Search" title="สลับสถานะ"><span class="switch-knob" aria-hidden="true"></span></button>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- Files -->
+      <article aria-label="ไฟล์และผลงานทั้งหมด">
+        <div class="card-document">
+          <h3>ไฟล์และผลงานทั้งหมด</h3>
+          <div aria-label="รายการไฟล์">
+            <div class="file-list-row">
+              <span class="file-type-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span>
+              <div class="file-info"><div class="file-name">แผนการเดินทาง.pdf</div><div class="file-meta">2.4 MB · 14:35</div></div>
+            </div>
+            <div class="file-list-row">
+              <span class="file-type-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></span>
+              <div class="file-info"><div class="file-name">ภาพแผนที่เส้นทาง.png</div><div class="file-meta">1.2 MB · 14:33</div></div>
+            </div>
+            <div class="file-list-row">
+              <span class="file-type-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></span>
+              <div class="file-info"><div class="file-name">โค้ดคำนวณงบประมาณ.py</div><div class="file-meta">4 KB · 14:34</div></div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- Share / Export -->
+      <article aria-label="แชร์และส่งออก">
+        <div class="card-document">
+          <h3>แชร์และส่งออกบทสนทนา</h3>
+          <div aria-label="ตัวเลือกการส่งออก">
+            <button class="export-option" onclick="alert('ส่งออกเป็น Markdown')" aria-label="ส่งออก Markdown">
+              <span class="export-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span>
+              <div class="export-body"><div class="export-title">Markdown (.md)</div><div class="export-desc">ส่งออกข้อความและสรุปขั้นตอน</div></div>
+            </button>
+            <button class="export-option" onclick="alert('ส่งออกเป็น JSON')" aria-label="ส่งออก JSON">
+              <span class="export-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M21 6H3"/><path d="M10 12H3"/><path d="M21 18H3"/><path d="M10 6h11"/></svg></span>
+              <div class="export-body"><div class="export-title">JSON (.json)</div><div class="export-desc">ส่งออกรวมข้อมูลเทคนิคทั้งหมด</div></div>
+            </button>
+          </div>
+          <div class="alert-sensitive" aria-label="คำเตือนข้อมูลอ่อนไหว">บทสนทนานี้อาจมีข้อมูลอ่อนไหว (เช่น รหัสผ่าน ข้อมูลส่วนตัว) — โปรดตรวจสอบก่อนส่งออก</div>
+        </div>
+      </article>
+
+      <!-- Settings -->
+      <article aria-label="ตั้งค่า">
+        <div class="card-document">
+          <h3>ตั้งค่า</h3>
+          <div class="setting-group">
+            <div class="group-title">การแสดงผล</div>
+            <div class="setting-row"><span class="setting-label">ธีม</span><span class="setting-value">ตามระบบ</span></div>
+            <div class="setting-row"><span class="setting-label">ภาษา</span><span class="setting-value">ไทย</span></div>
+            <div class="setting-row"><span class="setting-label">ระดับรายละเอียดกิจกรรม</span><span class="setting-value">ปกติ</span></div>
+          </div>
+          <div class="setting-group">
+            <div class="group-title">ความเป็นส่วนตัว</div>
+            <div class="setting-row"><span class="setting-label">บันทึกประวัติ</span><span class="setting-value">ในเครื่อง ไม่ส่งไปเซิร์ฟเวอร์</span></div>
+            <div class="setting-row"><span class="setting-label">ลบประวัติอัตโนมัติ</span><span class="setting-value">ปิด</span></div>
+          </div>
+          <div class="setting-group">
+            <div class="group-title">สิทธิ์ที่อนุญาตเสมอ</div>
+            <div class="setting-row"><span class="setting-label">Calendar — เขียน</span><button onclick="alert('เพิกถอนสิทธิ์ Calendar')" style="padding:4px 10px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text-muted);font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font-main);">เพิกถอน</button></div>
+            <div class="setting-row"><span class="setting-label">Web Search — อ่าน</span><button onclick="alert('เพิกถอนสิทธิ์ Web Search')" style="padding:4px 10px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text-muted);font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font-main);">เพิกถอน</button></div>
+            <div class="setting-row" style="border-top:1px solid var(--border);margin-top:8px;padding-top:8px;">
+              <button onclick="alert('ลบสิทธิ์ทั้งหมดที่อนุญาตเสมอ')" style="width:100%;padding:10px;border-radius:14px;border:1.5px solid var(--error);background:var(--error-soft);color:var(--error);font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font-main);transition:all 0.15s;">ลบสิทธิ์ทั้งหมดที่อนุญาตเสมอ</button>
+            </div>
+          </div>
+        </div>
+      </article>
+
+    </section>
+
+  </main>
+
+  <!-- Input Bar -->
+  <footer class="input-bar-wrap" role="region" aria-label="ช่องพิมพ์ข้อความ">
+    <form class="input-bar" onsubmit="sendMessage(event)" aria-label="ฟอร์มส่งข้อความ">
+      <button type="button" class="icon-btn" onclick="addAttachment()" aria-label="เพิ่มไฟล์" title="เพิ่มไฟล์"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></button>
+      <textarea id="msg-input" rows="1" placeholder="พิมพ์ข้อความหรือคำสั่ง..." aria-label="ช่องพิมพ์ข้อความ" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();document.getElementById('form-btn').click();}" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px';"></textarea>
+      <button type="button" class="icon-btn" onclick="toggleMic()" aria-label="ไมโครโฟน" title="ไมโครโฟน"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button>
+      <button type="submit" class="send-btn" id="form-btn" aria-label="ส่งข้อความ" title="ส่ง"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
+    </form>
+  </footer>
+
+</div>
+
+<button class="scroll-bottom-btn" id="scroll-btn" onclick="scrollToBottom()" aria-label="เลื่อนลงล่างสุด" title="เลื่อนลงล่างสุด"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
+
+<script>
+function setTheme(t) {
+  document.getElementById('phone').setAttribute('data-theme', t);
+  document.getElementById('btn-light').classList.toggle('active', t === 'light');
+  document.getElementById('btn-dark').classList.toggle('active', t === 'dark');
+}
+function showTab(id) {
+  ['running','waiting','done'].forEach(t => {
+    document.getElementById('tab-'+t).style.display = (t === id) ? 'block' : 'none';
+  });
+  document.querySelectorAll('.task-tab').forEach(btn => btn.classList.remove('active'));
+  event.target.classList.add('active');
+}
+function sendMessage(e) {
+  e.preventDefault();
+  const input = document.getElementById('msg-input');
+  const text = input.value.trim();
+  if (!text) return;
+  const group = document.createElement('section');
+  group.className = 'message-group';
+  group.innerHTML = '<div style="display:flex;justify-content:flex-end;"><div class="user-bubble" style="align-self:flex-end;max-width:82%;background:var(--accent);color:#fff;padding:14px 18px;border-radius:20px 20px 6px 20px;font-size:15px;line-height:1.6;box-shadow:0 4px 12px rgba(176,122,42,0.18);word-break:break-word;">' + text.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div></div>';
+  document.getElementById('chat-scroll').appendChild(group);
+  input.value = ''; input.style.height = 'auto'; scrollToBottom();
+}
+function addAttachment() {
+  const wrap = document.querySelector('.input-bar-wrap');
+  if (!wrap.querySelector('.attachment-preview')) {
+    const div = document.createElement('div');
+    div.className = 'attachment-preview';
+    div.innerHTML = '<span class="chip-file"><span style="font-size:11px;color:var(--text-muted);margin-right:4px;">FILE</span> trip-plan.pdf <span onclick="this.parentElement.remove()" style="cursor:pointer;color:var(--text-muted);">×</span></span>';
+    wrap.insertBefore(div, wrap.querySelector('.input-bar'));
+  }
+}
+function toggleMic() {
+  const btn = document.querySelector('.icon-btn[aria-label="ไมโครโฟน"]');
+  btn.style.color = btn.style.color === 'var(--accent-deep)' ? '' : 'var(--accent-deep)';
+}
+function scrollToBottom() {
+  document.getElementById('chat-scroll').scrollTo({ top: document.getElementById('chat-scroll').scrollHeight, behavior: 'smooth' });
+  document.getElementById('scroll-btn').classList.remove('visible');
+}
+const scrollArea = document.getElementById('chat-scroll');
+scrollArea.addEventListener('scroll', () => {
+  const btn = document.getElementById('scroll-btn');
+  if (scrollArea.scrollTop + scrollArea.clientHeight < scrollArea.scrollHeight - 120) btn.classList.add('visible');
+  else btn.classList.remove('visible');
+});
+</script>
+
+</body>
+</html>
