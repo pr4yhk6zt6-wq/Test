@@ -116,6 +116,8 @@ FILES=(
   "Services/AttachmentMessageBuilder.swift"
   "Services/VisionSupport.swift"
   "Services/ChatRoomStore.swift"
+  # ดีไซน์ v2 — สำเนาสำรองก่อนแก้ไฟล์ (FileTools/FileEditTools เรียกใช้ จึงต้องคอมไพล์ด้วยกัน)
+  "Services/WorkspaceBackup.swift"
 )
 for rel in "${FILES[@]}"; do
   cp "$PROJECT_ROOT/$rel" "$WORK/$(basename "$rel")"

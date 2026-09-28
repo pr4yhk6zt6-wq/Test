@@ -11,6 +11,9 @@ import SwiftUI
 @main
 struct IOSAgentSandboxApp: App {
 
+    /// ตัวแทนแอป (ใช้ตั้งค่า delegate ของการแจ้งเตือนเท่านั้น — ไม่ขอสิทธิ์ใด ๆ ที่นี่)
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+
     @StateObject private var settings = AppSettings.shared
     @StateObject private var usage = TokenUsageTracker.shared
 

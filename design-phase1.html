@@ -1,787 +1,1286 @@
 <!DOCTYPE html>
-<html lang="th">
+<html lang="th" data-theme="light" data-activity="normal" data-accent="indigo" data-motion="on">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>AgentAI — เฟส 1 Prototype</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=Noto+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent Sandbox — เฟส 1: หน้าแชทหลัก + ระบบกิจกรรม (ดีไซน์ใหม่)</title>
 <style>
-/* ============================================================
-   DESIGN TOKENS — CSS Variables (Light / Dark)
-   ============================================================ */
-:root {
-  --font-main: 'IBM Plex Sans Thai', 'Noto Sans Thai', -apple-system, sans-serif;
-  --radius-card: 18px;
-  --radius-pill: 28px;
-  --shadow-card: 0 2px 8px rgba(0,0,0,0.06);
-  --shadow-sheet: 0 4px 24px rgba(0,0,0,0.12);
-  --shadow-float: 0 6px 20px rgba(0,0,0,0.10);
-  --spacing-4: 4px;
-  --spacing-8: 8px;
-  --spacing-12: 12px;
-  --spacing-16: 16px;
-  --spacing-24: 24px;
-  --spacing-32: 32px;
+/* ============================================================================
+   DESIGN TOKENS  (v2 — ทับดีไซน์เดิม)  |  อ้างอิงสเปกเต็มใน design-phase1-style.md
+   ผ่าน WCAG AA ทุกคู่ที่ใช้จริง (คำนวณแล้ว ดูตารางในสเปก)
+   ========================================================================== */
+:root{
+  /* ── ระยะห่าง 4/8pt ─────────────────────────────────────────── */
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:20px; --sp-6:24px; --sp-8:32px;
+  /* ── มุมโค้ง ───────────────────────────────────────────────── */
+  --r-xs:8px; --r-sm:12px; --r-md:16px; --r-lg:20px; --r-xl:28px; --r-pill:999px;
+  /* ── ตัวอักษร (Thai-first: line-height 1.6 สำหรับเนื้อหา) ───── */
+  --font-th:"IBM Plex Sans Thai","Noto Sans Thai",-apple-system,"SF Pro Text","Segoe UI",system-ui,sans-serif;
+  --font-mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
+  --fs-display:25px; --fs-title:20px; --fs-head:17px; --fs-body:16px; --fs-callout:15px;
+  --fs-sub:14px; --fs-foot:13px; --fs-cap:12px; --fs-micro:11.5px;
+  --lh-body:1.62; --lh-tight:1.35;
+  /* ── การเคลื่อนไหว ─────────────────────────────────────────── */
+  --dur-1:120ms; --dur-2:180ms; --dur-3:240ms;
+  --ease:cubic-bezier(.2,.8,.2,1);
+  /* ── เงา ───────────────────────────────────────────────────── */
+  --sh-1:0 1px 2px rgba(18,20,26,.06), 0 1px 1px rgba(18,20,26,.04);
+  --sh-2:0 4px 14px rgba(18,20,26,.08);
+  --sh-3:0 12px 32px rgba(18,20,26,.14);
 
-  /* Light (default) */
-  --bg: #F9F6F2;
-  --surface: #FFFFFF;
-  --surface-2: #F2EEEB;
-  --text-primary: #1A1A1A;
-  --text-secondary: #6B5E56;
-  --text-muted: #9C958F;
-  --accent: #C47F2A;
-  --accent-soft: #F5E6D3;
-  --accent-deep: #9A5F1C;
-  --success: #2D6A4F;
-  --success-soft: #E8F0EC;
-  --warning: #B07A1E;
-  --warning-soft: #F5EDD8;
-  --error: #8B2E2E;
-  --error-soft: #F7EAEA;
-  --border: #EAE6E1;
-  --overlay: rgba(26,26,26,0.35);
-  --glass: rgba(255,255,255,0.88);
+  /* ── สี: LIGHT ─────────────────────────────────────────────── */
+  --bg:#F7F7F4;          --surface:#FFFFFF;      --surface-2:#EFEFEA;   --surface-3:#E5E5DF;
+  --border:#E0E0DA;      --border-strong:#C9C9C2;
+  --t1:#15181D;          --t2:#545B66;           --t3:#646C77;
+  --accent:#2E4A8A;      --accent-soft:#E8ECF7;  --accent-ink:#2E4A8A;  --on-accent:#FFFFFF;
+  --success:#17683F;     --success-soft:#E3F0E9;
+  --warning:#8A5A00;     --warning-soft:#FAF0DA;
+  --error:#A3241F;       --error-soft:#FBE9E7;
+  --scrim:rgba(20,22,28,.42);
+  --shimmer:linear-gradient(90deg,transparent,rgba(46,74,138,.14),transparent);
+}
+[data-theme="dark"]{
+  --bg:#0F1013;          --surface:#17191E;      --surface-2:#1F2228;   --surface-3:#272B33;
+  --border:#2A2E37;      --border-strong:#39404F;
+  --t1:#E9EBEF;          --t2:#9CA3AF;           --t3:#8A93A1;
+  --accent:#8CA4E8;      --accent-soft:#252A38;  --accent-ink:#A7B8EE;  --on-accent:#0F1013;
+  --success:#6BC08C;     --success-soft:#1D2A24;
+  --warning:#DDAE5E;     --warning-soft:#2A2519;
+  --error:#EE8B84;       --error-soft:#2C1F1E;
+  --scrim:rgba(6,7,9,.6);
+  --sh-1:0 1px 2px rgba(0,0,0,.5); --sh-2:0 6px 18px rgba(0,0,0,.5); --sh-3:0 16px 40px rgba(0,0,0,.6);
+  --shimmer:linear-gradient(90deg,transparent,rgba(167,184,238,.16),transparent);
+}
+/* ── ชุดสีเน้นทางเลือก (สวอตช์เปรียบเทียบ) ── */
+[data-accent="teal"]{
+  --accent:#0E6A61; --accent-ink:#0E6A61; --accent-soft:#E2F0ED;
+}
+[data-accent="teal"][data-theme="dark"]{
+  --accent:#6FC7B8; --accent-ink:#7FD0C2; --accent-soft:#1B2422; --on-accent:#0F1013;
+}
+[data-accent="plum"]{
+  --accent:#6A4A82; --accent-ink:#6A4A82; --accent-soft:#EFE9F5;
+}
+[data-accent="plum"][data-theme="dark"]{
+  --accent:#C4A6DE; --accent-ink:#CBAEE4; --accent-soft:#241F2B; --on-accent:#0F1013;
 }
 
-[data-theme="dark"] {
-  --bg: #12100F;
-  --surface: #1E1B18;
-  --surface-2: #2A2621;
-  --text-primary: #F2F0EC;
-  --text-secondary: #A89F94;
-  --text-muted: #6B5E56;
-  --accent: #E0A85C;
-  --accent-soft: rgba(224,168,92,0.14);
-  --accent-deep: #C48A2A;
-  --success: #4A9E78;
-  --success-soft: rgba(74,158,120,0.14);
-  --warning: #D99A3A;
-  --warning-soft: rgba(217,154,58,0.14);
-  --error: #D66A6A;
-  --error-soft: rgba(214,106,106,0.14);
-  --border: #2A2621;
-  --overlay: rgba(242,240,236,0.35);
-  --glass: rgba(30,27,24,0.92);
+/* ============================================================================
+   พื้นที่ทดลอง (นอกกรอบมือถือ)
+   ========================================================================== */
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  font-family:var(--font-th); background:#E7E7E2; color:#15181D;
+  -webkit-font-smoothing:antialiased; -webkit-text-size-adjust:100%;
+  padding:20px 16px 56px;
+}
+[data-theme="dark"] body{background:#0B0C0E;color:#E9EBEF}
+.wrap{max-width:1180px;margin:0 auto}
+.lab-head{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px;margin-bottom:14px}
+.lab-head h1{font-size:19px;margin:0;letter-spacing:-.01em}
+.lab-head p{margin:2px 0 0;font-size:13.5px;color:#545B66;line-height:1.6}
+[data-theme="dark"] .lab-head p{color:#9CA3AF}
+.lab-bar{
+  display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;
+  background:#FFFFFF;border:1px solid #E0E0DA;border-radius:16px;padding:12px 14px;margin-bottom:14px;
+  box-shadow:0 1px 2px rgba(18,20,26,.05);
+}
+[data-theme="dark"] .lab-bar{background:#17191E;border-color:#2A2E37}
+.grp{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.grp>span.lbl{font-size:11.5px;font-weight:600;color:#646C77;letter-spacing:.02em}
+[data-theme="dark"] .grp>span.lbl{color:#8A93A1}
+.seg{display:inline-flex;background:#EFEFEA;border-radius:999px;padding:3px;gap:2px}
+[data-theme="dark"] .seg{background:#1F2228}
+.seg button{
+  font-family:inherit;font-size:12.5px;font-weight:500;color:#545B66;
+  border:0;background:transparent;border-radius:999px;padding:7px 12px;min-height:34px;cursor:pointer;
+  transition:background var(--dur-1) var(--ease),color var(--dur-1) var(--ease);
+}
+[data-theme="dark"] .seg button{color:#9CA3AF}
+.seg button[aria-pressed="true"]{background:#FFFFFF;color:#15181D;box-shadow:0 1px 2px rgba(18,20,26,.10)}
+[data-theme="dark"] .seg button[aria-pressed="true"]{background:#2E3440;color:#E9EBEF;box-shadow:none}
+.swatch-set{display:flex;gap:8px}
+.swatch{
+  display:flex;align-items:center;gap:8px;background:#FFFFFF;border:1px solid #E0E0DA;border-radius:12px;
+  padding:6px 10px;cursor:pointer;font-family:inherit;font-size:12.5px;color:#15181D;min-height:44px;
+  transition:border-color var(--dur-1) var(--ease),box-shadow var(--dur-1) var(--ease);
+}
+[data-theme="dark"] .swatch{background:#17191E;border-color:#2A2E37;color:#E9EBEF}
+.swatch[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.swatch i{width:18px;height:18px;border-radius:6px;display:block;border:1px solid rgba(0,0,0,.10)}
+.rec{font-size:10.5px;font-weight:600;color:var(--accent-ink);background:var(--accent-soft);border-radius:999px;padding:2px 7px}
+
+.stage{display:flex;gap:26px;align-items:flex-start;flex-wrap:wrap}
+
+/* ============================================================================
+   กรอบมือถือ
+   ========================================================================== */
+.device{position:relative;flex:0 0 auto}
+.frame{
+  position:relative;width:390px;height:844px;background:var(--bg);border-radius:52px;overflow:hidden;
+  box-shadow:0 0 0 10px #1B1D22,0 0 0 12px #34373F,0 26px 60px rgba(12,14,18,.38);
+  display:flex;flex-direction:column;transition:width var(--dur-3) var(--ease),height var(--dur-3) var(--ease),border-radius var(--dur-3) var(--ease);
+}
+.device[data-device="i7"] .frame{width:375px;height:667px;border-radius:26px}
+.notch{position:absolute;top:9px;left:50%;transform:translateX(-50%);width:112px;height:26px;background:#101216;border-radius:14px;z-index:60}
+.device[data-device="i7"] .notch{display:none}
+.home-indicator{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:var(--t1);opacity:.28;z-index:60}
+.device[data-device="i7"] .home-indicator{
+  width:44px;height:44px;border-radius:50%;border:1.5px solid var(--border-strong);background:transparent;opacity:.65;bottom:8px;
 }
 
-/* ============================================================
-   GLOBAL RESET & BASE
-   ============================================================ */
-*, *::before, *::after { box-sizing: border-box; }
-html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; -webkit-text-size-adjust: 100%; }
-body {
-  font-family: var(--font-main);
-  background: #4A3F36;
-  color: var(--text-primary);
-  margin: 0; padding: 0;
-  display: flex; justify-content: center; align-items: center;
-  min-height: 100vh;
+/* แถบสถานะ */
+.statusbar{
+  height:44px;flex:0 0 auto;display:flex;align-items:flex-end;justify-content:space-between;
+  padding:0 22px 6px;font-size:13px;font-weight:600;color:var(--t1);letter-spacing:.01em;
+}
+.device[data-device="i7"] .statusbar{height:24px;padding:0 12px 2px;font-size:12px}
+.statusbar .sb-right{display:flex;align-items:center;gap:5px}
+.device[data-device="i7"] .statusbar .sb-notch-time{display:none}
+
+/* แถบหัวเรื่อง */
+.appbar{
+  flex:0 0 auto;display:flex;align-items:center;gap:var(--sp-2);padding:var(--sp-2) var(--sp-3);
+  border-bottom:1px solid var(--border);background:var(--surface);
+}
+.device[data-device="i7"] .appbar{padding:6px 10px}
+.iconbtn{
+  width:44px;height:44px;flex:0 0 auto;border:0;background:transparent;border-radius:12px;color:var(--t2);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;
+}
+.iconbtn:hover{background:var(--surface-2);color:var(--t1)}
+.iconbtn:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.appbar-mid{flex:1 1 auto;min-width:0;text-align:left}
+.appbar-title{font-size:var(--fs-head);font-weight:600;color:var(--t1);line-height:1.4;
+  display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.agent-state{display:flex;align-items:center;gap:5px;font-size:var(--fs-micro);color:var(--t2);line-height:1.5}
+.state-dot{width:7px;height:7px;border-radius:50%;flex:0 0 auto;background:var(--success)}
+.agent-state[data-state="working"] .state-dot{background:var(--accent);animation:breathe 1.6s var(--ease) infinite}
+.agent-state[data-state="waiting"] .state-dot{background:var(--warning)}
+@keyframes breathe{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.45;transform:scale(.82)}}
+
+/* ============================================================================
+   พื้นที่แชท
+   ========================================================================== */
+.chat{
+  flex:1 1 auto;overflow-y:auto;overscroll-behavior:contain;padding:var(--sp-3) var(--sp-4) var(--sp-4);
+  display:flex;flex-direction:column;gap:var(--sp-4);scroll-behavior:smooth;
+}
+.chat::-webkit-scrollbar{width:0}
+.turn{display:flex;flex-direction:column;gap:var(--sp-3)}
+.turn-agent{align-items:stretch}
+.bubble{
+  align-self:flex-end;max-width:84%;background:var(--accent-soft);color:var(--t1);
+  border-radius:18px 18px 6px 18px;padding:10px 14px;font-size:var(--fs-body);line-height:var(--lh-body);
+  overflow-wrap:break-word;
+}
+.agent-text{font-size:var(--fs-body);line-height:var(--lh-body);color:var(--t1);overflow-wrap:break-word}
+.agent-text h3{font-size:var(--fs-head);font-weight:600;margin:2px 0 6px;line-height:var(--lh-tight)}
+.agent-text p{margin:0 0 10px}
+.agent-text p:last-child{margin-bottom:0}
+.agent-text ul{margin:0 0 10px;padding-left:20px}
+.agent-text li{margin-bottom:6px}
+.muted{color:var(--t2)}
+.small{font-size:var(--fs-sub);line-height:1.6}
+.mono{font-family:var(--font-mono);font-size:13px}
+.num{font-variant-numeric:tabular-nums}
+
+/* ตารางในคำตอบ */
+.tbl{width:100%;border-collapse:collapse;font-size:var(--fs-sub);margin:2px 0 12px;
+  border:1px solid var(--border);border-radius:var(--r-sm);overflow:hidden}
+.tbl th,.tbl td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);line-height:1.55}
+.tbl th{background:var(--surface-2);font-weight:600;font-size:var(--fs-foot)}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td.n{text-align:right;font-variant-numeric:tabular-nums}
+
+/* อ้างอิงในเนื้อความ */
+.cite{
+  font-family:inherit;font-size:11px;font-weight:600;color:var(--accent-ink);background:var(--accent-soft);
+  border:0;border-radius:6px;padding:1px 5px;margin:0 1px;vertical-align:2px;cursor:pointer;min-height:20px;
+}
+.cite:hover{text-decoration:underline}
+/* หมายเหตุที่มา/ความไม่แน่ใจ — เห็นชัดแต่ไม่น่ากลัว */
+.note{
+  display:flex;gap:10px;align-items:flex-start;background:var(--surface);border:1px solid var(--border);
+  border-left:3px solid var(--accent);border-radius:var(--r-sm);padding:10px 12px;font-size:var(--fs-foot);
+  line-height:1.6;color:var(--t2);margin:0 0 12px;
+}
+.note svg{flex:0 0 auto;margin-top:2px;color:var(--accent-ink)}
+.note.warn{border-left-color:var(--warning)}
+.note.warn svg{color:var(--warning)}
+.note b{color:var(--t1);font-weight:600}
+
+/* แหล่งข้อมูล (แถวเลื่อนแนวนอน) */
+.sources{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;margin-bottom:12px;scrollbar-width:none}
+.sources::-webkit-scrollbar{height:0}
+.src{
+  flex:0 0 auto;display:flex;gap:8px;align-items:center;background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--r-sm);padding:7px 10px;min-height:44px;cursor:pointer;font-family:inherit;text-align:left;
+}
+.src:hover{border-color:var(--border-strong)}
+.fav{width:20px;height:20px;border-radius:6px;display:flex;align-items:center;justify-content:center;
+  font-size:10.5px;font-weight:700;background:var(--accent-soft);color:var(--accent-ink);flex:0 0 auto}
+.src-t{font-size:var(--fs-foot);font-weight:600;color:var(--t1);line-height:1.35}
+.src-d{font-size:var(--fs-micro);color:var(--t3);line-height:1.35}
+
+/* ไฟล์ผลลัพธ์ */
+.file{
+  display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--r-sm);padding:10px 12px;margin-bottom:12px;
+}
+.file-ico{width:34px;height:34px;border-radius:10px;background:var(--surface-2);display:flex;align-items:center;justify-content:center;color:var(--t2);flex:0 0 auto}
+.file-name{font-size:var(--fs-sub);font-weight:600;color:var(--t1);line-height:1.45}
+.file-meta{font-size:var(--fs-micro);color:var(--t3);line-height:1.45}
+.file .spacer{flex:1 1 auto}
+
+/* ปุ่มลอยท้ายคำตอบ */
+.actions{display:flex;gap:2px;align-items:center;margin-top:-4px}
+.act{
+  display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 10px;border:0;background:transparent;
+  border-radius:11px;font-family:inherit;font-size:var(--fs-foot);color:var(--t2);cursor:pointer;
+}
+.act:hover{background:var(--surface-2);color:var(--t1)}
+.act[aria-pressed="true"]{color:var(--accent-ink);background:var(--accent-soft)}
+.act.only-icon{padding:0 11px}
+
+/* คำตอบยาวมาก: ย่อ + เฟด */
+.clamp{position:relative;max-height:236px;overflow:hidden}
+.clamp::after{content:"";position:absolute;inset:auto 0 0 0;height:74px;background:linear-gradient(180deg,transparent,var(--bg))}
+.clamp.open{max-height:none}
+.clamp.open::after{display:none}
+.more{margin-top:6px}
+
+/* ============================================================================
+   ระบบกิจกรรม — A: Live Status Line
+   ========================================================================== */
+.livewrap{display:block}
+.livebar{
+  display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--r-md);padding:9px 12px;box-shadow:var(--sh-1);cursor:pointer;width:100%;
+  font-family:inherit;text-align:left;min-height:52px;
+}
+.livebar:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.pulse{width:18px;height:18px;flex:0 0 auto;position:relative}
+.pulse::before,.pulse::after{content:"";position:absolute;inset:0;border-radius:50%;border:2px solid var(--accent)}
+.pulse::before{opacity:.35}
+.pulse::after{animation:ripple 1.8s var(--ease) infinite}
+@keyframes ripple{0%{transform:scale(.45);opacity:.9}70%{transform:scale(1);opacity:0}100%{opacity:0}}
+.live-mid{flex:1 1 auto;min-width:0}
+.live-title{font-size:var(--fs-sub);font-weight:600;color:var(--t1);line-height:1.5;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:opacity var(--dur-3) var(--ease)}
+.live-sub{font-size:var(--fs-micro);color:var(--t3);line-height:1.5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+[data-activity="less"] .live-sub{display:none}
+[data-activity="normal"] .live-sub{display:none}
+.live-right{display:flex;align-items:center;gap:6px;flex:0 0 auto;color:var(--t3)}
+.live-time{font-size:var(--fs-cap);font-variant-numeric:tabular-nums;color:var(--t2)}
+/* ริบบิ้นความคืบหน้าแบบช่วง (ไม่ใช่ตัวเลขเดา — นับจากขั้นที่รู้จริง) */
+.ribbon{display:flex;gap:3px;width:100%;margin-top:8px}
+.ribbon i{height:3px;flex:1 1 0;border-radius:2px;background:var(--surface-2);position:relative;overflow:hidden}
+.ribbon i.done{background:var(--accent)}
+.ribbon i.active{background:var(--accent-soft)}
+.ribbon i.active::after{content:"";position:absolute;inset:0;background:var(--shimmer);
+  background-size:200% 100%;animation:sweep 1.4s linear infinite}
+@keyframes sweep{from{background-position:150% 0}to{background-position:-50% 0}}
+.shimmer{
+  background-image:var(--shimmer);background-size:200% 100%;animation:sweep 1.5s linear infinite;
+  border-radius:6px;color:transparent;
 }
 
-/* ============================================================
-   PHONE FRAME
-   ============================================================ */
-.phone-frame {
-  position: relative;
-  width: 390px; height: 844px;
-  background: var(--bg);
-  border-radius: 48px;
-  box-shadow: 0 24px 60px rgba(0,0,0,0.35), 0 8px 20px rgba(0,0,0,0.15), inset 0 0 0 1px rgba(255,255,255,0.08);
-  overflow: hidden;
-  display: flex; flex-direction: column;
-  transition: width 0.3s ease, height 0.3s ease;
+/* ============================================================================
+   ระบบกิจกรรม — B: Activity Timeline
+   ========================================================================== */
+.tl{border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface);overflow:hidden}
+.tl-head{
+  display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;background:transparent;border:0;
+  font-family:inherit;cursor:pointer;min-height:52px;text-align:left;
 }
-.phone-frame.android { width: 360px; height: 800px; border-radius: 32px; }
-
-/* Notch simulation (iOS only) */
-.phone-frame:not(.android)::before {
-  content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
-  width: 160px; height: 28px; background: var(--surface); border-bottom-left-radius: 20px; border-bottom-right-radius: 20px;
-  z-index: 100; pointer-events: none;
-  box-shadow: inset 0 -1px 0 var(--border);
+.tl-head:hover{background:var(--surface-2)}
+.tl-title{font-size:var(--fs-sub);font-weight:600;color:var(--t1);line-height:1.5}
+.tl-meta{font-size:var(--fs-micro);color:var(--t3);line-height:1.5}
+.tl-head .spacer{flex:1 1 auto}
+.chev{color:var(--t3);transition:transform var(--dur-2) var(--ease)}
+.tl[data-open="true"] .chev{transform:rotate(180deg)}
+.tl-body{display:none;padding:2px 12px 12px}
+.tl[data-open="true"] .tl-body{display:block}
+.tl.always .tl-body{display:block!important}          /* การ์ด "กำลังคิด" แสดงเสมอ */
+[data-activity="less"] .tl-body{display:none!important}
+[data-activity="less"] .tl.always .tl-body{display:block!important}
+[data-activity="less"] .tl-head{cursor:default}
+/* เส้นเชื่อม + ขั้นตอน */
+.steps{position:relative;margin:0;padding:0;list-style:none}
+.step{position:relative;display:flex;gap:10px;padding:8px 0 8px 0;border-radius:var(--r-sm);cursor:pointer}
+.step:hover{background:var(--surface-2)}
+.step-rail{position:relative;width:22px;flex:0 0 auto;display:flex;justify-content:center}
+.step-rail::before{content:"";position:absolute;top:22px;bottom:-9px;width:2px;background:var(--border);left:50%;margin-left:-1px}
+.step:last-child .step-rail::before{display:none}
+.step-ico{
+  width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  background:var(--surface-2);color:var(--t2);flex:0 0 auto;border:1px solid var(--border);
 }
-.phone-frame:not(.android)::after {
-  content: ''; position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
-  width: 60px; height: 4px; background: #2A2A2A; border-radius: 2px; z-index: 101;
+.step[data-status="succeeded"] .step-ico{background:var(--success-soft);border-color:transparent;color:var(--success)}
+.step[data-status="failed"] .step-ico{background:var(--error-soft);border-color:transparent;color:var(--error)}
+.step[data-status="running"] .step-ico{background:var(--accent-soft);border-color:transparent;color:var(--accent-ink)}
+.step[data-status="running"] .step-ico svg{animation:breathe 1.6s var(--ease) infinite}
+.step[data-status="skipped"] .step-ico,.step[data-status="cancelled"] .step-ico{color:var(--t3);background:var(--surface-2)}
+.step-main{flex:1 1 auto;min-width:0;padding-top:1px}
+.step-title{font-size:var(--fs-callout);font-weight:500;color:var(--t1);line-height:1.5}
+.step[data-status="skipped"] .step-title,.step[data-status="cancelled"] .step-title{color:var(--t2)}
+.step-meta{font-size:var(--fs-micro);color:var(--t3);line-height:1.5;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.step-right{font-size:var(--fs-micro);color:var(--t3);font-variant-numeric:tabular-nums;flex:0 0 auto;padding-top:3px}
+.chip{
+  display:inline-flex;align-items:center;gap:5px;font-size:var(--fs-micro);font-weight:500;
+  padding:2px 8px;border-radius:999px;background:var(--surface-2);color:var(--t2);line-height:1.6
 }
-.phone-frame.android::after {
-  content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
-  width: 120px; height: 4px; background: #2A2A2A; border-bottom-left-radius: 3px; border-bottom-right-radius: 3px; z-index: 100; pointer-events: none;
+.chip.ok{background:var(--success-soft);color:var(--success)}
+.chip.err{background:var(--error-soft);color:var(--error)}
+.chip.run{background:var(--accent-soft);color:var(--accent-ink)}
+.chip.warn{background:var(--warning-soft);color:var(--warning)}
+/* แผนงาน (plan) */
+.plan{margin:2px 0 0;padding:0;list-style:none;border-left:2px solid var(--border);margin-left:2px;padding-left:10px}
+.plan li{display:flex;gap:8px;align-items:flex-start;font-size:var(--fs-foot);color:var(--t2);line-height:1.6;padding:2px 0}
+.plan li.done{color:var(--t1)}
+.plan li .mark{flex:0 0 auto;margin-top:3px;color:var(--t3)}
+.plan li.done .mark{color:var(--success)}
+
+/* ============================================================================
+   คอมโพเซอร์
+   ========================================================================== */
+.composer{flex:0 0 auto;background:var(--surface);border-top:1px solid var(--border);padding:10px 12px 0}
+.qchips{display:flex;gap:8px;overflow-x:auto;padding-bottom:10px;scrollbar-width:none}
+.qchips::-webkit-scrollbar{height:0}
+.qchip{
+  flex:0 0 auto;font-family:inherit;font-size:var(--fs-foot);color:var(--t1);background:var(--surface-2);
+  border:1px solid transparent;border-radius:var(--r-pill);padding:0 14px;min-height:36px;cursor:pointer;
+  display:inline-flex;align-items:center;
 }
-
-/* ============================================================
-   HEADER
-   ============================================================ */
-.app-header {
-  position: sticky; top: 0; z-index: 50;
-  padding: 60px var(--spacing-16) 12px var(--spacing-16);
-  background: linear-gradient(180deg, var(--glass) 60%, rgba(255,255,255,0) 100%);
-  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
-  border-bottom: 1px solid var(--border);
-  display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-12);
+.qchip:hover{border-color:var(--border-strong)}
+.inputbar{display:flex;align-items:flex-end;gap:8px;padding-bottom:10px}
+.field{
+  flex:1 1 auto;display:flex;align-items:flex-end;gap:6px;background:var(--surface-2);border-radius:var(--r-xl);
+  padding:6px 6px 6px 8px;border:1px solid transparent;min-height:44px;
 }
-.phone-frame.android .app-header { padding-top: 12px; }
-
-.header-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.header-avatar {
-  width: 36px; height: 36px; border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent-deep), var(--accent));
-  display: flex; align-items: center; justify-content: center;
-  font-weight: 700; color: #fff; font-size: 14px; flex-shrink: 0;
-  box-shadow: 0 2px 6px rgba(196,127,42,0.30);
-  letter-spacing: 0.02em;
+.field:focus-within{border-color:var(--accent);background:var(--surface)}
+.field textarea{
+  flex:1 1 auto;border:0;background:transparent;resize:none;font-family:inherit;font-size:var(--fs-body);
+  line-height:1.6;color:var(--t1);padding:8px 4px;max-height:112px;min-height:26px;outline:none;
 }
-.header-info { min-width: 0; }
-.header-title { font-size: 16px; font-weight: 600; color: var(--text-primary); line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.header-sub { font-size: 12px; color: var(--text-secondary); line-height: 1.2; }
-
-.header-right { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
-.status-pill {
-  display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; letter-spacing: 0.01em; white-space: nowrap;
+.field textarea::placeholder{color:var(--t3)}
+.send{
+  width:44px;height:44px;flex:0 0 auto;border:0;border-radius:50%;background:var(--accent);color:var(--on-accent);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:var(--sh-1);
 }
-.status-idle { background: var(--surface-2); color: var(--text-secondary); }
-.status-working { background: var(--accent-soft); color: var(--accent-deep); }
-.status-waiting { background: var(--warning-soft); color: var(--warning); }
+.send:disabled{background:var(--surface-3);color:var(--t3);box-shadow:none;cursor:default}
+.send.stop{background:var(--error);color:#fff}
+.device[data-device="i7"] .composer{padding-left:10px;padding-right:10px}
+.home-area{flex:0 0 auto;height:26px}
+.device[data-device="i7"] .home-area{height:58px}
 
-/* ============================================================
-   MAIN SCROLL AREA
-   ============================================================ */
-.chat-scroll {
-  flex: 1; overflow-y: auto; overflow-x: hidden;
-  padding: var(--spacing-16);
-  scroll-behavior: smooth;
-  -ms-overflow-style: none; scrollbar-width: none;
+/* ปุ่มเลื่อนลงล่างสุด */
+.fab{
+  position:absolute;right:14px;bottom:186px;display:none;align-items:center;gap:6px;
+  background:var(--surface);border:1px solid var(--border);box-shadow:var(--sh-2);border-radius:var(--r-pill);
+  padding:0 12px;height:38px;font-family:inherit;font-size:var(--fs-cap);color:var(--t1);cursor:pointer;z-index:20
 }
-.chat-scroll::-webkit-scrollbar { display: none; }
+.fab.show{display:inline-flex}
+.newdot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex:0 0 auto}
 
-/* ============================================================
-   EMPTY STATE
-   ============================================================ */
-.empty-state { text-align: center; padding-top: 80px; padding-bottom: 40px; }
-.empty-illustration {
-  width: 120px; height: 120px; border-radius: 28px; background: linear-gradient(135deg, var(--accent-soft), var(--surface-2)); margin: 0 auto 24px; display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 8px 24px rgba(196,127,42,0.08);
+/* ============================================================================
+   ระบบกิจกรรม — C: Detail Sheet
+   ========================================================================== */
+.scrim{position:absolute;inset:0;background:var(--scrim);opacity:0;pointer-events:none;transition:opacity var(--dur-2) var(--ease);z-index:70}
+.scrim.show{opacity:1;pointer-events:auto}
+.sheet{
+  position:absolute;left:0;right:0;bottom:0;max-height:80%;background:var(--surface);
+  border-radius:var(--r-lg) var(--r-lg) 0 0;box-shadow:var(--sh-3);z-index:80;
+  transform:translateY(102%);transition:transform var(--dur-3) var(--ease);display:flex;flex-direction:column;
 }
-.empty-illustration svg { width: 56px; height: 56px; stroke: var(--accent); stroke-width: 1.5; fill: none; }
-.empty-state h1 { font-size: 22px; font-weight: 700; margin: 0 0 8px; color: var(--text-primary); line-height: 1.25; }
-.empty-state p { font-size: 15px; color: var(--text-secondary); margin: 0 0 28px; line-height: 1.6; }
-
-.suggestion-chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
-.suggestion-chips button {
-  background: var(--surface); border: 1px solid var(--border); color: var(--text-primary); padding: 8px 16px; border-radius: 20px; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.15s ease; box-shadow: var(--shadow-card); font-family: var(--font-main);
+.sheet.show{transform:translateY(0)}
+.sheet-grip{width:38px;height:4px;border-radius:2px;background:var(--border-strong);margin:8px auto 2px;flex:0 0 auto}
+.sheet-head{display:flex;align-items:flex-start;gap:10px;padding:8px 14px 10px;border-bottom:1px solid var(--border);flex:0 0 auto}
+.sheet-title{font-size:var(--fs-head);font-weight:600;color:var(--t1);line-height:1.5}
+.sheet-sub{font-size:var(--fs-foot);color:var(--t2);line-height:1.6}
+.sheet-body{overflow-y:auto;padding:12px 14px 8px}
+.sec{margin-bottom:16px}
+.sec h4{margin:0 0 8px;font-size:var(--fs-cap);font-weight:600;color:var(--t3);letter-spacing:.02em}
+.kv{display:flex;justify-content:space-between;gap:12px;font-size:var(--fs-foot);padding:6px 0;border-bottom:1px solid var(--border);line-height:1.6}
+.kv:last-child{border-bottom:0}
+.kv span:last-child{color:var(--t1);font-weight:500;font-variant-numeric:tabular-nums}
+.sheet-foot{flex:0 0 auto;display:flex;gap:8px;padding:10px 14px;border-top:1px solid var(--border);flex-wrap:wrap}
+.btn{
+  font-family:inherit;font-size:var(--fs-sub);font-weight:500;border-radius:var(--r-sm);min-height:44px;
+  padding:0 14px;border:1px solid var(--border);background:var(--surface);color:var(--t1);cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
 }
-.suggestion-chips button:hover, .suggestion-chips button:active { background: var(--surface-2); border-color: var(--accent); color: var(--accent-deep); transform: translateY(-1px); }
-
-/* ============================================================
-   MESSAGES
-   ============================================================ */
-.message-group { margin-bottom: 24px; }
-
-/* User bubble */
-.user-bubble {
-  align-self: flex-end; max-width: 82%; background: var(--accent); color: #fff; padding: 14px 18px; border-radius: 20px 20px 6px 20px; font-size: 15px; line-height: 1.6; box-shadow: 0 4px 12px rgba(196,127,42,0.18); word-break: break-word;
+.btn:hover{border-color:var(--border-strong)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn.wide{flex:1 1 auto}
+.code{
+  background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-sm);padding:10px 12px;
+  font-family:var(--font-mono);font-size:12px;line-height:1.65;color:var(--t1);overflow-x:auto;white-space:pre;
+  -webkit-overflow-scrolling:touch;
 }
+details.tech{border:1px solid var(--border);border-radius:var(--r-sm);padding:8px 12px;background:var(--surface-2)}
+details.tech>summary{font-size:var(--fs-foot);color:var(--t2);cursor:pointer;min-height:32px;display:flex;align-items:center}
+[data-activity="detail"] details.tech{display:none} /* โหมดละเอียดแสดงโค้ดเต็ม ไม่ต้องพับ */
 
-/* Agent document (no bubble) */
-.agent-document { max-width: 100%; color: var(--text-primary); font-size: 15px; line-height: 1.7; }
-.agent-document h3 { font-size: 17px; font-weight: 600; margin: 0 0 10px; color: var(--text-primary); line-height: 1.3; }
-.agent-document p { margin: 0 0 14px; }
-.agent-document a { color: var(--accent-deep); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(196,127,42,0.35); }
-.agent-document ul { margin: 0 0 14px 18px; padding-left: 4px; }
-.agent-document li { margin-bottom: 6px; }
-
-/* Citation inline */
-.cite-num {
-  display: inline-block; width: 18px; height: 18px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-deep); font-size: 10px; font-weight: 700; text-align: center; line-height: 18px; vertical-align: super; margin-left: 2px; cursor: pointer; transition: background 0.15s;
+/* ============================================================================
+   สถานะว่าง / ล้มเหลว / ป้ายแจ้ง
+   ========================================================================== */
+.hello{display:flex;flex-direction:column;gap:8px;padding:6px 0 2px}
+.hello h2{margin:0;font-size:var(--fs-display);font-weight:600;line-height:1.4;letter-spacing:-.01em}
+.hello p{margin:0;font-size:var(--fs-callout);color:var(--t2);line-height:1.65}
+.caps{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
+.cap{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);padding:10px 12px}
+.cap b{display:block;font-size:var(--fs-foot);font-weight:600;color:var(--t1);line-height:1.5}
+.cap span{font-size:var(--fs-micro);color:var(--t3);line-height:1.5}
+.safe-strip{
+  display:flex;gap:8px;align-items:center;border-radius:var(--r-sm);background:var(--accent-soft);
+  color:var(--accent-ink);font-size:var(--fs-foot);padding:10px 12px;line-height:1.6;
 }
-.cite-num:hover { background: var(--accent); color: #fff; }
-
-/* Uncertainty badge (visible but not scary) */
-.uncertainty-badge {
-  display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 14px; background: var(--warning-soft); color: var(--warning); font-size: 13px; font-weight: 500; margin-top: 8px; border: 1px solid rgba(176,122,30,0.15);
+.banner{
+  display:flex;gap:10px;align-items:flex-start;border-radius:var(--r-md);padding:11px 12px;font-size:var(--fs-foot);
+  line-height:1.6;border:1px solid var(--border);background:var(--surface);
 }
-.uncertainty-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--warning); animation: pulse 2s infinite; }
-@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+.banner.partial{border-color:var(--warning);background:var(--warning-soft)}
+.banner b{font-size:var(--fs-sub)}
+.banner .col{flex:1 1 auto;min-width:0}
+.banner .row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.btn.sm{min-height:38px;font-size:var(--fs-foot);padding:0 12px}
 
-/* ============================================================
-   LIVE STATUS LINE (A)
-   ============================================================ */
-.live-status-line {
-  display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 14px; background: var(--surface); border: 1px solid var(--border); cursor: pointer; transition: all 0.2s ease; box-shadow: var(--shadow-card); margin-bottom: 8px;
+/* Toast สาธิต (คัดลอก/แชร์) */
+.toast{
+  position:absolute;left:50%;bottom:120px;transform:translate(-50%,8px);background:var(--t1);color:var(--bg);
+  font-size:var(--fs-foot);padding:9px 14px;border-radius:var(--r-pill);box-shadow:var(--sh-2);
+  opacity:0;pointer-events:none;transition:opacity var(--dur-2) var(--ease),transform var(--dur-2) var(--ease);z-index:90
 }
-.live-status-line:hover { border-color: var(--accent); box-shadow: 0 4px 12px rgba(196,127,42,0.08); }
+.toast.show{opacity:1;transform:translate(-50%,0)}
 
-.status-icon { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: var(--accent-soft); }
-.status-icon svg { width: 16px; height: 16px; stroke: var(--accent-deep); stroke-width: 2; fill: none; }
+/* ============================================================================
+   แผงคำอธิบายด้านข้าง
+   ========================================================================== */
+.notes{flex:1 1 320px;min-width:300px;max-width:460px;display:flex;flex-direction:column;gap:12px}
+.card-n{background:#FFF;border:1px solid #E0E0DA;border-radius:16px;padding:14px 16px;box-shadow:0 1px 2px rgba(18,20,26,.05)}
+[data-theme="dark"] .card-n{background:#17191E;border-color:#2A2E37}
+.card-n h3{margin:0 0 8px;font-size:13.5px;font-weight:600;letter-spacing:.01em}
+.card-n ul{margin:0;padding-left:18px;font-size:13px;line-height:1.75;color:#545B66}
+[data-theme="dark"] .card-n ul{color:#9CA3AF}
+.card-n li b{color:inherit;font-weight:600}
+[data-theme="dark"] .card-n li b{color:#E9EBEF}
+.card-n p{margin:8px 0 0;font-size:12.5px;line-height:1.7;color:#646C77}
+[data-theme="dark"] .card-n p{color:#8A93A1}
+.lvl{display:flex;gap:8px;align-items:flex-start;margin-bottom:8px}
+.lvl kbd{font-family:var(--font-mono);font-size:11px;background:#EFEFEA;border-radius:6px;padding:2px 6px;color:#15181D;flex:0 0 auto}
+[data-theme="dark"] .lvl kbd{background:#1F2228;color:#E9EBEF}
+.lvl div{font-size:12.5px;line-height:1.65;color:#545B66}
+[data-theme="dark"] .lvl div{color:#9CA3AF}
+.swatch-note{font-size:11.5px;line-height:1.7;color:#646C77;margin-top:8px}
+[data-theme="dark"] .swatch-note{color:#8A93A1}
 
-.status-text { flex: 1; min-width: 0; }
-.status-text .main { font-size: 13px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.status-text .sub { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* ============================================================================
+   ความสามารถในการเข้าถึง
+   ========================================================================== */
+.sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
-.status-arrow { width: 18px; height: 18px; stroke: var(--text-muted); stroke-width: 2; fill: none; transition: transform 0.2s; flex-shrink: 0; }
-.live-status-line[aria-expanded="true"] .status-arrow { transform: rotate(90deg); }
-
-/* ============================================================
-   ACTIVITY TIMELINE (B) — expandable
-   ============================================================ */
-.activity-timeline {
-  background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 16px; box-shadow: var(--shadow-card); overflow: hidden; transition: max-height 0.4s ease, opacity 0.3s ease;
-  max-height: 500px; opacity: 1;
+/* เคารพ "ลดการเคลื่อนไหว" */
+[data-motion="off"] *{animation:none!important;transition-duration:1ms!important}
+@media (prefers-reduced-motion: reduce){
+  *{animation:none!important;transition-duration:1ms!important}
+  .shimmer{background-image:none;color:var(--t3)}
+  .clamp::after{background:linear-gradient(180deg,transparent,var(--bg))}
 }
-.activity-timeline.collapsed { max-height: 72px; opacity: 1; padding-bottom: 12px; }
-
-.timeline-header {
-  display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none;
-}
-.timeline-header-left { display: flex; align-items: center; gap: 10px; }
-.timeline-summary { font-size: 13px; font-weight: 600; color: var(--text-primary); }
-.timeline-summary .count { color: var(--text-muted); font-weight: 500; margin-left: 4px; }
-.timeline-summary .time { color: var(--accent-deep); font-weight: 600; margin-left: 4px; }
-
-.timeline-steps { margin-top: 12px; display: flex; flex-direction: column; gap: 0; }
-.activity-timeline.collapsed .timeline-steps { display: none; }
-
-.step-row {
-  display: flex; align-items: flex-start; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); position: relative;
-}
-.step-row:last-child { border-bottom: none; padding-bottom: 4px; }
-.step-row:first-child { padding-top: 4px; }
-
-/* Vertical connector line */
-.step-row::before {
-  content: ''; position: absolute; left: 15px; top: 38px; width: 2px; height: calc(100% - 28px); background: var(--border); z-index: 0;
-}
-.step-row:last-child::before { display: none; }
-
-.step-icon-wrap {
-  position: relative; z-index: 1; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: var(--surface-2); border: 2px solid var(--border); transition: all 0.2s;
-}
-.step-row.running .step-icon-wrap { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 4px rgba(196,127,42,0.10); }
-.step-row.success .step-icon-wrap { border-color: var(--success); background: var(--success-soft); }
-.step-row.failed .step-icon-wrap { border-color: var(--error); background: var(--error-soft); }
-.step-row.skipped .step-icon-wrap { border-color: var(--text-muted); background: var(--surface-2); opacity: 0.7; }
-.step-row.waiting .step-icon-wrap { border-color: var(--warning); background: var(--warning-soft); }
-
-.step-icon-wrap svg { width: 14px; height: 14px; stroke-width: 2; fill: none; }
-.step-row.running .step-icon-wrap svg { stroke: var(--accent-deep); animation: shimmer 1.5s infinite; }
-.step-row.success .step-icon-wrap svg { stroke: var(--success); }
-.step-row.failed .step-icon-wrap svg { stroke: var(--error); }
-.step-row.skipped .step-icon-wrap svg { stroke: var(--text-muted); }
-.step-row.waiting .step-icon-wrap svg { stroke: var(--warning); }
-
-@keyframes shimmer { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-
-.step-body { flex: 1; min-width: 0; }
-.step-title { font-size: 13px; font-weight: 600; color: var(--text-primary); line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.step-desc { font-size: 12px; color: var(--text-secondary); line-height: 1.4; margin-top: 2px; }
-.step-time { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
-
-.step-status-badge {
-  display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; margin-top: 6px;
-}
-.step-row.running .step-status-badge { background: var(--accent-soft); color: var(--accent-deep); }
-.step-row.success .step-status-badge { background: var(--success-soft); color: var(--success); }
-.step-row.failed .step-status-badge { background: var(--error-soft); color: var(--error); }
-.step-row.skipped .step-status-badge { background: var(--surface-2); color: var(--text-muted); }
-.step-row.waiting .step-status-badge { background: var(--warning-soft); color: var(--warning); }
-
-/* Action row inside collapsed timeline header */
-.timeline-collapsed-actions { display: flex; gap: 8px; margin-top: 8px; }
-.timeline-collapsed-actions button {
-  padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary); cursor: pointer; font-family: var(--font-main); transition: all 0.15s;
-}
-.timeline-collapsed-actions button:hover { background: var(--surface-2); border-color: var(--accent); color: var(--accent-deep); }
-
-/* ============================================================
-   DETAIL SHEET (C) — bottom sheet
-   ============================================================ */
-.detail-sheet-overlay {
-  position: fixed; inset: 0; background: var(--overlay); z-index: 200; opacity: 0; pointer-events: none; transition: opacity 0.25s ease; display: flex; align-items: flex-end; justify-content: center;
-}
-.detail-sheet-overlay.open { opacity: 1; pointer-events: auto; }
-
-.detail-sheet {
-  position: relative; width: 100%; max-height: 88vh; background: var(--surface); border-top-left-radius: 28px; border-top-right-radius: 28px; padding: 20px 20px 36px; box-shadow: 0 -10px 40px rgba(0,0,0,0.15); transform: translateY(100%); transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
-  overflow-y: auto;
-}
-.detail-sheet-overlay.open .detail-sheet { transform: translateY(0); }
-
-.detail-sheet-handle {
-  width: 36px; height: 5px; border-radius: 3px; background: var(--border); margin: 0 auto 16px; display: block;
-}
-
-.detail-sheet h2 { font-size: 18px; font-weight: 700; margin: 0 0 4px; color: var(--text-primary); line-height: 1.25; }
-.detail-sheet .sheet-sub { font-size: 13px; color: var(--text-secondary); margin-bottom: 20px; }
-
-.detail-section { margin-bottom: 20px; }
-.detail-section h4 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin: 0 0 10px; font-weight: 600; }
-
-.detail-section .source-row {
-  display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px;
-}
-.detail-section .source-row:last-child { border-bottom: none; }
-.source-fav { width: 16px; height: 16px; border-radius: 4px; background: var(--surface-2); display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 700; color: var(--text-muted); flex-shrink: 0; }
-.source-name { color: var(--text-primary); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.source-url { color: var(--text-muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-.artifact-card {
-  background: var(--surface-2); border: 1px solid var(--border); border-radius: 14px; padding: 14px; display: flex; gap: 12px; align-items: flex-start;
-}
-.artifact-card .icon-box { width: 36px; height: 36px; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.artifact-card .icon-box svg { width: 18px; height: 18px; stroke: var(--accent); stroke-width: 1.8; fill: none; }
-.artifact-card h5 { margin: 0 0 2px; font-size: 13px; font-weight: 600; color: var(--text-primary); }
-.artifact-card .meta { font-size: 11px; color: var(--text-secondary); }
-
-.detail-actions { display: flex; gap: 10px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); }
-.detail-actions button { flex: 1; padding: 12px; border-radius: 14px; font-size: 14px; font-weight: 600; border: none; cursor: pointer; font-family: var(--font-main); transition: all 0.15s; }
-.btn-primary { background: var(--accent); color: #fff; box-shadow: 0 4px 12px rgba(196,127,42,0.25); }
-.btn-primary:hover { background: var(--accent-deep); }
-.btn-secondary { background: var(--surface-2); color: var(--text-primary); border: 1px solid var(--border); }
-.btn-secondary:hover { background: var(--surface); border-color: var(--accent); }
-
-/* Close area above sheet */
-.detail-sheet-overlay.open .close-area { display: block; }
-.close-area { display: none; position: absolute; top: 0; left: 0; right: 0; height: 60px; background: linear-gradient(180deg, rgba(0,0,0,0.08) 0%, transparent 100%); pointer-events: none; }
-
-/* ============================================================
-   INPUT BAR
-   ============================================================ */
-.input-bar-wrap { padding: 10px 16px 32px; background: linear-gradient(0deg, var(--glass) 60%, rgba(255,255,255,0) 100%); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-top: 1px solid var(--border); }
-.phone-frame.android .input-bar-wrap { padding-bottom: 24px; }
-
-.input-bar {
-  display: flex; align-items: flex-end; gap: 10px; padding: 10px 14px; background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius-pill); box-shadow: var(--shadow-card); transition: border-color 0.2s, box-shadow 0.2s; min-height: 52px;
-}
-.input-bar:focus-within { border-color: var(--accent); box-shadow: 0 4px 16px rgba(196,127,42,0.10); }
-
-.input-bar textarea {
-  flex: 1; border: none; background: transparent; resize: none; font-family: var(--font-main); font-size: 15px; color: var(--text-primary); line-height: 1.5; max-height: 120px; outline: none; padding: 4px 2px;
-}
-.input-bar textarea::placeholder { color: var(--text-muted); }
-
-.input-bar button.icon-btn {
-  width: 40px; height: 40px; border-radius: 50%; border: none; background: transparent; color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; flex-shrink: 0;
-}
-.input-bar button.icon-btn:hover { background: var(--surface-2); color: var(--accent-deep); }
-.input-bar button.icon-btn:active { transform: scale(0.95); }
-
-.input-bar button.send-btn {
-  width: 44px; height: 44px; border-radius: 50%; border: none; background: var(--accent); color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(196,127,42,0.25); transition: all 0.15s; flex-shrink: 0;
-}
-.input-bar button.send-btn:hover { background: var(--accent-deep); transform: translateY(-1px); box-shadow: 0 6px 16px rgba(196,127,42,0.3); }
-.input-bar button.send-btn:active { transform: translateY(0); }
-
-/* Attachment chip (when file added) */
-.attachment-preview {
-  display: flex; gap: 8px; padding: 6px 0 4px; overflow-x: auto; scrollbar-width: none;
-}
-.attachment-preview::-webkit-scrollbar { display: none; }
-.attachment-preview .chip-file {
-  display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 16px; background: var(--surface-2); border: 1px solid var(--border); font-size: 12px; color: var(--text-secondary); white-space: nowrap; flex-shrink: 0;
-}
-
-/* ============================================================
-   SCROLL TO BOTTOM BUTTON
-   ============================================================ */
-.scroll-bottom-btn {
-  position: fixed; bottom: 88px; right: 16px; width: 44px; height: 44px; border-radius: 50%; background: var(--surface); border: 1px solid var(--border); color: var(--text-secondary); box-shadow: var(--shadow-float); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 40; transition: all 0.2s; opacity: 0; pointer-events: none; transform: translateY(10px);
-}
-.scroll-bottom-btn.visible { opacity: 1; pointer-events: auto; transform: translateY(0); }
-.scroll-bottom-btn:hover { background: var(--surface-2); color: var(--accent-deep); border-color: var(--accent); }
-
-/* ============================================================
-   CONTROLS (top floating bar above phone)
-   ============================================================ */
-.controls-bar {
-  position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 500; display: flex; gap: 10px; background: rgba(30,27,24,0.9); backdrop-filter: blur(12px); padding: 8px 14px; border-radius: 24px; box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-}
-.controls-bar button {
-  background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.10); color: #F2F0EC; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: var(--font-main); transition: all 0.15s;
-}
-.controls-bar button:hover { background: rgba(255,255,255,0.18); border-color: rgba(255,255,255,0.25); }
-.controls-bar button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
-
-/* ============================================================
-   ACCESSIBILITY / FOCUS
-   ============================================================ */
-:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-
-/* ============================================================
-   RESPONSIVE / ADAPTIVE
-   ============================================================ */
-.phone-frame:not(.android) .android-only { display: none !important; }
-.phone-frame.android .ios-only { display: none !important; }
 </style>
 </head>
 <body>
+<div class="wrap">
 
-<!-- Floating controls -->
-<div class="controls-bar" role="toolbar" aria-label="ตัวเลือกการดูต้นแบบ">
-  <button onclick="setTheme('light')" id="btn-light" class="active">Light</button>
-  <button onclick="setTheme('dark')" id="btn-dark">Dark</button>
-  <button onclick="toggleFrameSize()" id="btn-size">iOS 390</button>
-</div>
+  <div class="lab-head">
+    <div>
+      <h1>Agent Sandbox — เฟส 1: หน้าแชทหลัก + ระบบกิจกรรม 3 ระดับ <span class="rec" style="font-size:11px">ดีไซน์ใหม่ v2</span></h1>
+      <p>กดได้จริงทุกจุด · ข้อมูลจำลองภาษาไทยที่ผสมอังกฤษ · ทุกสถานะมีข้อความกำกับ ไม่มีสปินเนอร์เปล่า</p>
+    </div>
+  </div>
 
-<!-- Phone Frame -->
-<div class="phone-frame" id="phone" role="region" aria-label="ต้นแบบแอปแชท AgentAI" data-theme="light">
-
-  <!-- Header -->
-  <header class="app-header" role="banner">
-    <div class="header-left">
-      <div class="header-avatar" aria-label="ไอคอน Agent">AI</div>
-      <div class="header-info">
-        <div class="header-title">วางแผนทริปเชียงใหม่ 3 วัน</div>
-        <div class="header-sub">Agent กำลังทำงาน · 4 ขั้นตอน</div>
+  <!-- แถบควบคุม -->
+  <div class="lab-bar">
+    <div class="grp">
+      <span class="lbl">ธีม</span>
+      <div class="seg" role="group" aria-label="ธีม">
+        <button id="tLight" aria-pressed="true" onclick="setTheme('light')">สว่าง</button>
+        <button id="tDark" aria-pressed="false" onclick="setTheme('dark')">มืด</button>
       </div>
     </div>
-    <div class="header-right" aria-label="สถานะ Agent">
-      <span class="status-pill status-working" aria-live="polite" aria-label="สถานะ: กำลังทำงาน">
-        <span style="width:6px;height:6px;border-radius:50%;background:var(--accent-deep);display:inline-block;animation:pulse 1.5s infinite;"></span>
-        กำลังทำ
-      </span>
+    <div class="grp">
+      <span class="lbl">ขนาดจอ</span>
+      <div class="seg" role="group" aria-label="ขนาดจอ">
+        <button id="d14" aria-pressed="true" onclick="setDevice('ios')">390 × 844</button>
+        <button id="d7" aria-pressed="false" onclick="setDevice('i7')">iPhone 7 · 375 × 667</button>
+      </div>
     </div>
-  </header>
-
-  <!-- Scrollable Content -->
-  <main class="chat-scroll" id="chat-scroll" role="main" aria-label="พื้นที่ข้อความ">
-
-    <!-- EMPTY STATE -->
-    <section class="empty-state" id="empty-state" aria-label="สถานะเริ่มต้น">
-      <div class="empty-illustration" aria-hidden="true">
-        <svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/><path d="M12 6a4 4 0 0 0-4 4m8 0a4 4 0 0 1-4 4"/></svg>
+    <div class="grp">
+      <span class="lbl">ระดับกิจกรรม</span>
+      <div class="seg" role="group" aria-label="ระดับรายละเอียดกิจกรรม">
+        <button id="aLess" aria-pressed="false" onclick="setActivity('less')">น้อย</button>
+        <button id="aNormal" aria-pressed="true" onclick="setActivity('normal')">ปกติ</button>
+        <button id="aDetail" aria-pressed="false" onclick="setActivity('detail')">ละเอียด</button>
       </div>
-      <h1>เริ่มต้นงานใหม่กับ Agent</h1>
-      <p>บอกสิ่งที่ต้องการ แล้ว Agent จะทำให้เห็นทุกขั้นตอนอย่างโปร่งใสและควบคุมได้</p>
-      <div class="suggestion-chips" role="list" aria-label="คำแนะนำเริ่มต้น">
-        <button onclick="startConversation('วางแผนทริปเชียงใหม่ 3 วัน')" role="listitem">วางแผนทริปเชียงใหม่ 3 วัน</button>
-        <button onclick="startConversation('สรุปไฟล์ PDF ที่ส่งมา')" role="listitem">สรุปไฟล์ PDF ที่ส่งมา</button>
-        <button onclick="startConversation('เขียนอีเมลขอโทษลูกค้า')" role="listitem">เขียนอีเมลขอโทษลูกค้า</button>
+    </div>
+    <div class="grp">
+      <span class="lbl">ลดการเคลื่อนไหว</span>
+      <div class="seg" role="group" aria-label="การเคลื่อนไหว">
+        <button id="mOn" aria-pressed="true" onclick="setMotion('on')">เปิด</button>
+        <button id="mOff" aria-pressed="false" onclick="setMotion('off')">ปิด</button>
       </div>
-    </section>
+    </div>
+    <div class="grp">
+      <span class="lbl">สีเน้น (เปรียบเทียบ)</span>
+      <div class="swatch-set" role="group" aria-label="ชุดสีเน้น">
+        <button class="swatch" id="acIndigo" aria-pressed="true" onclick="setAccent('indigo')"><i style="background:#2E4A8A"></i>คราม <span class="rec">แนะนำ</span></button>
+        <button class="swatch" id="acTeal" aria-pressed="false" onclick="setAccent('teal')"><i style="background:#0E6A61"></i>เขียวเข็ม</button>
+        <button class="swatch" id="acPlum" aria-pressed="false" onclick="setAccent('plum')"><i style="background:#6A4A82"></i>พลัม</button>
+      </div>
+    </div>
+  </div>
 
-    <!-- ACTIVE CONVERSATION (hidden initially) -->
-    <div id="conversation" style="display:none;">
+  <div class="lab-bar">
+    <div class="grp">
+      <span class="lbl">สถานะหน้าจอ</span>
+      <div class="seg" role="group" aria-label="สถานะหน้าจอ">
+        <button id="sEmpty" aria-pressed="false" onclick="setState('empty')">ว่าง (มีคำแนะนำ)</button>
+        <button id="sThink" aria-pressed="false" onclick="setState('thinking')">กำลังคิด</button>
+        <button id="sRun" aria-pressed="true" onclick="setState('running')">ทำงานหลายขั้น</button>
+        <button id="sDone" aria-pressed="false" onclick="setState('done')">เสร็จแล้ว</button>
+        <button id="sLong" aria-pressed="false" onclick="setState('long')">ข้อความยาวมาก</button>
+        <button id="sPart" aria-pressed="false" onclick="setState('partial')">สำเร็จบางส่วน</button>
+      </div>
+    </div>
+  </div>
 
-      <!-- User message -->
-      <section class="message-group" aria-label="ข้อความจากผู้ใช้">
-        <div style="display:flex;justify-content:flex-end;">
-          <div class="user-bubble" role="region">วางแผนทริปเชียงใหม่ 3 วัน งบไม่เกิน 15,000 บาท ชอบธรรมชาติและคาเฟ่ นอนในเมือง 2 คืน นอกเมือง 1 คืน</div>
+  <div class="stage">
+    <!-- ================= มือถือ ================= -->
+    <div class="device" id="device" data-device="ios">
+      <div class="frame">
+        <div class="notch" aria-hidden="true"></div>
+
+        <!-- แถบสถานะระบบ -->
+        <div class="statusbar" aria-hidden="true">
+          <span class="num">9:41</span>
+          <span class="sb-right">
+            <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
+            <svg width="16" height="11" viewBox="0 0 16 11" fill="currentColor"><path d="M8 10.5 5.4 7.9a3.7 3.7 0 0 1 5.2 0L8 10.5Zm0-4.6a6.6 6.6 0 0 0-4.7 1.9L1.6 6.1a9 9 0 0 1 12.8 0l-1.7 1.7A6.6 6.6 0 0 0 8 5.9Z"/></svg>
+            <svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x=".5" y=".5" width="21" height="11" rx="3.5" stroke="currentColor" opacity=".45"/><rect x="2" y="2" width="15" height="8" rx="2" fill="currentColor"/><path d="M23 4v4a2 2 0 0 0 0-4Z" fill="currentColor" opacity=".45"/></svg>
+          </span>
         </div>
-      </section>
 
-      <!-- Agent document -->
-      <section class="message-group" aria-label="คำตอบจาก Agent">
-        <article class="agent-document" aria-label="แผนการเดินทาง">
-          <h3>แผนการเดินทางเชียงใหม่ 3 วัน</h3>
-          <p>จากข้อมูลที่ค้นหา พบว่าช่วงนี้อากาศดีและมีคาเฟ่ใหม่ๆ เปิดหลายแห่งในย่านนิมมานและสันกำแพง<span class="cite-num" onclick="openDetail()" aria-label="ดูแหล่งที่มา" title="ดูแหล่งที่มา">1</span> <span class="cite-num" onclick="openDetail()" aria-label="ดูแหล่งที่มา" title="ดูแหล่งที่มา">2</span></p>
-          <ul>
-            <li><strong>วันที่ 1:</strong> ถึงเชียงใหม่ — เข้าพักในเมือง — คาเฟ่ย่านนิมมาน — ตลาดนัดตอนเย็น</li>
-            <li><strong>วันที่ 2:</strong> ออกนอกเมือง — ดอยสุเทพ — น้ำตก — พักรีสอร์ตธรรมชาติ</li>
-            <li><strong>วันที่ 3:</strong> คาเฟ่สันกำแพง — กลับสนามบิน</li>
-          </ul>
+        <!-- แถบหัวเรื่อง -->
+        <div class="appbar">
+          <button class="iconbtn" aria-label="รายการห้องสนทนา" onclick="toast('สาธิต: เปิดรายการห้องสนทนา')">
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+          </button>
+          <div class="appbar-mid">
+            <div class="appbar-title">สรุปค่าไฟ 3 เดือนย้อนหลัง</div>
+            <div class="agent-state" id="agentState" data-state="working" role="status" aria-live="polite">
+              <span class="state-dot" aria-hidden="true"></span>
+              <span id="agentStateText">กำลังทำงาน · ขั้น 5 จาก 6</span>
+            </div>
+          </div>
+          <button class="iconbtn" aria-label="เมนูเพิ่มเติมของห้องนี้" onclick="toast('สาธิต: แชร์ · ส่งออก · ตั้งค่าห้องนี้')">
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg>
+          </button>
+        </div>
 
-          <div class="uncertainty-badge" aria-label="คำเตือน: ข้อมูลบางส่วนอาจไม่สมบูรณ์">
-            <span class="dot" aria-hidden="true"></span>
-            <span>ข้อมูลบางส่วนอาจไม่สมบูรณ์ — ควรตรวจสอบราคาล่าสุดก่อนจอง</span>
-          </div>
-        </article>
-      </section>
+        <!-- พื้นที่แชท -->
+        <div class="chat" id="chat" role="log" aria-label="บทสนทนากับ Agent"></div>
 
-      <!-- LIVE STATUS LINE (A) -->
-      <section aria-label="สถานะการทำงานสด">
-        <button class="live-status-line" onclick="toggleTimelineClean(this)" aria-expanded="true" aria-controls="timeline-b" aria-label="ขยายดูรายละเอียดขั้นตอน">
-          <div class="status-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/></svg>
-          </div>
-          <div class="status-text">
-            <div class="main">กำลังเลือกที่พักที่เหมาะสมกับงบประมาณ</div>
-            <div class="sub">ค้นหาที่พัก · 6 แหล่งข้อมูล · 42 วินาที</div>
-          </div>
-          <svg class="status-arrow" viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg>
+        <!-- ปุ่มเลื่อนลง -->
+        <button class="fab" id="fab" onclick="scrollDown()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M6 13l6 6 6-6"/></svg>
+          <span class="newdot" aria-hidden="true"></span> ข้อความใหม่
         </button>
-      </section>
 
-      <!-- ACTIVITY TIMELINE (B) -->
-      <section class="activity-timeline" id="timeline-b" aria-label="ลำดับขั้นตอนการทำงาน" aria-live="polite">
-        <div class="timeline-header" onclick="toggleTimelineClean(document.querySelector('.live-status-line'))" aria-expanded="true" aria-controls="timeline-b" role="button" tabindex="0" aria-label="พับหรือขยายไทม์ไลน์">
-          <div class="timeline-header-left">
-            <div class="timeline-summary">ทำงาน <span class="count">6 ขั้นตอน</span> · <span class="time">42 วินาที</span></div>
+        <!-- คอมโพเซอร์ -->
+        <div class="composer">
+          <div class="qchips" id="qchips" aria-label="คำสั่งด่วน"></div>
+          <div id="liveSlot"></div>
+          <div class="inputbar">
+            <button class="iconbtn" aria-label="แนบไฟล์ รูป หรือถ่ายภาพ" onclick="toast('สาธิต: แนบไฟล์ · รูป · กล้อง')" style="background:var(--surface-2);border-radius:50%">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+            </button>
+            <div class="field">
+              <textarea id="inputbox" rows="1" placeholder="พิมพ์ข้อความ ถามงาน หรือแนบไฟล์…" aria-label="ช่องพิมพ์ข้อความ"></textarea>
+              <button class="iconbtn" id="micBtn" aria-label="พูดแทนการพิมพ์" onclick="toast('สาธิต: โหมดเสียง (เฟส 3)')">
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+              </button>
+            </div>
+            <button class="send" id="sendBtn" aria-label="หยุดการทำงานของ Agent" onclick="sendTap()">
+              <svg id="sendIcon" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="7" y="7" width="10" height="10" rx="2"/></svg>
+            </button>
           </div>
         </div>
-        <div class="timeline-steps" aria-label="รายการขั้นตอน">
+        <div class="home-area"><div class="home-indicator"></div></div>
 
-          <article class="step-row success" aria-label="ขั้นตอนที่ 1: ค้นหาข้อมูลเสร็จแล้ว">
-            <div class="step-icon-wrap" aria-hidden="true"><svg viewBox="0 0 24 24"><polyline points="4 12 9 17 20 7"/></svg></div>
-            <div class="step-body">
-              <div class="step-title">ค้นหาข้อมูลพื้นฐาน</div>
-              <div class="step-desc">เชียงใหม่ — สถานที่ท่องเที่ยว, คาเฟ่, ที่พักในงบ</div>
-              <div class="step-time">เริ่ม 14:32 · เสร็จ 14:33</div>
-              <span class="step-status-badge">สำเร็จ</span>
+        <!-- Detail Sheet (ระดับ C) -->
+        <div class="scrim" id="scrim" onclick="closeSheet()"></div>
+        <section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+          <div class="sheet-grip" aria-hidden="true"></div>
+          <div class="sheet-head">
+            <div style="flex:1 1 auto;min-width:0">
+              <div class="sheet-title" id="sheetTitle">—</div>
+              <div class="sheet-sub" id="sheetSub">—</div>
             </div>
-          </article>
+            <button class="iconbtn" aria-label="ปิดรายละเอียด" onclick="closeSheet()">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+            </button>
+          </div>
+          <div class="sheet-body" id="sheetBody"></div>
+          <div class="sheet-foot" id="sheetFoot"></div>
+        </section>
 
-          <article class="step-row success" aria-label="ขั้นตอนที่ 2: ค้นหาเว็บเสร็จแล้ว">
-            <div class="step-icon-wrap" aria-hidden="true"><svg viewBox="0 0 24 24"><polyline points="4 12 9 17 20 7"/></svg></div>
-            <div class="step-body">
-              <div class="step-title">ค้นหาเว็บ — แหล่งข้อมูลที่น่าเชื่อถือ</div>
-              <div class="step-desc">พบ 8 แหล่งข้อมูล · กำลังเลือกที่น่าเชื่อถือที่สุด</div>
-              <div class="step-time">เริ่ม 14:33 · เสร็จ 14:34</div>
-              <span class="step-status-badge">สำเร็จ</span>
-            </div>
-          </article>
-
-          <article class="step-row running" aria-label="ขั้นตอนที่ 3: กำลังทำงาน — เลือกที่พัก" aria-live="polite">
-            <div class="step-icon-wrap" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/></svg></div>
-            <div class="step-body">
-              <div class="step-title">เลือกที่พักที่เหมาะสม</div>
-              <div class="step-desc">เปรียบเทียบราคา, รีวิว, ระยะทางจากจุดท่องเที่ยว</div>
-              <div class="step-time">เริ่ม 14:34 · กำลังทำ...</div>
-              <span class="step-status-badge">กำลังทำ</span>
-            </div>
-          </article>
-
-          <article class="step-row" aria-label="ขั้นตอนที่ 4: รอการทำงาน">
-            <div class="step-icon-wrap" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/></svg></div>
-            <div class="step-body">
-              <div class="step-title">ตรวจสอบงบประมาณและแผนการเดินทาง</div>
-              <div class="step-desc">รอการตรวจสอบก่อนเสนอแผนสุดท้าย</div>
-              <div class="step-time">รอเริ่ม...</div>
-              <span class="step-status-badge">รอ</span>
-            </div>
-          </article>
-
-          <article class="step-row skipped" aria-label="ขั้นตอนที่ 5: ข้ามแล้ว">
-            <div class="step-icon-wrap" aria-hidden="true"><svg viewBox="0 0 24 24"><polyline points="6 10 18 10"/></svg></div>
-            <div class="step-body">
-              <div class="step-title">ค้นหากิจกรรมเสริม (ข้าม)</div>
-              <div class="step-desc">ไม่จำเป็นสำหรับแผนหลักในครั้งนี้</div>
-              <div class="step-time">ข้าม 14:34</div>
-              <span class="step-status-badge">ข้าม</span>
-            </div>
-          </article>
-        </div>
-      </section>
-
-      <!-- Takeover Banner -->
-      <section class="message-group" aria-label="การรับช่วงต่อ">
-        <div style="background: linear-gradient(135deg, var(--warning-soft), var(--warning-soft) 60%, var(--surface)); border: 1.5px solid var(--warning); border-radius: 16px; padding: 14px 16px;">
-          <div style="font-size: 13px; font-weight: 600; color: var(--warning); margin-bottom: 4px;">Agent ต้องการความช่วยเหลือจากคุณ</div>
-          <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin: 0;">เว็บไซต์จองโรงแรมต้องยืนยันตัวตนก่อนดำเนินการต่อ — คุณทำเองได้ และ Agent จะไม่เห็นรหัสผ่านของคุณ</p>
-        </div>
-      </section>
-
-    </div> <!-- /conversation -->
-  </main>
-
-  <!-- Input Bar -->
-  <footer class="input-bar-wrap" role="region" aria-label="ช่องพิมพ์ข้อความ">
-    <form class="input-bar" onsubmit="sendMessage(event)" aria-label="ฟอร์มส่งข้อความ">
-      <button type="button" class="icon-btn" onclick="addAttachment()" aria-label="เพิ่มไฟล์" title="เพิ่มไฟล์"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></button>
-      <textarea id="msg-input" rows="1" placeholder="พิมพ์ข้อความหรือคำสั่ง..." aria-label="ช่องพิมพ์ข้อความ" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();document.getElementById('form-btn').click();}" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px';"></textarea>
-      <button type="button" class="icon-btn" onclick="toggleMic()" aria-label="ไมโครโฟน" title="ไมโครโฟน"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button>
-      <button type="submit" class="send-btn" id="form-btn" aria-label="ส่งข้อความ" title="ส่ง"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
-    </form>
-  </footer>
-
-</div><!-- /phone-frame -->
-
-<!-- Scroll to bottom -->
-<button class="scroll-bottom-btn" id="scroll-btn" onclick="scrollToBottom()" aria-label="เลื่อนลงล่างสุด" title="เลื่อนลงล่างสุด"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
-
-<!-- DETAIL SHEET OVERLAY -->
-<div class="detail-sheet-overlay" id="detail-overlay" onclick="if(event.target===this)closeDetail()" role="dialog" aria-modal="true" aria-label="รายละเอียดขั้นตอน" aria-hidden="true">
-  <div class="close-area" aria-hidden="true"></div>
-  <aside class="detail-sheet" role="document" aria-label="รายละเอียดขั้นตอนการทำงาน">
-    <span class="detail-sheet-handle" aria-hidden="true"></span>
-    <h2>รายละเอียดขั้นตอน</h2>
-    <p class="sheet-sub">ขั้นตอนที่ 3 — กำลังเลือกที่พักที่เหมาะสม</p>
-
-    <section class="detail-section" aria-label="แหล่งข้อมูล">
-      <h4>แหล่งข้อมูลที่ใช้</h4>
-      <div class="source-row">
-        <div class="source-fav">1</div>
-        <div style="min-width:0;flex:1;">
-          <div class="source-name">booking.com</div>
-          <div class="source-url">booking.com/chiang-mai-hotels</div>
-        </div>
+        <div class="toast" id="toast" role="status" aria-live="polite"></div>
       </div>
-      <div class="source-row">
-        <div class="source-fav">2</div>
-        <div style="min-width:0;flex:1;">
-          <div class="source-name">TripAdvisor — เชียงใหม่</div>
-          <div class="source-url">tripadvisor.co.th/Hotels-g293917</div>
-        </div>
-      </div>
-      <div class="source-row">
-        <div class="source-fav">3</div>
-        <div style="min-width:0;flex:1;">
-          <div class="source-name">Airbnb — ย่านนิมมาน</div>
-          <div class="source-url">airbnb.co.th/s/Chiang-Mai</div>
-        </div>
-      </div>
-    </section>
-
-    <section class="detail-section" aria-label="ไฟล์ที่สร้าง">
-      <h4>ไฟล์/ผลงานที่สร้าง</h4>
-      <div class="artifact-card" aria-label="ไฟล์แผนการเดินทาง">
-        <div class="icon-box" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
-        <div>
-          <h5>แผนการเดินทาง.pdf</h5>
-          <div class="meta">2.4 MB · สร้างเมื่อ 14:35</div>
-        </div>
-      </div>
-    </section>
-
-    <section class="detail-section" aria-label="ข้อผิดพลาด">
-      <h4>ข้อผิดพลาด (ซ่อนโดยค่าเริ่มต้น — แสดงในโหมดละเอียด)</h4>
-      <div style="background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; padding: 12px; font-size: 12px; color: var(--text-muted); line-height: 1.5; font-family: ui-monospace, SFMono-Regular, monospace;">
-        [DEBUG] rate_limit_warning: 3/10 remaining<br>
-        [INFO] retry_policy: exponential_backoff<br>
-        [DEBUG] source_timeout: booking.com (timeout 2.3s) — switched to cache
-      </div>
-      <p style="font-size: 11px; color: var(--text-muted); margin-top: 6px;">ข้อมูลเทคนิคแสดงเฉพาะเมื่อระดับรายละเอียดเป็น "ละเอียด"</p>
-    </section>
-
-    <div class="detail-actions">
-      <button class="btn-secondary" onclick="closeDetail()">ปิด</button>
-      <button class="btn-primary" onclick="retryStep(this)">ลองใหม่ขั้นนี้</button>
     </div>
-  </aside>
+
+    <!-- ================= แผงคำอธิบาย ================= -->
+    <aside class="notes">
+      <div class="card-n">
+        <h3>ระบบแสดงกิจกรรม 3 ระดับ (กดดูได้ในเครื่อง)</h3>
+        <div class="lvl"><kbd>A</kbd><div><b>Live Status Line</b> — แถบเหนือช่องพิมพ์ บอกว่ากำลังทำอะไร + ขั้นที่เท่าไร + เวลาที่ผ่านไป แตะเพื่อกางไทม์ไลน์</div></div>
+        <div class="lvl"><kbd>B</kbd><div><b>Activity Timeline</b> — ในตัวข้อความ พับได้ หัวข้อสรุป "ทำงาน 6 ขั้นตอน · 42 วินาที" · แต่ละขั้นมีไอคอน ชื่อภาษาคน สถานะ และเวลา</div></div>
+        <div class="lvl"><kbd>C</kbd><div><b>Detail Sheet</b> — แตะขั้นไหนก็ได้ จะเปิดแผ่นล่างสุด แสดงคำค้น แหล่งข้อมูล ไฟล์ที่ได้ และข้อผิดพลาด (โค้ดดิบเฉพาะโหมด "ละเอียด")</div></div>
+        <p>ลองสลับ "ระดับกิจกรรม" เป็น <b>น้อย</b> แล้วดูว่าไทม์ไลน์ยุบเหลือบรรทัดเดียว และเป็น <b>ละเอียด</b> แล้วดูว่าแถบสถานะโชว์รายละเอียดย่อยเพิ่ม</p>
+      </div>
+
+      <div class="card-n">
+        <h3>ลองกดดู</h3>
+        <ul>
+          <li>แตะ <b>แถบสถานะ</b> เหนือช่องพิมพ์ → กาง/พับไทม์ไลน์</li>
+          <li>แตะ <b>ขั้นตอนใดก็ได้</b> → เปิดรายละเอียดระดับ C</li>
+          <li>สถานะ <b>ว่าง</b> → การ์ดต้อนรับ + ชิปคำสั่งด่วน + สิ่งที่ทำได้</li>
+          <li>สถานะ <b>สำเร็จบางส่วน</b> → ขั้นที่ล้มเหลวต้องมีสาเหตุเป็นภาษาคน + ทางไปต่อ</li>
+          <li>สถานะ <b>ข้อความยาวมาก</b> → ย่อไว้ก่อน กด "แสดงทั้งหมด" ค่อยกาง</li>
+          <li>สลับ <b>iPhone 7 · 375×667</b> เพื่อดูว่าเนื้อหายังอ่านได้บนเครื่องจริง (จอ 4.7")</li>
+        </ul>
+      </div>
+
+      <div class="card-n">
+        <h3>กติกาที่บังคับใช้ทั้งดีไซน์</h3>
+        <ul>
+          <li>ไม่มีสปินเนอร์เปล่า — ทุกการรอมีข้อความบอกว่ากำลังทำอะไร</li>
+          <li>สถานะไม่พึ่งสีอย่างเดียว — มีไอคอน + ข้อความกำกับเสมอ</li>
+          <li>ไม่แสดงตัวเลขประมาณการ (เวลาที่เหลือ / ความมั่นใจ) ถ้าไม่มีข้อมูลจริงรองรับ</li>
+          <li>ศัพท์เทคนิค (ชื่อ tool, โค้ด, ดิบ ๆ) ซ่อนเป็นค่าเริ่มต้น</li>
+          <li>เป้าหมายการแตะ ≥ 44pt ทุกปุ่ม · คอนทราสต์ผ่าน AA ทั้ง Light และ Dark</li>
+        </ul>
+        <p class="swatch-note">ชุดสีที่แนะนำคือ <b>คราม (#2E4A8A)</b> — ให้ความรู้สึก "เครื่องมือทำงาน" มากกว่าสีทองแบบเดิม, ต่างจากฟ้าแชททั่วไป และคุมโทนได้ทั้ง Light/Dark โดยไม่ต้องมีหลายสี</p>
+      </div>
+    </aside>
+  </div>
 </div>
 
 <script>
-/* ============================================================
-   INTERACTION LOGIC
-   ============================================================ */
-function setTheme(t) {
-  document.getElementById('phone').setAttribute('data-theme', t);
-  document.getElementById('btn-light').classList.toggle('active', t === 'light');
-  document.getElementById('btn-dark').classList.toggle('active', t === 'dark');
+/* ============================================================================
+   โครงสร้างข้อมูลเหตุการณ์ (event) — ร่างสำหรับเฟส 1 (สเปกเต็มอยู่ในเฟส 4)
+   { id, seq, type, status, title_th, title_en, meta{}, detail{}, sources[], artifacts[] }
+   ========================================================================== */
+const T = (s) => s; // กันพิมพ์ผิด: ข้อความทั้งหมดเป็นภาษาไทยที่ผู้ใช้เห็น
+
+const STEP_POOL = {
+  plan: {
+    th:'วางแผน 4 ขั้นตอน', en:'Planning', ico:'list',
+    detail:{ summary:'แบ่งงานเป็น 4 ขั้นตอน เพื่อไม่ให้พลาดเดือนใดเดือนหนึ่ง',
+      plan:['อ่านใบแจ้งหนี้ทั้ง 3 ไฟล์','ดึงจำนวนหน่วยและยอดเงินของแต่ละเดือน','หาความต่างและเดือนที่ใช้ไฟมากสุด','ค้นหาสาเหตุที่เป็นไปได้และสรุปเป็นไฟล์'] }
+  },
+  thinking: {
+    th:'ทำความเข้าใจคำขอ', en:'Understanding the request', ico:'spark',
+    detail:{ summary:'ตรวจว่าโจทย์ต้องการ "เดือนที่ใช้ไฟเยอะสุด" พร้อมเหตุผล ไม่ใช่แค่ตารางตัวเลข' }
+  },
+  read_file: {
+    th:'อ่านใบแจ้งหนี้ 3 ไฟล์', en:'Reading files', ico:'doc',
+    detail:{ summary:'อ่านไฟล์ที่คุณแนบไว้ และดึงบรรทัดที่มียอดเงินกับจำนวนหน่วย',
+      files:[{name:'บิล_ส.ค._2568.pdf',size:'412 KB',state:'อ่านแล้ว'},{name:'บิล_ก.ย._2568.pdf',size:'398 KB',state:'อ่านแล้ว'},{name:'บิล_ต.ค._2568.pdf',size:'430 KB',state:'อ่านแล้ว'}] }
+  },
+  run_code: {
+    th:'คำนวณผลต่างและหาค่าที่ผิดปกติ', en:'Calculating', ico:'terminal',
+    detail:{ summary:'คำนวณผลต่างรายเดือนและเทียบสัดส่วนกับอากาศเฉลี่ยของแต่ละเดือน',
+      code:'units = [412, 438, 512]\nfor i in range(1, len(units)):\n    d = units[i] - units[i-1]\n    print(months[i], d, round(d/units[i-1]*100, 1))',
+      output:'ก.ย. +26 (+6.3%)\nต.ค. +74 (+16.9%)  ← สูงสุด' }
+  },
+  web_search: {
+    th:'ค้นหาสาเหตุค่าไฟสูงขึ้น', en:'Searching the web', ico:'globe',
+    detail:{ summary:'หาสาเหตุที่เป็นไปได้ในช่วงเดือน ต.ค. 2568 แล้วเลือกเฉพาะแหล่งที่เชื่อถือได้',
+      queries:['สาเหตุค่าไฟสูงขึ้น ตุลาคม 2568','ค่า Ft ตุลาคม 2568 ปรับขึ้นเท่าไร'],
+      sources:[{mono:'ม', name:'การไฟฟ้านครหลวง', domain:'mea.co.th', snippet:'ค่า Ft รอบ ต.ค. 2568 ปรับขึ้น 0.12 บาทต่อหน่วยจากรอบก่อนหน้า'},
+               {mono:'พ', name:'สำนักงานนโยบายและแผนพลังงาน', domain:'eppo.go.th', snippet:'อุณหภูมิเฉลี่ยเดือน ต.ค. สูงกว่าค่าเฉลี่ย 5 ปีราว 1.4 องศา'}] }
+  },
+  write_file: {
+    th:'บันทึกสรุปเป็นไฟล์', en:'Saving a file', ico:'pen',
+    detail:{ summary:'เขียนสรุปเป็นไฟล์ Markdown ไว้ในโฟลเดอร์ Documents ของคุณ (ยังไม่แตะไฟล์อื่น)',
+      artifacts:[{name:'สรุปค่าไฟ-3-เดือน.md', size:'4 KB', where:'Documents/Agent'}],
+      needsApproval:true }
+  }
+};
+
+const SRC_MEA = {mono:'ม', name:'การไฟฟ้านครหลวง', domain:'mea.co.th', snippet:'ค่า Ft รอบ ต.ค. 2568 ปรับขึ้น 0.12 บาทต่อหน่วยจากรอบก่อนหน้า'};
+const SRC_EPPO = {mono:'พ', name:'สำนักงานนโยบายและแผนพลังงาน', domain:'eppo.go.th', snippet:'อุณหภูมิเฉลี่ยเดือน ต.ค. สูงกว่าค่าเฉลี่ย 5 ปีราว 1.4 องศา'};
+
+/* ชุดเหตุการณ์ 3 แบบ */
+function eventsRunning(){
+  return [
+    {id:'s1', seq:1, type:'thinking',  status:'succeeded', ...STEP_POOL.thinking,  dur:'1.2 วิ'},
+    {id:'s2', seq:2, type:'read_file', status:'succeeded', ...STEP_POOL.read_file, dur:'2.6 วิ', meta:['3 ไฟล์']},
+    {id:'s3', seq:3, type:'plan',      status:'succeeded', ...STEP_POOL.plan,      dur:'0.8 วิ'},
+    {id:'s4', seq:4, type:'run_code',  status:'succeeded', ...STEP_POOL.run_code,  dur:'3.1 วิ'},
+    {id:'s5', seq:5, type:'web_search',status:'running',   ...STEP_POOL.web_search,meta:['ค้น 2 คำค้น','พบ 8 แหล่ง']},
+    {id:'s6', seq:6, type:'write_file',status:'pending',   ...STEP_POOL.write_file, meta:['ยังไม่เริ่ม']}
+  ];
+}
+function eventsDone(){
+  const e = eventsRunning();
+  e[4].status='succeeded'; e[4].dur='9.4 วิ';
+  e[4].meta=['2 แหล่งที่เชื่อถือได้'];
+  e[5].status='succeeded'; e[5].dur='1.9 วิ';
+  e[5].meta=['1 ไฟล์'];
+  return e;
+}
+function eventsPartial(){
+  const e = eventsRunning();
+  e[4].status='failed'; e[4].dur='6.0 วิ';
+  e[4].meta=['ค้นเว็บไม่สำเร็จ'];
+  e[4].fail={reason:'สัญญาณอินเทอร์เน็ตขาดตอนระหว่างค้นหา', next:'ข้ามไปใช้ข้อมูลจากไฟล์ที่คุณแนบแทน'};
+  e[5].status='succeeded'; e[5].dur='2.1 วิ'; e[5].meta=['1 ไฟล์ · ใช้ข้อมูลจากไฟล์ในเครื่อง'];
+  return e;
 }
 
-function toggleFrameSize() {
-  const p = document.getElementById('phone');
-  const btn = document.getElementById('btn-size');
-  p.classList.toggle('android');
-  btn.textContent = p.classList.contains('android') ? 'Android 360' : 'iOS 390';
+/* ============================================================================
+   สถานะของหน้าจอทั้งหมด
+   ========================================================================== */
+const UI = { theme:'light', device:'ios', activity:'normal', accent:'indigo', state:'running', tl_open:true, timer:null, elapsed:24 };
+
+const QUICK = ['สรุปไฟล์ที่ฉันแนบไว้ล่าสุด','เครื่องร้อนผิดปกติ ช่วยหาสาเหตุ','เขียนอีเมลถึงการไฟฟ้าเรื่องค่าไฟสูง','จัดระเบียบไฟล์ในโฟลเดอร์ดาวน์โหลด'];
+
+/* ---------- ไอคอน ---------- */
+const SVG = {
+  check:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5 9.5 18 20 6.5"/></svg>',
+  dash:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 12h12"/></svg>',
+  x:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M7 7l10 10M17 7L7 17"/></svg>',
+  warn:'<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3 1.5 21h21L12 3Zm0 6.2a1 1 0 0 1 1 1v4a1 1 0 0 1-2 0v-4a1 1 0 0 1 1-1Zm0 8.4a1.15 1.15 0 1 1 0-2.3 1.15 1.15 0 0 1 0 2.3Z"/></svg>',
+  spark:'<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.6l1.9 5.3 5.3 1.9-5.3 1.9L12 17l-1.9-5.3L4.8 9.8l5.3-1.9L12 2.6Zm7 11.4 1 2.6 2.6 1-2.6 1-1 2.6-1-2.6-2.6-1 2.6-1 1-2.6Z"/></svg>',
+  list:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01"/></svg>',
+  doc:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z"/><path d="M14 3v5h5"/></svg>',
+  terminal:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 8 4 4-4 4M13 16h6"/></svg>',
+  globe:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.7 2.6 15.3 0 18M12 3c-2.6 2.7-2.6 15.3 0 18"/></svg>',
+  pen:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4l11-11-4-4L4 16v4Z"/><path d="m14 6 4 4"/></svg>',
+  clock:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/></svg>',
+  info:'<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 3.4a1.4 1.4 0 1 1 0 2.8 1.4 1.4 0 0 1 0-2.8Zm1.2 13.2h-2.4v-6.8h2.4v6.8Z"/></svg>',
+  copy:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M15.5 5.5A2.5 2.5 0 0 0 13 3H6.5A2.5 2.5 0 0 0 4 5.5V12a2.5 2.5 0 0 0 2.5 2.5"/></svg>',
+  refresh:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 0 0-13.7-5.3L4 8"/><path d="M4 4v4h4"/><path d="M4 13a8 8 0 0 0 13.7 5.3L20 16"/><path d="M20 20v-4h-4"/></svg>',
+  thumbU:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7 21V10l4.5-7.5a2.4 2.4 0 0 1 3.3 3.3L13.6 9H19a2 2 0 0 1 2 2.3l-1.2 7A2 2 0 0 1 17.8 20H7Z"/><path d="M7 10H4v11h3"/></svg>',
+  thumbD:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3v11l-4.5 7.5a2.4 2.4 0 0 1-3.3-3.3L10.4 15H5a2 2 0 0 1-2-2.3l1.2-7A2 2 0 0 1 6.2 4H17Z"/><path d="M17 14h3V3h-3"/></svg>',
+  share:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3m0 0L8 7m4-4 4 4"/><path d="M5 13v5a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3v-5"/></svg>',
+  arrow:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 6 6 6-6 6"/></svg>',
+  eye:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="3"/></svg>',
+  lock:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="4.5" y="10" width="15" height="11" rx="2.5"/><path d="M8 10V7.5a4 4 0 0 1 8 0V10"/></svg>'
+};
+function ico(type){ return SVG[STEP_POOL[type] ? STEP_POOL[type].ico : 'spark'] || SVG.spark; }
+function statusIcon(st){
+  if(st==='succeeded') return SVG.check;
+  if(st==='failed') return SVG.warn;
+  if(st==='skipped'||st==='cancelled') return SVG.dash;
+  if(st==='running') return SVG.clock;
+  return SVG.dash;
+}
+function statusWord(st){
+  return {pending:'รอคิว',running:'กำลังทำ',waiting_user:'รอคุณตอบ',succeeded:'สำเร็จ',failed:'ล้มเหลว',skipped:'ข้าม',cancelled:'ยกเลิก'}[st] || st;
+}
+function ariaStep(s, i, n){
+  return `ขั้นที่ ${i+1} จาก ${n}: ${s.th} สถานะ ${statusWord(s.status)}${s.dur ? ' ใช้เวลา '+s.dur : ''}`;
 }
 
-// Clean toggle logic
-function toggleTimelineClean(btn) {
-  const isExpanded = btn.getAttribute('aria-expanded') === 'true';
-  const tl = document.getElementById('timeline-b');
-  if (isExpanded) {
-    btn.setAttribute('aria-expanded', 'false');
-    tl.classList.add('collapsed');
-    btn.querySelector('.status-text .main').textContent = 'ทำงาน 6 ขั้นตอน · 42 วินาที';
-    btn.querySelector('.status-text .sub').textContent = 'แตะเพื่อดูรายละเอียด';
+/* ============================================================================
+   ตัวสร้างส่วนต่าง ๆ
+   ========================================================================== */
+function el(html){ const t=document.createElement('template'); t.innerHTML=html.trim(); return t.content; }
+function esc(s){ return String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+/* --- A: Live status line --- */
+const LIVE_PHRASES = [
+  {t:'กำลังค้นหาเว็บ · ขั้น 5 จาก 6', s:'ค้น “สาเหตุค่าไฟสูงขึ้น ตุลาคม 2568” · พบ 8 แหล่ง กำลังเลือกที่น่าเชื่อถือ'},
+  {t:'กำลังอ่านผลการค้นหา · ขั้น 5 จาก 6', s:'อ่านเนื้อหาจาก 2 แหล่งที่เชื่อถือได้'},
+  {t:'กำลังเตรียมสรุป · ขั้น 5 จาก 6', s:'เทียบตัวเลขกับไฟล์ที่คุณแนบไว้'}
+];
+function liveBar(){
+  const p = LIVE_PHRASES[0];
+  return el(`
+  <div class="livewrap">
+    <button class="livebar" id="livebar" aria-label="Agent กำลังทำงาน: ${esc(p.t)} — แตะเพื่อดูขั้นตอนทั้งหมด" onclick="toggleTimeline()">
+      <span class="pulse" aria-hidden="true"></span>
+      <span class="live-mid">
+        <span class="live-title" id="liveTitle">${esc(p.t)}</span>
+        <span class="live-sub" id="liveSub">${esc(p.s)}</span>
+      </span>
+      <span class="live-right">
+        <span class="live-time" id="liveTime">24 วิ</span>
+        ${SVG.arrow}
+      </span>
+    </button>
+    <div class="ribbon" aria-hidden="true">${[0,1,2,3,4,5].map(i=>`<i class="${i<4?'done':i===4?'active':''}"></i>`).join('')}</div>
+  </div>
+  <div class="sr" id="liveSR" role="status" aria-live="polite"></div>`);
+}
+
+/* --- B: Activity timeline --- */
+function timeline(evts, opts){
+  opts = opts || {};
+  const n = evts.length;
+  const done = evts.filter(e=>e.status==='succeeded').length;
+  const failed = evts.filter(e=>e.status==='failed').length;
+  const total = opts.total || '42 วินาที';
+  const open = UI.tl_open && UI.activity !== 'less';
+  const head = UI.activity === 'less'
+    ? `<span class="tl-title">${failed ? `เสร็จแล้ว · ${failed} ขั้นล้มเหลว` : 'ทำงานเสร็จแล้ว'}</span>
+       <span class="tl-meta">· ${total}</span>`
+    : `<span class="tl-title">${done===n ? 'ทำงาน' : 'กำลังทำงาน'} ${n} ขั้นตอน</span>
+       <span class="tl-meta">· ${total}${failed?` · ${failed} ขั้นผิดพลาด`:''}</span>`;
+
+  const steps = evts.map((s,i)=>`
+    <li class="step" data-status="${s.status}" tabindex="0" role="button"
+        aria-label="${esc(ariaStep(s,i,n))} — แตะเพื่อดูรายละเอียด"
+        onclick="openSheet('${s.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openSheet('${s.id}')}">
+      <div class="step-rail"><span class="step-ico" aria-hidden="true">${statusIcon(s.status)}</span></div>
+      <div class="step-main">
+        <div class="step-title">${esc(s.th)}</div>
+        <div class="step-meta">
+          ${s.status==='running' ? '<span class="chip run">กำลังทำ</span>' : ''}
+          ${s.status==='failed' ? '<span class="chip err">ล้มเหลว</span>' : ''}
+          ${s.status==='skipped' ? '<span class="chip">ข้ามไป</span>' : ''}
+          ${s.status==='pending' ? '<span class="chip">รอคิว</span>' : ''}
+          ${(s.meta||[]).map(m=>`<span>${esc(m)}</span>`).join('')}
+          ${s.fail ? `<span>${esc(s.fail.next)}</span>` : ''}
+        </span>
+        ${s.type==='plan' && s.detail && s.detail.plan && (UI.activity!=='less') ? `
+          <ul class="plan">
+            ${s.detail.plan.map((p,idx)=>`<li class="${idx<3?'done':''}"><span class="mark" aria-hidden="true">${idx<3?SVG.check:SVG.dash}</span><span>${esc(p)}</span></li>`).join('')}
+          </ul>` : ''}
+      </span>
+      <span class="step-right">${s.dur||''}</span>
+    </li>`).join('');
+
+  return el(`
+  <div class="tl" data-open="${open}" id="tl">
+    <button class="tl-head" aria-expanded="${open}" aria-controls="tlbody" onclick="toggleTimeline()">
+      <span class="ribbon" style="width:54px;flex:0 0 auto;margin-top:0" aria-hidden="true">
+        ${evts.map(s=>`<i class="${s.status==='succeeded'?'done':s.status==='running'?'active':''}"></i>`).join('')}
+      </span>
+      <span class="spacer"></span>
+      ${head}
+      <span class="chev" aria-hidden="true">${SVG.arrow}</span>
+    </button>
+    <div class="tl-body" id="tlbody">
+      <ul class="steps">${steps}</ul>
+      <p class="small muted" style="margin:8px 0 0">แตะขั้นตอนใดก็ได้เพื่อดูรายละเอียด · ระบบจะพับให้อัตโนมัติเมื่อจบงาน</p>
+    </div>
+  </div>`);
+}
+
+/* --- คำตอบสำเร็จรูป --- */
+function answerHTML(long){
+  const extra = long ? `
+    <h3>รายละเอียดเพิ่มเติม</h3>
+    <p>เดือนตุลาคมใช้ไฟ 512 หน่วย เพิ่มจากเดือนกันยายน 74 หน่วย คิดเป็นร้อยละ 16.9 เมื่อเทียบย้อนหลัง 6 เดือน ถือเป็นการเพิ่มขึ้นมากที่สุดในรอบปี และมากกว่าค่าเฉลี่ยการเพิ่มขึ้นของช่วงเดียวกันในปีก่อนหน้า</p>
+    <p>เมื่อแยกตามช่วงเวลา พบว่าการใช้ไฟช่วง 18:00–23:00 สูงขึ้นชัดเจน ซึ่งเป็นช่วงที่แอร์ทำงานหนักที่สุด และตรงกับช่วงที่อุณหภูมิเฉลี่ยรายวันสูงกว่าปกติ</p>` : '';
+  return `
+  <h3>สรุปค่าไฟ 3 เดือนล่าสุด</h3>
+  <table class="tbl">
+    <thead><tr><th>เดือน</th><th style="text-align:right">หน่วย (kWh)</th><th style="text-align:right">ยอดชำระ</th></tr></thead>
+    <tbody>
+      <tr><td>ส.ค. 2568</td><td class="n">412</td><td class="n">1,864.50</td></tr>
+      <tr><td>ก.ย. 2568</td><td class="n">438</td><td class="n">1,977.20</td></tr>
+      <tr><td>ต.ค. 2568</td><td class="n">512</td><td class="n">2,296.10</td></tr>
+    </tbody>
+  </table>
+  <p>เดือน <b>ต.ค. 2568 ใช้ไฟมากที่สุด</b> (512 หน่วย) เพิ่มจากเดือนก่อน 74 หน่วย หรือร้อยละ 16.9 <button class="cite" onclick="openSource(0)" aria-label="ดูแหล่งที่มา 1">1</button></p>
+  <p>สาเหตุที่น่าจะเป็น</p>
+  <ul>
+    <li>อุณหภูมิเฉลี่ยเดือน ต.ค. สูงกว่าค่าเฉลี่ย 5 ปีราว 1.4 องศา ทำให้แอร์ทำงานนานขึ้น <button class="cite" onclick="openSource(1)" aria-label="ดูแหล่งที่มา 2">2</button></li>
+    <li>ค่า Ft ปรับขึ้น 0.12 บาทต่อหน่วย เทียบกับรอบก่อนหน้า <button class="cite" onclick="openSource(0)" aria-label="ดูแหล่งที่มา 1">1</button></li>
+  </ul>
+  ${extra}
+  <div class="note">
+    ${SVG.info}
+    <div><b>ที่มาของตัวเลข:</b> จำนวนหน่วยและยอดเงินอ่านจากใบแจ้งหนี้ที่คุณแนบทั้ง 3 ไฟล์ ส่วนสาเหตุอ้างอิงจากเว็บไซต์การไฟฟ้าและหน่วยงานรัฐ — ควรเทียบกับใบแจ้งหนี้ฉบับจริงก่อนนำไปใช้ยื่นเรื่อง</div>
+  </div>
+  <div class="sources" aria-label="แหล่งข้อมูล">
+    <button class="src" onclick="openSource(0)"><span class="fav">ม</span><span><span class="src-t">การไฟฟ้านครหลวง</span><br><span class="src-d">mea.co.th</span></span></button>
+    <button class="src" onclick="openSource(1)"><span class="fav">พ</span><span><span class="src-t">สนพ. พลังงาน</span><br><span class="src-d">eppo.go.th</span></span></button>
+    <button class="src" onclick="toast('สาธิต: เปิดไฟล์ที่ Agent สร้าง')"><span class="fav">ไฟ</span><span><span class="src-t">สรุปค่าไฟ-3-เดือน.md</span><br><span class="src-d">ไฟล์ที่ Agent สร้าง · 4 KB</span></span></button>
+  </div>`;
+}
+function actionsRow(){
+  return `<div class="actions">
+    <button class="act" onclick="toast('คัดลอกคำตอบแล้ว')">${SVG.copy} คัดลอก</button>
+    <button class="act" onclick="toast('สาธิต: สร้างคำตอบใหม่อีกครั้ง')">${SVG.refresh} สร้างใหม่</button>
+    <button class="act only-icon" aria-label="คำตอบนี้มีประโยชน์" aria-pressed="false" onclick="press(this,'ขอบคุณสำหรับความคิดเห็น')">${SVG.thumbU}</button>
+    <button class="act only-icon" aria-label="คำตอบนี้ยังไม่ถูกต้อง" onclick="toast('ขอบคุณ จะนำไปปรับปรุง — เลือกเหตุผลได้ในเวอร์ชันจริง')">${SVG.thumbD}</button>
+    <button class="act only-icon" aria-label="แชร์หรือส่งออกคำตอบนี้" onclick="toast('สาธิต: แชร์/ส่งออก (เลือกได้ว่าจะรวมขั้นตอนกิจกรรมหรือไม่)')">${SVG.share}</button>
+  </div>`;
+}
+function artifactRow(){
+  return `<div class="file">
+    <span class="file-ico">${SVG.doc}</span>
+    <span style="flex:1 1 auto;min-width:0">
+      <span class="file-name">สรุปค่าไฟ-3-เดือน.md</span><br>
+      <span class="file-meta">ไฟล์ที่ Agent สร้าง · 4 KB · บันทึกใน Documents/Agent</span>
+    </span>
+    <button class="btn sm" onclick="toast('สาธิต: เปิดไฟล์')">เปิด</button>
+    <button class="btn sm" onclick="toast('สาธิต: แชร์ไฟล์')">แชร์</button>
+  </div>`;
+}
+
+/* ============================================================================
+   เรนเดอร์หน้าจอตามสถานะ
+   ========================================================================== */
+function render(){
+  const chat = document.getElementById('chat');
+  chat.innerHTML = '';
+  const q = document.getElementById('qchips');
+  const liveSlot = document.getElementById('liveSlot');
+  const fab = document.getElementById('fab');
+  const st = UI.state;
+
+  // สถานะของ Agent ที่หัวจอ
+  const stMap = {
+    empty:['idle','พร้อมทำงาน · ยังไม่มีงานค้าง'],
+    thinking:['working','กำลังคิด'],
+    running:['working','กำลังทำงาน · ขั้น 5 จาก 6'],
+    done:['idle','ทำงานเสร็จแล้ว · ใช้เวลา 42 วินาที'],
+    long:['idle','ทำงานเสร็จแล้ว · ใช้เวลา 42 วินาที'],
+    partial:['waiting','มี 1 ขั้นที่ต้องให้คุณตัดสินใจ']
+  };
+  document.getElementById('agentState').dataset.state = stMap[st][0];
+  document.getElementById('agentStateText').textContent = stMap[st][1];
+
+  // ชิปคำสั่งด่วน: แสดงเฉพาะตอนว่าง/เสร็จ
+  q.innerHTML = (st==='empty'||st==='done'||st==='long')
+    ? QUICK.map(t=>`<button class="qchip" onclick="toast('สาธิต: ส่ง “${esc(t)}”')">${esc(t)}</button>`).join('')
+    : '';
+  q.style.display = q.innerHTML ? 'flex' : 'none';
+
+  // แถบสถานะสด
+  liveSlot.innerHTML = '';
+  if (st==='running' || st==='thinking') {
+    liveSlot.appendChild(liveBar());
+    liveSlot.style.paddingBottom = '10px';
   } else {
-    btn.setAttribute('aria-expanded', 'true');
-    tl.classList.remove('collapsed');
-    btn.querySelector('.status-text .main').textContent = 'กำลังเลือกที่พักที่เหมาะสมกับงบประมาณ';
-    btn.querySelector('.status-text .sub').textContent = 'ค้นหาที่พัก · 6 แหล่งข้อมูล · 42 วินาที';
+    liveSlot.style.paddingBottom = '0';
   }
-}
 
-// Replace onclick handler above with this clean version
-function startConversation(text) {
-  document.getElementById('empty-state').style.display = 'none';
-  document.getElementById('conversation').style.display = 'block';
-  document.getElementById('msg-input').value = text;
-  setTimeout(() => scrollToBottom(), 300);
-}
+  // ปุ่มส่ง/หยุด
+  const run = (st==='running'||st==='thinking');
+  const sendBtn = document.getElementById('sendBtn');
+  sendBtn.className = 'send' + (run ? ' stop' : '');
+  sendBtn.setAttribute('aria-label', run ? 'หยุดการทำงานของ Agent' : 'ส่งข้อความ');
+  document.getElementById('sendIcon').innerHTML = run
+    ? '<rect x="7" y="7" width="10" height="10" rx="2"/>'
+    : '<path d="M4 11.5 20 4l-4 16-4-6.5-8-2Z"/>';
 
-function sendMessage(e) {
-  e.preventDefault();
-  const input = document.getElementById('msg-input');
-  const text = input.value.trim();
-  if (!text) return;
-  // Show user bubble (simulated)
-  const group = document.createElement('section');
-  group.className = 'message-group';
-  group.innerHTML = '<div style="display:flex;justify-content:flex-end;"><div class="user-bubble" role="region">' + escapeHtml(text) + '</div></div>';
-  document.getElementById('conversation').appendChild(group);
-  input.value = '';
-  input.style.height = 'auto';
-  scrollToBottom();
-  // Show temporary agent response after 1.5s
-  setTimeout(() => {
-    const agent = document.createElement('section');
-    agent.className = 'message-group';
-    agent.innerHTML = '<article class="agent-document" aria-label="คำตอบจาก Agent"><h3>กำลังประมวลผล</h3><p>Agent รับคำขอแล้วและกำลังดำเนินการ...</p></article>';
-    document.getElementById('conversation').appendChild(agent);
-    scrollToBottom();
-  }, 1200);
-}
-
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
-
-function openDetail() {
-  const overlay = document.getElementById('detail-overlay');
-  overlay.classList.add('open');
-  overlay.setAttribute('aria-hidden', 'false');
-  document.body.style.overflow = 'hidden';
-}
-function closeDetail() {
-  const overlay = document.getElementById('detail-overlay');
-  overlay.classList.remove('open');
-  overlay.setAttribute('aria-hidden', 'true');
-  document.body.style.overflow = '';
-}
-function retryStep(btn) {
-  btn.textContent = 'กำลังลองใหม่...';
-  setTimeout(() => { btn.textContent = 'ลองใหม่ขั้นนี้'; closeDetail(); }, 1500);
-}
-
-function addAttachment() {
-  // Show a temporary chip
-  const wrap = document.querySelector('.input-bar-wrap');
-  const existing = wrap.querySelector('.attachment-preview');
-  if (!existing) {
-    const div = document.createElement('div');
-    div.className = 'attachment-preview';
-    div.innerHTML = '<span class="chip-file">FILE trip-plan.pdf <span aria-label="ลบ" onclick="this.parentElement.remove()" style="cursor:pointer;color:var(--text-muted);">×</span></span>';
-    wrap.insertBefore(div, wrap.querySelector('.input-bar'));
+  // ---------- เนื้อหาในแชท ----------
+  if (st==='empty') {
+    chat.appendChild(el(`
+      <div class="hello">
+        <h2>สวัสดีครับ<br>จะให้ช่วยทำอะไรดี</h2>
+        <p>บอกรายละเอียดเป็นภาษาคนได้เลย ผมจะบอกทุกขั้นตอนว่ากำลังทำอะไร และจะขออนุญาตก่อนแก้หรือลบไฟล์ทุกครั้ง</p>
+      </div>`));
+    chat.appendChild(el(`
+      <div class="caps">
+        <div class="cap"><b>อ่านและสรุปไฟล์</b><span>PDF · รูป · ข้อความ ในเครื่องคุณ</span></div>
+        <div class="cap"><b>ค้นข้อมูลจากเว็บ</b><span>พร้อมบอกแหล่งที่มาให้ตรวจสอบ</span></div>
+        <div class="cap"><b>สร้างและแก้ไฟล์ให้</b><span>ทำเสร็จแล้วย้อนกลับได้ในระยะหนึ่ง</span></div>
+        <div class="cap"><b>ทำงานยาว ๆ ให้</b><span>ปิดแอปแล้วกลับมาดูผลได้</span></div>
+      </div>`));
+    chat.appendChild(el(`<div class="safe-strip">${SVG.lock}<span>ทุกการกระทำที่เปลี่ยนเครื่องคุณ (เขียน ลบ ย้ายไฟล์) ต้องได้รับการอนุญาตจากคุณก่อนเสมอ</span></div>`));
+    fab.classList.remove('show');
   }
+
+  if (st==='thinking') {
+    chat.appendChild(el(`<div class="bubble">ช่วยสรุปค่าไฟบ้านผม 3 เดือนล่าสุดจากไฟล์ที่แนบให้ แล้วบอกว่าเดือนไหนใช้ไฟเยอะสุด พร้อมสาเหตุที่น่าจะเป็นครับ</div>`));
+    chat.appendChild(el(`
+      <div class="turn turn-agent">
+        <div class="agent-text">
+          <p class="muted">รับทราบครับ กำลังดูก่อนว่าต้องอ่านไฟล์ไหนบ้าง</p>
+          <div class="tl always" data-open="true">
+            <div class="tl-head" style="cursor:default" role="status" aria-live="polite">
+              <span class="ribbon" style="width:54px;flex:0 0 auto;margin-top:0" aria-hidden="true"><i class="active"></i><i></i><i></i><i></i><i></i><i></i></span>
+              <span class="spacer"></span>
+              <span class="tl-title">กำลังคิด</span>
+              <span class="tl-meta">· 0 วินาที</span>
+            </div>
+            <div class="tl-body">
+              <p class="small muted shimmer" style="margin:0">กำลังอ่านคำขอของคุณและตรวจไฟล์ที่แนบไว้ 3 ไฟล์…</p>
+              <p class="small muted" style="margin:8px 0 0">ขั้นนี้จะไม่แสดงให้เห็นเป็นข้อความยาว ๆ โดยค่าเริ่มต้น — กดดูได้ในโหมด "ละเอียด"</p>
+            </div>
+          </div>
+        </div>
+      </div>`));
+    fab.classList.remove('show');
+  }
+
+  if (st==='running' || st==='done' || st==='partial' || st==='long') {
+    chat.appendChild(el(`<div class="bubble">ช่วยสรุปค่าไฟบ้านผม 3 เดือนล่าสุดจากไฟล์ที่แนบให้ แล้วบอกว่าเดือนไหนใช้ไฟเยอะสุด พร้อมสาเหตุที่น่าจะเป็นครับ</div>`));
+
+    const evts = st==='running' ? eventsRunning() : st==='partial' ? eventsPartial() : eventsDone();
+    const turn = el(`<div class="turn turn-agent"></div>`);
+
+    if (st==='running') {
+      turn.appendChild(el(`<div class="agent-text"><p>ได้ครับ ผมจะเริ่มจากอ่านใบแจ้งหนี้ทั้ง 3 ไฟล์ แล้วดึงตัวเลขออกมาเทียบกัน</p></div>`));
+      turn.appendChild(timeline(evts, {total:'24 วินาที (ยังทำงานอยู่)'}));
+      turn.appendChild(el(`<div class="agent-text"><p class="muted small">ระหว่างนี้พิมพ์แทรกได้เลยถ้าอยากปรับอะไร — ผมจะปรับแผนให้ทันที</p></div>`));
+    }
+
+    if (st==='done' || st==='long') {
+      turn.appendChild(timeline(evts, {total:'42 วินาที'}));
+      const wrap = el(`<div class="agent-text ${st==='long'?'clamp':''}" id="answerWrap">${answerHTML(st==='long')}</div>`);
+      turn.appendChild(wrap);
+      if (st==='long') {
+        turn.appendChild(el(`<button class="btn wide more" id="moreBtn" onclick="expandAnswer()">แสดงทั้งหมด (อีก 24 บรรทัด)</button>`));
+      }
+      turn.appendChild(el(artifactRow()));
+      turn.appendChild(el(actionsRow()));
+    }
+
+    if (st==='partial') {
+      turn.appendChild(el(`<div class="agent-text"><p>ผมอ่านไฟล์ครบทั้ง 3 ไฟล์และคำนวณให้แล้ว แต่ตอนค้นเว็บหาสาเหตุ อินเทอร์เน็ตขาดตอนจึงดึงข้อมูลจากเว็บไม่ได้</p></div>`));
+      turn.appendChild(timeline(evts, {total:'38 วินาที · สำเร็จบางส่วน'}));
+      turn.appendChild(el(`
+        <div class="banner partial">
+          <span style="color:var(--warning);flex:0 0 auto;margin-top:2px">${SVG.warn}</span>
+          <span class="col">
+            <b>ได้ผลลัพธ์แล้ว แต่ยังขาดส่วนอ้างอิงจากเว็บ</b>
+            <div class="small muted" style="margin-top:2px">สาเหตุ: สัญญาณอินเทอร์เน็ตขาดตอนระหว่างค้นหา · ตัวเลขจากไฟล์ของคุณครบถ้วนแล้ว</div>
+            <span class="row">
+              <button class="btn sm primary" onclick="setState('running');toast('สาธิต: ลองใหม่เฉพาะขั้นที่ล้มเหลว')">ลองใหม่ขั้นที่ล้มเหลว</button>
+              <button class="btn sm" onclick="openSheet('s4')">ดูสาเหตุ</button>
+              <button class="btn sm" onclick="toast('สาธิต: ใช้ผลลัพธ์เท่าที่ได้')">ใช้ผลลัพธ์นี้</button>
+            </span>
+          </span>
+        </div>`));
+      turn.appendChild(el(`<div class="agent-text" style="margin-top:4px">${answerHTML(false).replace('<h3>สรุปค่าไฟ 3 เดือนล่าสุด</h3>','<h3>สรุปจากไฟล์ของคุณ (ยังไม่มีแหล่งอ้างอิงจากเว็บ)</h3>')}</div>`));
+      turn.appendChild(el(actionsRow()));
+    }
+
+    chat.appendChild(turn);
+    fab.classList.toggle('show', st==='long');
+    if (st==='long') setTimeout(scrollMid, 30); else setTimeout(scrollDown, 30);
+  }
+
+  restartLiveTimer();
 }
 
-function toggleMic() {
-  const btn = document.querySelector('.icon-btn[aria-label="ไมโครโฟน"]');
-  btn.style.color = btn.style.color === 'var(--accent-deep)' ? '' : 'var(--accent-deep)';
+/* ============================================================================
+   การโต้ตอบ
+   ========================================================================== */
+function setTheme(v){
+  UI.theme=v; document.documentElement.dataset.theme=v;
+  document.getElementById('tLight').setAttribute('aria-pressed', String(v==='light'));
+  document.getElementById('tDark').setAttribute('aria-pressed', String(v==='dark'));
 }
-
-function scrollToBottom() {
-  const scroll = document.getElementById('chat-scroll');
-  scroll.scrollTo({ top: scroll.scrollHeight, behavior: 'smooth' });
-  document.getElementById('scroll-btn').classList.remove('visible');
+function setDevice(v){
+  UI.device=v; document.getElementById('device').dataset.device=v;
+  document.getElementById('d14').setAttribute('aria-pressed', String(v==='ios'));
+  document.getElementById('d7').setAttribute('aria-pressed', String(v==='i7'));
 }
-
-// Show/hide scroll-to-bottom based on scroll position
-const scrollArea = document.getElementById('chat-scroll');
-scrollArea.addEventListener('scroll', () => {
-  const btn = document.getElementById('scroll-btn');
-  if (scrollArea.scrollTop + scrollArea.clientHeight < scrollArea.scrollHeight - 120) {
-    btn.classList.add('visible');
+function setActivity(v){
+  UI.activity=v; document.documentElement.dataset.activity=v;
+  const ids={less:'aLess',normal:'aNormal',detail:'aDetail'};
+  Object.keys(ids).forEach(k=>document.getElementById(ids[k]).setAttribute('aria-pressed', String(k===v)));
+  if (v==='detail') UI.tl_open = true;
+  render();
+  toast(v==='less' ? 'ระดับน้อย: ซ่อนไทม์ไลน์ แสดงแค่ผลลัพธ์กับข้อผิดพลาด'
+      : v==='detail' ? 'ระดับละเอียด: กางขั้นตอนและแสดงรายละเอียดเทคนิค'
+      : 'ระดับปกติ: สรุปบรรทัดเดียว กดกางได้');
+}
+function setAccent(v){
+  UI.accent=v; document.documentElement.dataset.accent=v;
+  const ids={indigo:'acIndigo',teal:'acTeal',plum:'acPlum'};
+  Object.keys(ids).forEach(k=>document.getElementById(ids[k]).setAttribute('aria-pressed', String(k===v)));
+}
+function setMotion(v){
+  UI.motion=v; document.documentElement.dataset.motion=v;
+  document.getElementById('mOn').setAttribute('aria-pressed', String(v==='on'));
+  document.getElementById('mOff').setAttribute('aria-pressed', String(v==='off'));
+}
+function setState(v){
+  UI.state=v;
+  const ids={empty:'sEmpty',thinking:'sThink',running:'sRun',done:'sDone',long:'sLong',partial:'sPart'};
+  Object.keys(ids).forEach(k=>document.getElementById(ids[k]).setAttribute('aria-pressed', String(k===v)));
+  UI.tl_open = (UI.activity!=='less');
+  closeSheet();
+  render();
+}
+function toggleTimeline(){
+  UI.tl_open = !UI.tl_open;
+  const tl = document.getElementById('tl');
+  if (tl){
+    tl.dataset.open = String(UI.tl_open);
+    tl.querySelector('.tl-head').setAttribute('aria-expanded', String(UI.tl_open));
+    toast(UI.tl_open ? 'กางขั้นตอนทั้งหมด' : 'พับขั้นตอนเป็นบรรทัดเดียว');
   } else {
-    btn.classList.remove('visible');
+    toast('ยังไม่มีขั้นตอนให้ดูในสถานะนี้');
   }
+}
+function expandAnswer(){
+  const w = document.getElementById('answerWrap');
+  w.classList.add('open');
+  document.getElementById('moreBtn').remove();
+  toast('แสดงคำตอบทั้งหมดแล้ว');
+}
+function scrollDown(){
+  const c = document.getElementById('chat');
+  c.scrollTop = c.scrollHeight;
+  document.getElementById('fab').classList.remove('show');
+}
+function scrollMid(){ document.getElementById('chat').scrollTop = 60; }
+function press(btn, msg){
+  const on = btn.getAttribute('aria-pressed')==='true';
+  btn.setAttribute('aria-pressed', String(!on));
+  toast(msg);
+}
+
+/* --- Timer ของแถบสถานะสด (สาธิตการเคลื่อนไหว) --- */
+function restartLiveTimer(){
+  if (UI.timer) { clearInterval(UI.timer); UI.timer=null; }
+  if (UI.state!=='running' && UI.state!=='thinking') return;
+  let i = 0;
+  UI.timer = setInterval(()=>{
+    const t = document.getElementById('liveTitle');
+    if (!t) { clearInterval(UI.timer); return; }
+    i = (i+1) % LIVE_PHRASES.length;
+    t.style.opacity = 0;
+    setTimeout(()=>{
+      t.textContent = LIVE_PHRASES[i].t;
+      const s = document.getElementById('liveSub');
+      if (s) s.textContent = LIVE_PHRASES[i].s;
+      document.getElementById('liveSR').textContent = LIVE_PHRASES[i].t + '. ' + LIVE_PHRASES[i].s;
+      t.style.opacity = 1;
+    }, 240);
+    UI.elapsed++;
+    const timeEl = document.getElementById('liveTime');
+    if (timeEl) timeEl.textContent = UI.elapsed + ' วิ';
+  }, 2800);
+}
+
+/* --- C: Detail Sheet --- */
+let CURRENT_SHEET = null;
+function openSource(idx){
+  const s = idx===0 ? SRC_MEA : SRC_EPPO;
+  openSheet(null, s);
+}
+function openSheet(stepId, forcedSource){
+  let e = null;
+  if (stepId){
+    const all = eventsDone().concat(eventsRunning(), eventsPartial());
+    e = all.find(x=>x.id===stepId) || null;
+  }
+  let html = '', title = '', sub = '', foot = '';
+  if (forcedSource){
+    title = forcedSource.name; sub = forcedSource.domain;
+    html = `
+      <div class="sec"><h4>สรุปเนื้อหา</h4><p class="small" style="margin:0;line-height:1.65">${esc(forcedSource.snippet)}</p></div>
+      <div class="sec"><h4>ทำไมถึงเลือกแหล่งนี้</h4><p class="small muted" style="margin:0;line-height:1.65">เป็นเว็บไซต์หน่วยงานราชการ/รัฐวิสาหกิจที่รับผิดชอบข้อมูลโดยตรง ไม่ใช่เว็บบทความทั่วไป</p></div>
+      <div class="sec"><h4>ช่วงเวลาที่ดึงข้อมูล</h4><div class="kv"><span>ดึงเมื่อ</span><span>28 ก.ย. 2568 · 14:12</span></div></div>`;
+    foot = `<button class="btn wide" onclick="toast('สาธิต: เปิดหน้าเว็บเต็ม')">เปิดหน้าเว็บเต็ม</button>
+            <button class="btn wide" onclick="toast('คัดลอกลิงก์แล้ว')">คัดลอกลิงก์</button>`;
+  } else if (e){
+    title = e.th; sub = `${statusWord(e.status)}${e.dur ? ' · '+e.dur : ''}`;
+    html = `<div class="sec"><h4>สิ่งที่ทำในขั้นนี้</h4><p class="small" style="margin:0;line-height:1.65">${esc(e.detail?e.detail.summary:'')}</p></div>`;
+    if (e.detail && e.detail.queries){
+      html += `<div class="sec"><h4>คำค้นที่ใช้</h4><div style="display:flex;gap:6px;flex-wrap:wrap">${e.detail.queries.map(q=>`<span class="chip">${esc(q)}</span>`).join('')}</div></div>`;
+    }
+    if (e.detail && e.detail.sources){
+      html += `<div class="sec"><h4>แหล่งข้อมูลที่อ่าน (${e.detail.sources.length})</h4>`;
+      e.detail.sources.forEach(s=>{
+        html += `<button class="src" style="width:100%;margin-bottom:8px" onclick="openSource(${s===SRC_MEA?0:1})">
+          <span class="fav">${esc(s.mono)}</span><span style="min-width:0"><span class="src-t">${esc(s.name)}</span><br><span class="src-d">${esc(s.domain)}</span></span></button>`;
+      });
+      html += `</div>`;
+    }
+    if (e.detail && e.detail.files){
+      html += `<div class="sec"><h4>ไฟล์ที่อ่าน (${e.detail.files.length})</h4>`;
+      e.detail.files.forEach(f=>{
+        html += `<div class="kv"><span>${esc(f.name)} · ${esc(f.size)}</span><span>${esc(f.state)}</span></div>`;
+      });
+      html += `</div>`;
+    }
+    if (e.detail && e.detail.artifacts){
+      html += `<div class="sec"><h4>ไฟล์ที่สร้าง</h4>`;
+      e.detail.artifacts.forEach(f=>{
+        html += `<div class="kv"><span>${esc(f.name)} · ${esc(f.size)}</span><span>${esc(f.where)}</span></div>`;
+      });
+      html += `</div>`;
+    }
+    if (e.status==='failed'){
+      html += `<div class="sec"><h4>สาเหตุ</h4>
+        <div class="banner partial"><span style="color:var(--warning)">${SVG.warn}</span>
+        <span class="col"><b>${esc(e.fail.reason)}</b><div class="small muted" style="margin-top:2px">${esc(e.fail.next)}</div></span></div></div>`;
+    }
+    if (e.detail && e.detail.code){
+      if (UI.activity==='detail'){
+        html += `<div class="sec"><h4>คำสั่งที่รันและผลลัพธ์</h4>
+          <div class="code">${esc(e.detail.code)}</div>
+          <div class="code" style="margin-top:8px">${esc(e.detail.output)}</div></div>`;
+      } else {
+        html += `<div class="sec"><details class="tech"><summary>รายละเอียดเทคนิค (คำสั่งและผลลัพธ์)</summary>
+          <div class="code" style="margin-top:8px">${esc(e.detail.code)}</div>
+          <div class="code" style="margin-top:8px">${esc(e.detail.output)}</div></details></div>`;
+      }
+    }
+    if (e.detail && e.detail.needsApproval){
+      html += `<div class="sec"><h4>ต้องขออนุญาต</h4><div class="banner"><span style="color:var(--accent-ink)">${SVG.lock}</span>
+        <span class="col"><b>ขั้นนี้เขียนไฟล์ใหม่ในเครื่องคุณ</b><div class="small muted" style="margin-top:2px">ขั้นตอนขออนุญาตแบบเต็มจะอยู่ในเฟส 2</div></span></div></div>`;
+    }
+    foot = `<button class="btn wide" onclick="toast('คัดลอกผลลัพธ์ของขั้นนี้แล้ว')">คัดลอกผลลัพธ์</button>
+            ${e.status!=='running' ? `<button class="btn wide" onclick="toast('สาธิต: ลองใหม่เฉพาะขั้นนี้')">ลองใหม่ขั้นนี้</button>` : ''}
+            <button class="btn" onclick="closeSheet()">ปิด</button>`;
+  }
+  CURRENT_SHEET = stepId;
+  document.getElementById('sheetTitle').textContent = title;
+  document.getElementById('sheetSub').textContent = sub;
+  document.getElementById('sheetBody').innerHTML = html;
+  document.getElementById('sheetFoot').innerHTML = foot;
+  document.getElementById('sheet').classList.add('show');
+  document.getElementById('scrim').classList.add('show');
+}
+function closeSheet(){
+  document.getElementById('sheet').classList.remove('show');
+  document.getElementById('scrim').classList.remove('show');
+}
+
+/* --- Toast --- */
+let toastT = null;
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastT); toastT = setTimeout(()=>t.classList.remove('show'), 2200);
+}
+function sendTap(){
+  const run = (UI.state==='running'||UI.state==='thinking');
+  if (run){
+    toast('หยุดแล้ว · งานที่ทำค้างไว้จะถูกเก็บไว้ ทำต่อจากจุดเดิมได้');
+    UI.state = 'partial'; render();
+  } else {
+    UI.state='thinking'; render();
+    toast('สาธิต: ส่งข้อความแล้ว');
+  }
+}
+
+/* --- ช่องพิมพ์ขยายได้ --- */
+document.getElementById('inputbox').addEventListener('input', function(){
+  this.style.height = 'auto';
+  this.style.height = Math.min(this.scrollHeight, 112) + 'px';
 });
 
-// Replace toggleTimeline onclick in HTML with clean function
-// Update HTML onclick attributes after load
-window.addEventListener('DOMContentLoaded', () => {
-  document.querySelector('.live-status-line').setAttribute('onclick', 'toggleTimelineClean(this)');
-  // Also fix timeline header onclick to use clean toggle
-  const header = document.querySelector('.timeline-header');
-  header.setAttribute('onclick', 'toggleTimelineClean(document.querySelector(".live-status-line"))');
-});
+/* --- เริ่มต้น --- */
+render();
 </script>
-
 </body>
 </html>

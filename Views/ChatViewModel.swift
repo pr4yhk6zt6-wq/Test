@@ -129,8 +129,13 @@ final class ChatViewModel: ObservableObject {
         let text = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
         let attachments = pendingAttachments
         guard !text.isEmpty || !attachments.isEmpty else { return }
-        guard !isBusy else {
-            lastNotice = "กำลังทำงานอยู่ — กดปุ่มหยุดก่อนส่งข้อความใหม่"
+        if isBusy {
+            // ดีไซน์ v2: พิมพ์ได้เสมอ — ข้อความระหว่าง Agent ทำงานจะเข้าคิวและส่งต่อเมื่อจบงานนี้
+            if !attachments.isEmpty {
+                lastNotice = "ไฟล์แนบส่งระหว่าง Agent ทำงานไม่ได้ — รอให้งานนี้จบก่อน แล้วแนบพร้อมข้อความได้เลย"
+                return
+            }
+            queueMessage(text)
             return
         }
         guard let credentials = resolveCredentials() else { return }
@@ -415,6 +420,7 @@ final class ChatViewModel: ObservableObject {
         resetVisibleMessages()
         errorMessage = nil
         lastNotice = messages.isEmpty ? "เปิดห้อง \(room.name) แล้ว" : "เปิดห้อง \(room.name) — \(messages.count) ข้อความ"
+        refreshQueue()
     }
 
     private func saveRooms() {
@@ -522,12 +528,81 @@ final class ChatViewModel: ObservableObject {
 
     // MARK: - ประมวลผล event จาก engine
 
+    /// จุดเชื่อมสำหรับ UI ใหม่ (ดีไซน์ v2): รับทุกเหตุการณ์ของ engine เพื่อแสดงไทม์ไลน์
+    /// เป็นการ "อ่าน" เท่านั้น — ไม่เปลี่ยนพฤติกรรมของ view model หรือ engine
+    var activityObserver: ((AgentEvent) -> Void)?
+
+    // MARK: - คิวข้อความระหว่าง Agent ทำงาน (ดีไซน์ v2)
+
+    /// ข้อความที่ผู้ใช้พิมพ์ระหว่าง Agent ทำงาน — รอส่งให้อัตโนมัติเมื่องานนี้จบ
+    @Published private(set) var queuedMessages: [QueuedMessage] = []
+
+    /// เหตุผลที่งานรอบล่าสุดจบ (ใช้ตัดสินว่าจะส่งคิวต่ออัตโนมัติหรือไม่)
+    private var lastStopReason: AgentStopReason?
+
+    /// เพิ่มข้อความเข้าคิว — คืน false พร้อมบอกเหตุผลเสมอเมื่อรับไม่ได้ (ไม่เงียบ)
+    @discardableResult
+    func queueMessage(_ rawText: String) -> Bool {
+        let text = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return false }
+        guard pendingAttachments.isEmpty else {
+            lastNotice = "ไฟล์แนบส่งระหว่าง Agent ทำงานไม่ได้ — รอให้งานนี้จบก่อน แล้วแนบพร้อมข้อความได้เลย"
+            return false
+        }
+        guard PendingMessageQueue.shared.enqueue(text: text, roomID: currentRoomID) != nil else {
+            lastNotice = "คิวเต็ม (สูงสุด \(PendingMessageQueue.maxItems) ข้อความ) — รอให้งานนี้จบก่อน แล้วส่งต่อได้เลย"
+            return false
+        }
+        refreshQueue()
+        lastNotice = "เก็บข้อความไว้ต่อคิวแล้ว — จะส่งให้ Agent ทันทีที่งานนี้จบ (ยกเลิกได้เหนือช่องพิมพ์)"
+        return true
+    }
+
+    /// อ่านคิวของห้องปัจจุบันใหม่ (เรียกเมื่อเปิดหน้าแชทหรือเปลี่ยนห้อง)
+    func refreshQueue() {
+        queuedMessages = PendingMessageQueue.shared.items(for: currentRoomID)
+    }
+
+    func removeQueuedMessage(id: String) {
+        PendingMessageQueue.shared.remove(id: id)
+        refreshQueue()
+    }
+
+    /// ส่งข้อความที่ค้างในคิวตอนนี้เลย (ผู้ใช้กดเอง)
+    func flushQueue() {
+        deliverNextQueued()
+    }
+
+    /// ส่งข้อความถัดไปในคิว — ไม่ทำอะไรถ้ากำลังทำงานอยู่ ไม่มีคิว หรือตั้งค่าไม่ครบ (ข้อความไม่หาย)
+    private func deliverNextQueued() {
+        guard !isBusy else { return }
+        guard let next = PendingMessageQueue.shared.first(for: currentRoomID) else { return }
+        guard resolveCredentials() != nil else {
+            lastNotice = "มีข้อความรออยู่ในคิว แต่ยังตั้งค่าโมเดลหรือคีย์ไม่ครบ — ข้อความยังอยู่ครบ ตรวจการตั้งค่าแล้วกด \"ส่งเลย\" ได้"
+            return
+        }
+        PendingMessageQueue.shared.remove(id: next.id)
+        refreshQueue()
+        lastNotice = "ส่งข้อความที่ต่อคิวไว้ให้ Agent แล้ว"
+        send(next.text)
+    }
+
+    /// ปิดท้ายงาน: ส่งคิวต่ออัตโนมัติเฉพาะเมื่องานจบเองตามปกติ
+    /// (ถ้าผู้ใช้เป็นคนกดหยุด = ไม่ยิงอัตโนมัติ ให้ผู้ใช้กด "ส่งเลย" เอง)
+    private func deliverQueuedAfterRun(_ reason: AgentStopReason?) {
+        refreshQueue()
+        guard let reason = reason else { return }
+        guard reason == .answered || reason == .roundLimitReached else { return }
+        deliverNextQueued()
+    }
+
     private var currentEngine: AgentEngine?
     /// id ของข้อความ assistant ที่กำลังสตรีมอยู่ (ชั่วคราว ยังไม่ถูก append จนจบข้อความ)
     private var streamingAssistantID: UUID?
     private var streamingText: String = ""
 
     private func handle(event: AgentEvent) {
+        activityObserver?(event)
         switch event {
         case .assistantStarted(let id):
             streamingAssistantID = id
@@ -614,6 +689,7 @@ final class ChatViewModel: ObservableObject {
     }
 
     private func handleCompletion(_ reason: AgentStopReason) {
+        lastStopReason = reason
         switch reason {
         case .answered:
             statusText = ""
@@ -646,6 +722,11 @@ final class ChatViewModel: ObservableObject {
 
         backgroundKeeper.end()
         persistSoon()
+
+        // ดีไซน์ v2: ข้อความที่ต่อคิวไว้ระหว่างงานนี้ — ส่งต่ออัตโนมัติเมื่องานจบเอง
+        let reason = lastStopReason
+        lastStopReason = nil
+        deliverQueuedAfterRun(reason)
     }
 
     // MARK: - ตัวช่วยจัดการข้อความ

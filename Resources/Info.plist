@@ -6,7 +6,6 @@
 	<string>ใช้กล้องเพื่อถ่ายรูปแล้วแนบให้ Agent วิเคราะห์หรือบันทึกเป็นไฟล์ในโฟลเดอร์ทำงาน</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>ใช้เลือกรูปจากคลังภาพเพื่อแนบให้ Agent วิเคราะห์ (แอปคัดลอกรูปเข้าโฟลเดอร์ทำงานของตัวเอง)</string>
-
 	<key>CFBundleDevelopmentRegion</key>
 	<string>th</string>
 	<key>CFBundleDisplayName</key>
@@ -51,5 +50,9 @@
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
 	</array>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>ใช้ไมโครโฟนเฉพาะตอนคุณกดปุ่มพูดในโหมดเสียง เพื่อถอดคำพูดเป็นข้อความให้คุณตรวจก่อนส่งให้ Agent — ไม่มีการอัดเสียงไว้ในเครื่อง</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>ใช้ระบบถอดเสียงของ iOS แปลงคำพูดภาษาไทยเป็นข้อความ ข้อความที่ได้จะรอให้คุณยืนยันก่อนส่งเสมอ</string>
 </dict>
 </plist>

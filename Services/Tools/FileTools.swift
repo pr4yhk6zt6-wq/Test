@@ -184,6 +184,11 @@ struct WriteFileTool: AgentTool {
         }
 
 
+        // สำเนาสำรองก่อนลงมือเขียน — ทำให้ปุ่ม "ย้อนกลับ" ในไทม์ไลน์ทำงานได้จริง
+        // (ไฟล์ใหม่ = ไม่มีเวอร์ชันก่อนหน้า แต่ยังย้อนกลับได้ด้วยการลบไฟล์ที่เพิ่งสร้าง)
+        WorkspaceBackup.shared.keep(path: path,
+                                    kind: FileSystemService.exists(path) ? .overwrite : .created)
+
         do {
             // เขียนผ่าน FileSystemService เพื่อให้ได้ข้อความ error ภาษาไทยและเพดานขนาดที่เดียวกันทั้งแอป
             let report = try FileSystemService.write(content,

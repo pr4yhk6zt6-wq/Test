@@ -1,104 +1,93 @@
-# สรุปรวมโปรเจกต์ AgentAI — Mobile UI/UX Design (4 เฟส)
+# iOS Agent Sandbox — สรุปดีไซน์ v2 (อ่านหน้าเดียวจบ)
 
-## ข้อมูลพื้นฐาน
-- **ชื่อแอป / แบรนด์**: AgentAI — อบอุ่น เป็นกันเอง มืออาชีพ
-- **พัฒนาด้วย**: Flutter (iOS + Android) — รองรับ Dynamic Type และ Accessibility
-- **ตลาด**: ไทย + สากล (UI ไทยหลัก รองรับอังกฤษ สลับวันที่ พ.ศ./ค.ศ. ได้)
-- **ดีไซน์**: ยึด iOS HIG + Material 3 + เอกลักษณ์ (rounded card, warm amber accent, pill input, glass header)
-- **Backend**: Pause ได้ / Retry รายขั้นได้ / Undo ได้ / ประมาณเวลาที่เหลือได้ — ออกแบบเต็มทุกฟีเจอร์; ถ้า Pause ไม่ได้จริง ใช้ "หยุด" + "ทำต่อจากจุดเดิม"
+> ไฟล์นี้แทน `summary.md` ฉบับเดิม (โทนทอง + สมมติฐาน Flutter) — ดีไซน์ v2 เขียนใหม่ทั้งชุดโดยยึด **ซอร์สโค้ดจริง** ของ repo นี้
+> สถานะ: **เฟส 1–4 เสร็จแล้ว** (ดีไซน์ + สเปก) · **เฟส 5** = นำเข้าแอปจริงและสร้าง .ipa (ยังไม่เริ่ม)
 
 ---
 
-## สรุปการเปลี่ยนแปลงจากพรอมต์ต้นฉบับ
+## 1. สิ่งที่ต้องรู้ก่อนอ่าน (ข้อเท็จจริงของแอป)
 
-### เพิ่ม (Add)
-- **เฟส 1**: User flow (หลัก + ล้มเหลว + Takeover + ทางสำรอง Pause); Color swatch 3 ชุด + เลือก Warm Amber; Typography IBM Plex Sans Thai + Noto Sans Thai; Tokens เบื้องต้น; Empty State + Suggestion Chips; Main Chat Screen (Header, User Bubble, Agent Document, Citation, Uncertainty Badge, Input Bar); Activity System 3 ระดับ (Live Status Line A, Timeline B, Detail Sheet C); Mobile Frame Toggle (iOS/Android); Interactive Prototype (Light/Dark, Expand/Collapse, Detail Sheet, Attachment)
-- **เฟส 2**: Card Variants 8 ประเภท (Thinking, Web Search, Browse, File, Code, Connector, Sub-agent, To-do) พร้อม States; Permission Request Bottom Sheet (4 ปุ่ม + ขอบเขตแคบที่สุด); Undo Banner; Takeover Banner; Security Alert (Prompt Injection) พร้อมข้อความภาษาไทย; Error States 7 แบบ (รอผู้ใช้, สำเร็จบางส่วน, ล้มเหลว, ออฟไลน์, Rate Limit, ไฟล์ล้มเหลว); ไม่ใช้อิโมจิ; ไม่ดู AI-template (สี amber, ไม่มี bubble Agent)
-- **เฟส 3**: Background Tasks (Live Activity iOS + Ongoing Notification Android + Push); "งานของฉัน" (3 แท็บ + หลายงาน + ตั้งเวลา); ต้นทุน/โควตา (แสดงเมื่อมีข้อมูลจริง + เตือนก่อนใกล้หมด + ไม่แสดงตัวเลขเดา); Voice Mode (4 สถานะ + ย่อระหว่างเสียง); หน้ารอง 6 หน้า (Onboarding 3 หน้า, ประวัติแชทค้นหา/ปักหมุด/จัดกลุ่ม, เชื่อมต่อแอปสวิตช์+สิทธิ์, ไฟล์ทั้งหมด, แชร์/ส่งออก Markdown/JSON + เตือนอ่อนไหว, ตั้งค่าธีม/ภาษา/รายละเอียดกิจกรรม 3 ระดับ/ความเป็นส่วนตัว/จัดการสิทธิ์เสมอ)
-- **เฟส 4**: Component Library (Status Line, Timeline Step, 8 Card Types, Bottom Sheet, Permission Sheet, Input Bar) พร้อม Variants/States; Design Tokens ฉบับเต็ม (Light/Dark, Color, Typography, Spacing, Radius); Prototype Spec (Shimmer/Pulse, Streaming, Scroll, Progressive Disclosure, Reduce Motion, Haptic); Status Copy Library ไทย/อังกฤษ (11 Event Types + 7 Statuses + User Messages); Data Structure `AgentEvent` (TypeScript) + Source + Artifact + Lifecycle + Reconnect + Unknown Event Handling; Edge Cases (6 กรณี); Developer Recommendations; Decisions (7 ข้อ); สรุปรวม 4 เฟส
+| หัวข้อ | ค่าจริง |
+|---|---|
+| แอป | iOS Agent Sandbox (`iOSAgentSandbox.app`) — SwiftUI ล้วน |
+| เป้าหมาย | **iPhone 7 · iOS 15.0 · 375×667 · RAM 2GB** (ไม่มี Face ID / Dynamic Island / Live Activity) |
+| ติดตั้ง | TrollStore / palera1n / Sideloadly (ไม่มี Apple Developer) |
+| แท็บเดิม | แชท · ไฟล์ · บันทึก · ตั้งค่า |
+| Tools จริง | 15 ตัว (อ่าน/เขียน/ย้าย/ลบ/สร้างโฟลเดอร์/ค้นในไฟล์/รันคำสั่ง/เรียกเว็บ/ดาวน์โหลด/ค้นเว็บ/เปิดหน้าเว็บ) |
+| มีจริงแล้ว | ขออนุมัติ (ครั้งนี้/ตลอดเซสชัน/ไม่อนุญาต) · หยุดงาน · ตรวจคำสั่งเสี่ยง · จำกัดเครือข่าย · เพดานไฟล์ 200 MB · นับโทเคน · ส่งออก .md/.json |
+| **ยังไม่มี** | Pause/Resume · retry รายขั้น · Undo · ประมาณเวลาที่เหลือ · งานย่อยคู่ขนาน · โหมดเสียง · ตัวเชื่อมบริการ · ปักหมุดห้อง |
 
-### แก้ (Modify)
-- **ไม่ใช้อิโมจิ**: ลบ emoji ทั้งหมดจาก UI (ตรวจสอบด้วย Python regex ทุกไฟล์) — แทนด้วย SVG stroke + ข้อความภาษาไทย (เช่น "FILE" แทน 📄)
-- **ไม่ดู AI-template**: เปลี่ยนจากสีฟ้า/ม่วงที่เป็นเอกลักษณ์ AI ทั่วไปเป็น Warm Amber (#B07A2A); Agent message อ่านแบบเอกสาร (ไม่มี bubble) แทน ChatGPT-style; Typography IBM Plex Sans Thai แทน font ระบบ; ไม่มี rainbow gradient; Progressive disclosure (Timeline collapsible + Detail Sheet แยก)
-- **ไม่มีศัพท์เทคนิคใน UI**: ทุกข้อความที่ผู้ใช้เห็นเป็นภาษาไทยธรรมดา (ไม่ใช้ "invoking tool", "SSE chunk", "ReAct loop", "posix_spawn") — ใช้ "กำลังค้นหาเว็บ", "อ่านไฟล์", "รันโค้ด", "เชื่อมต่อแอป"
-- **ไม่มี spinner เปล่า**: ทุกสถานะมีไอคอน SVG + ข้อความกำกับ (ไม่พึ่งสีอย่างเดียว) — Running ใช้ shimmer/pulse, Success ใช้ checkmark, Failed ใช้ X, Waiting ใช้วงกลม muted
-- **ทุกการกระทำที่มีผลกระทบมี Permission**: Permission Request (4 ปุ่ม + ขอบเขตแคบที่สุด); Takeover (แยกชัดเจน + ข้อความว่า Agent ไม่เห็นรหัส); Undo (แสดงเฉพาะเมื่อ `reversible` = true); Security Alert (Prompt Injection) แสดงใน Timeline ไม่ทำให้ตกใจ
-- **ข้อความไทยทดสอบ**: ทุกหน้าทดสอบด้วยข้อความไทยยาวและผสมอังกฤษ; line-height 1.5–1.7; word-break; ellipsis; ไม่ตัดวรรณยุกต์
-
-### ตัด (Remove / Avoid)
-- **ไม่มี bubble สำหรับ Agent message**: แตกต่างจาก ChatGPT clone ทำให้ progressive disclosure ทำงานได้ดีกว่า
-- **ไม่มี gradient ฉูดฉาด**: ใช้ linear-gradient เฉพาะ glass header และ avatar (accent เดียว) — ไม่ใช้ rainbow หรือ neon
-- **ไม่มีตัวเลขประมาณการที่ไม่มีข้อมูลรองรับ**: ไม่แสดง "เวลาที่เหลือ" หรือ "ความมั่นใจ" เป็นตัวเลขเมื่อ Backend ไม่ส่งข้อมูล — แสดงเฉพาะสถานะและความคืบหน้าเปอร์เซ็นต์ (ถ้ามี)
-- **ไม่มีศัพท์เทคนิคในข้อความที่ผู้ใช้เห็นโดยปริยาย**: ทุก error message, status badge, button label, notification text เป็นภาษาไทยธรรมดา
-- **ไม่มีการแสดงข้อมูลเทคนิคเป็นค่าเริ่มต้น**: โค้ด, ข้อผิดพลาดดิบ, source URL เต็ม — ซ่อนเป็นค่าเริ่มต้น แสดงเฉพาะเมื่อผู้ใช้ตั้งระดับรายละเอียดเป็น "ละเอียด" หรือกดดูเอง
+ดีไซน์ทั้งชุดจึงยึดหลัก **“ไม่สัญญาสิ่งที่ยังทำไม่ได้”** — จุดที่ต้องรอ engine จะติดป้าย “เตรียมไว้” และมีรายการงานที่ต้องแก้ให้ครบ 20 ข้อ (ดู §5)
 
 ---
 
-## สมมติฐานที่เติมแทนช่องว่าง (จากบริบทโปรเจกต์)
+## 2. ไฟล์ในชุดดีไซน์ v2
 
-| ช่องว่าง | ค่าที่เลือก | เหตุผลสั้น (1 บรรทัด) |
+### ต้นแบบที่กดได้จริง (เปิดในเบราว์เซอร์ได้เลย)
+| ไฟล์ | มีอะไร | ตรวจอัตโนมัติ |
 |---|---|---|
-| แบรนด์ / บุคลิก | อบอุ่น เป็นกันเอง มืออาชีพ | เข้ากับสี Warm Amber และ typography IBM Plex Sans Thai |
-| พัฒนาด้วย | Flutter (iOS + Android) | รองรับ Dynamic Type, Accessibility, และ cross-platform ได้ดี |
-| ตลาดหลัก | ไทย + สากล | รองรับไทย/อังกฤษ, วันที่ พ.ศ./ค.ศ. สลับได้, ข้อความไทยทดสอบครบ |
-| แนวทางดีไซน์ | ยึด HIG + Material 3 + เอกลักษณ์ | ใช้ rounded card, pill input, glass header, spacing 4/8pt |
-| Backend ความสามารถ | Pause/Retry/Undo/Estimate ได้ | ออกแบบปุ่มเต็มทุกฟีเจอร์; ถ้า Pause ไม่ได้จริงใช้ "หยุด" + "ทำต่อ" |
+| `design-phase1.html` | หน้าแชทหลัก + ระบบกิจกรรม 3 ระดับ · 6 สถานะหน้าจอ · Light/Dark · iPhone 7 · สลับสีเน้น 3 ชุด | 78/78 ผ่าน |
+| `design-phase2.html` | การ์ดทุกชนิด · ขออนุญาต/ขอบเขตสิทธิ์ · Takeover · ความปลอดภัย · สถานะผิดปกติ 8 แบบ | 197/197 ผ่าน |
+| `phase3-prototype.html` | งานเบื้องหลัง/แจ้งเตือน · งานของฉัน · ต้นทุน/โควตา · โหมดเสียง · หน้ารอง 7 หน้า | 145/145 ผ่าน |
+| `phase4-prototype.html` | คลังคอมโพเนนต์ 7 หมวด · 26 สเปก · สนามทดลองแอนิเมชัน · ตารางโทเคน/ตัวอักษร | 43/43 ผ่าน |
+
+### เอกสารสเปก
+| ไฟล์ | เนื้อหา |
+|---|---|
+| `design-project-context.md` | ข้อเท็จจริงของแอป + ความสามารถ backend ที่มี/ไม่มี + สมมติฐาน 5 ข้อ |
+| `design-phase1-style.md` | สวอตช์ 3 ชุด + เหตุผล · โทเคนสีพร้อมค่าคอนทราสต์จริง · ฟอนต์ไทย + กฎไทย 10 ข้อ |
+| `design-phase1-flow.md` | เส้นทางหลัก/ล้มเหลว/ขออนุญาต/รับช่วงต่อ/หยุด-ทำต่อ + แผนที่สถานะหน้าจอ |
+| `design-phase1-activity.md` | ระบบกิจกรรม A/B/C · โมเดลสถานะ 7 แบบ · ป้ายภาษาคนของ tool 15 ตัว · โครง event |
+| `design-phase1-checklist.md` | เช็กลิสต์ + ค่าคอนทราสต์ที่วัดจริง + 78/78 |
+| `design-phase2-cards-controls.md` | สเปกการ์ด · การอนุมัติ/ขอบเขต 4 ระดับ · ความปลอดภัย · สถานะผิดปกติ · ข้อความ ไทย/อังกฤษ |
+| `phase3-background-tasks.md` | งานเบื้องหลังตามข้อจำกัด iOS 15 · งานของฉัน · ต้นทุน/โควตา · โหมดเสียง · หน้ารอง |
+| `phase4-component-library.md` | **สเปกฉบับนักพัฒนา** — โทเคนเต็ม · ตารางคอมโพเนนต์ · แอนิเมชันทีละจุด · ชุดข้อความ · โครง event + Swift · edge cases 14 ข้อ · เหตุผล 7 ข้อ |
 
 ---
 
-## รายการไฟล์ทั้งหมดใน repo (`pr4yhk6zt6-wq/Test`)
+## 3. ดีไซน์ v2 เลือกอะไร (สรุปสั้น)
 
-| ประเภท | ไฟล์ | สถานะ |
-|---|---|---|
-| Design Specs | `project-context.md` | ✅ Push (`15cf888`) |
-| Phase 1 Specs | `phase1-user-flow.md`, `phase1-style.md`, `phase1-activity-system.md`, `phase1-checklist.md` | ✅ Push (`15cf888`) |
-| Phase 1 Prototype | `phase1-prototype.html` (`design-phase1.html` ใน repo) | ✅ Push (`15cf888`) |
-| Phase 2 Specs | `phase2-cards-controls.md` | ✅ Push (`15cf888`) |
-| Phase 2 Prototype | `phase2-prototype.html` (`design-phase2.html` ใน repo) | ✅ Push (`15cf888`) |
-| Phase 3 Specs | `phase3-background-tasks.md` | ✅ Push (`d80476a`) |
-| Phase 3 Prototype | `phase3-prototype.html` | ✅ Push (`d80476a`) |
-| Phase 4 Specs | `phase4-component-library.md` | ✅ Push (`1175158`) + Fix (`59f8bc0`) |
-| Phase 4 Prototype | `phase4-prototype.html` | ✅ Push (`1175158`) + Fix (`59f8bc0`) |
+- **สี:** พื้นกลางโทนอุ่นอ่อน + สีเน้นเดียว **คราม `#2E4A8A`** (Light) / `#8CA4E8` + ตัวอักษร `#A7B8EE` (Dark) — คอนทราสต์ทุกคู่ผ่าน AA (ต่ำสุด 4.61:1)
+- **ฟอนต์:** **Anuphan** หลัก · IBM Plex Sans Thai สำรอง · ใช้ฟอนต์ระบบได้โดยไม่พัง · line-height เนื้อหา 1.62
+- **ระบบกิจกรรม 3 ระดับ:** A แถบสถานะสดเหนือช่องพิมพ์ (เวลาจริง + ริบบิ้น “ขั้น 5 จาก 6”) → B ไทม์ไลน์พับได้ → C แผ่นรายละเอียด (คำค้น/แหล่งข้อมูล/ไฟล์/โค้ด)
+- **ระดับกิจกรรมในตั้งค่า:** น้อย / ปกติ / ละเอียด (เปลี่ยนแค่สิ่งที่เห็น ไม่เปลี่ยนข้อมูลที่เก็บ)
+- **ความปลอดภัย:** ค่าเริ่มต้นแคบที่สุด · ลบไฟล์ต้องติ๊กยืนยัน + เสนอเก็บสำรอง · ไม่มีปุ่มอนุมัติบนแจ้งเตือน · ข้อมูลอ่อนไหวปิดบังก่อนแสดงเสมอ
+- **สัตย์ต่อของจริง:** ไม่มีตัวเลขประมาณการ · “หยุด + ทำต่อจากผลเดิม” แทน Pause · Undo ปรากฏเฉพาะเมื่อมีสำเนาสำรอง · ตัด Live Activity/Dynamic Island ที่เครื่องทำไม่ได้
 
 ---
 
-## แผนต่อไป (หลังเฟส 4 เสร็จ)
+## 4. ช่องโหว่/ความเสี่ยงที่พบจากการอ่านโค้ด (ต้องตัดสินใจ)
 
-1. **สรุปรวมไฟล์ (`summary.md`)** — ไฟล์นี้เอง (`summary.md`) — สรุป 4 เฟส + การเปลี่ยนแปลง + สมมติฐาน + รายการไฟล์ใน repo + แผน `.ipa`
-2. **แก้ SwiftUI Source Files** ใน repo (`App/`, `Views/`, `Services/`, `Models/`) ตาม `phase4-component-library.md` และ `design-tokens.md`:
-   - เปลี่ยนสี (`accent` → `#B07A2A`) ใน SwiftUI `Color` extensions หรือ `.background()`
-   - เปลี่ยน typography (`IBM Plex Sans Thai`) ใน `.font()` modifiers
-   - ลบ bubble สำหรับ Agent message (ถ้ามีใน `MessageBubbleView.swift`) → เปลี่ยนเป็น document-style (`padding`, `line-height: 1.7`, ไม่มี `cornerRadius` ด้านซ้าย)
-   - เพิ่ม progressive disclosure (Timeline collapsible, Detail Sheet bottom sheet)
-   - เพิ่ม accessibility labels (`accessibilityLabel`, `accessibilityLiveRegion`) ตาม `Status Copy Library`
-   - แก้ `ChatView.swift` ให้รองรับ Voice Mode (สถานะฟัง/คิด/พูด/รอ)
-   - แก้ `AgentLogView.swift` ให้แสดง `EventType` และ `EventStatus` ตาม `Data Structure`
-3. **Build `.ipa`** ด้วย `Scripts/build-local.sh` (`xcodebuild -sdk iphoneos` + `ldid -S Entitlements/` + zip `Payload/` → `.ipa`)
-4. **ติดตั้งบนเครื่องจริง** (TrollStore / palera1n rootful) — ตรวจสอบว่า UI เปลี่ยนตาม design specs ทั้งหมด (สี amber, ไม่มี bubble Agent, Timeline collapsible, Bottom Sheet, Voice Mode, Security Alert)
+1. **สวิตช์ `requireApproval` ปิดการถามได้ทั้งแอป** — ขัดกับข้อห้ามในโจทย์ → ต้องมี: ยืนยันด้วยข้อความเตือน · แบนเนอร์ “โหมดไม่ถาม” ค้างในแชท · **การกระทำเสี่ยงสูงถามเสมอแม้ปิดสวิตช์** · รีเซ็ตกลับเป็น “ถาม” ทุกครั้งที่เปิดแอปใหม่
+2. **`allowForSession` ของเดิมกว้างเกินไป** — แนะนำเปลี่ยนเป็น 4 ขอบเขตที่มีเงื่อนไขหมดอายุชัดเจน
+3. **ไม่มี Undo/สำเนาสำรอง** — ต้องเพิ่มการสำรองไฟล์ก่อนเขียน/ลบ จึงจะทำปุ่มย้อนกลับได้จริง
+4. **token ที่ให้มามีสิทธิ์เกินจำเป็นมาก** (`delete_repo`, `admin:org`) — ควรยกเลิกและออกใหม่แบบ Fine-grained
 
 ---
 
-## ข้อห้ามที่ยึดถือจากพรอมต์ (ตรวจสอบทุกเฟส)
+## 5. งานที่เหลือ (เฟส 5) — สรุปสั้น
 
-- [x] ไม่มี spinner เปล่า — ทุกสถานะมีไอคอนหรือข้อความกำกับ
-- [x] ทุกสถานะมี label สำหรับ VoiceOver-TalkBack (`aria-label`, `aria-live`, `aria-expanded`)
-- [x] สีสถานะมีไอคอน/ข้อความกำกับเสมอ (ไม่พึ่งสีอย่างเดียว)
-- [x] touch target ≥ 44pt (ทุกปุ่มใน input bar, live status line, permission actions, scroll button)
-- [x] คอนทราสต์ผ่าน WCAG AA ทั้ง Light และ Dark (ตรวจสอบด้วย CSS variables)
-- [x] ข้อความไทยยาวไม่ล้น ไม่ตัดวรรณยุกต์ (`word-break`, `line-height: 1.6-1.7`)
-- [x] ทุกการกระทำที่มีผลกระทบมี Permission และทุก error มีทางไปต่อ
-- [x] ไม่แสดงตัวเลขประมาณการเมื่อไม่มีข้อมูลรองรับจริง
-- [x] ไม่มีศัพท์เทคนิคในข้อความที่ผู้ใช้เห็นโดยปริยาย
-- [x] ไม่มี emoji ใน UI (ตรวจสอบด้วย Python regex ทุกไฟล์)
-- [x] ไม่ดูเป็น AI-template (สี amber, ไม่มี bubble Agent, typography มืออาชีพ, progressive disclosure)
+**ต้องแก้ใน engine ก่อน/ระหว่างทำ UI (20 ข้อ เรียงตามลำดับที่แนะนำ)**
+1. คิวข้อความแทรกระหว่าง Agent ทำงาน
+2. ขอบเขตสิทธิ์แบบละเอียด + วันหมดอายุ + จอเพิกถอน
+3. สำเนาสำรองก่อนเขียน/ลบ (เพื่อให้ Undo ทำงานได้)
+4. สถานะงานส่วนกลาง (ทะเบียนงาน + ห้องที่ผูก) → ทำให้แท็บ “งานของฉัน” ทำงานได้
+5. อ่านเวลาทำงานเบื้องหลังที่เหลือขึ้น UI
+6. Local notification 4 เหตุการณ์ + deep link
+7. ต้นทุนแยกตามงาน
+8. ตัวเลือกการส่งออก (รวมกิจกรรม / ปิดข้อมูลอ่อนไหว)
+9. ตรวจ prompt injection แล้วส่ง event ขึ้น UI
+10. retry “ตั้งแต่ขั้นที่ล้มเหลว” + อีก 10 ข้อใน `phase4-component-library.md` §9 และ §9 ของเฟส 2/3
+
+**ลำดับ PR ที่เสนอ (ทีละส่วน ตามพรอมต์)**
+1) โทเคน + ฟอนต์ไทย + feature flag “UI ใหม่/เดิม” → 2) หน้าแชท + input bar → 3) แถบสถานะสด + ไทม์ไลน์ + การ์ด + adapter จาก `AgentEvent` → 4) การอนุมัติ + ขอบเขต + Takeover → 5) งานของฉัน + แจ้งเตือน + ต้นทุน + หน้ารอง → 6) งานเบื้องหลังขั้นสูง → 7) โหมดเสียง (ถ้าต้องการ)
+
+**สิ่งที่ต้องมีจากคุณก่อนเริ่ม:** token ใหม่แบบจำกัดสิทธิ์ · เลือกวิธีติดตั้ง (TrollStore / palera1n / Sideloadly) · ยืนยันว่าจะทำ PR ทีละส่วนหรือรวม
 
 ---
 
-## สรุปสั้นสำหรับผู้ใช้ (ไม่ต้องอ่านทั้งหมด)
+## 6. วิธีเปิดดูต้นแบบ
 
-- **ทำเสร็จแล้ว 4 เฟส**: รากฐาน + แชท + กิจกรรม (1) → การ์ด + ควบคุม + ปลอดภัย (2) → งานเบื้องหลัง + หน้ารอง (3) → Component Library + Developer Specs (4)
-- **ไฟล์ทั้งหมดใน repo** (`pr4yhk6zt6-wq/Test`): 13 ไฟล์ (`design-*` 5 + `phase*` 8) + `project-context.md`
-- **ไม่มี emoji** ในทุกไฟล์ที่สร้าง (แก้แล้ว — `59f8bc0`)
-- **ไม่ดู AI-template**: สี Warm Amber ตลอด, Agent message ไม่มี bubble, progressive disclosure
-- **GitHub token ใช้สำเร็จ**: Clone → Push ทุกเฟส (`15cf888` → `d80476a` → `1175158` → `59f8bc0`)
-- **ต่อไป**: สรุปรวม (`summary.md` นี้เอง) → แก้ SwiftUI source → Build `.ipa` ใหม่
+1. ดาวน์โหลดไฟล์ `.html` จาก branch `redesign/agent-ui` แล้วเปิดในเบราว์เซอร์ (มือถือก็ได้) — ทุกไฟล์เป็นไฟล์เดียวจบ ไม่ต้องต่อเน็ต
+2. แถบควบคุมด้านบน: ธีม · ขนาดจอ (390×844 / iPhone 7 375×667) · ระดับกิจกรรม · ลดการเคลื่อนไหว · (เฟส 3–4 เพิ่ม: ภาษา / ขนาดตัวอักษร)
+3. ไฟล์ต้นแบบไม่ได้แก้โค้ดแอปเลย — โค้ดแอปยังอยู่ที่เดิมทั้งหมดจนกว่าจะเริ่มเฟส 5
