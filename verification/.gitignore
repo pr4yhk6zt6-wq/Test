@@ -1,0 +1,4 @@
+# ไฟล์ที่สคริปต์คัดลอกจากต้นฉบับให้อัตโนมัติ (ห้ามแก้ที่นี่ — แก้ที่ iOSAgentSandbox/Models, Services)
+Sources/OpenRouterCore/
+.build/
+.swiftpm/

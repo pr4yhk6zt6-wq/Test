@@ -1,0 +1,412 @@
+//
+//  ChatView.swift
+//  iOS Agent Sandbox
+//
+//  เฟส 1: แชทกับโมเดลผ่าน OpenRouter แบบ streaming
+//  - bubble ข้อความ, สถานะ "กำลังคิด", ปุ่มส่ง/หยุด, Token Usage
+//  - ตรวจสิทธิ์การเข้าถึงไฟล์ตอนเปิดแอป และแจ้งถ้าต้อง TrollStore/palera1n
+//
+
+import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
+
+struct ChatView: View {
+
+    @StateObject private var viewModel = ChatViewModel()
+    @EnvironmentObject private var settings: AppSettings
+    @ObservedObject private var usage: TokenUsageTracker = .shared
+
+    @AppStorage(SettingsKeys.chatFontScale) private var chatFontScale: Double = 1.0
+
+    @State private var inputText: String = ""
+    @State private var showClearConfirmation: Bool = false
+    @State private var shareText: ShareableText?
+    @State private var accessReport: SystemAccessReport?
+    @State private var showAccessNotice: Bool = false
+    @State private var autoScrollEnabled: Bool = true
+    @State private var composerHeight: CGFloat = 38
+
+    private let bottomAnchorID = "chat-bottom-anchor"
+
+    var body: some View {
+        VStack(spacing: 0) {
+            if showAccessNotice, let report = accessReport {
+                accessBanner(report: report)
+            }
+            messagesArea
+            Divider()
+            usageBar
+            composerBar
+        }
+        .navigationTitle("AI Agent")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Menu {
+                    Button {
+                        showClearConfirmation = true
+                    } label: {
+                        Label("ล้างการสนทนา", systemImage: "trash")
+                    }
+                    Button {
+                        shareText = ShareableText(text: transcriptText())
+                    } label: {
+                        Label("แชร์บทสนทนา", systemImage: "square.and.arrow.up")
+                    }
+                    .disabled(viewModel.messages.isEmpty)
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .frame(minWidth: 44, minHeight: 44)
+                }
+                .accessibilityLabel("เมนูเพิ่มเติม")
+            }
+        }
+        .onAppear(perform: checkSystemAccess)
+        .sheet(item: $shareText) { item in
+            ShareSheet(items: [item.text])
+        }
+        .confirmationDialog("ล้างการสนทนาทั้งหมด?", isPresented: $showClearConfirmation, titleVisibility: .visible) {
+            Button("ล้างทั้งหมด", role: .destructive) {
+                viewModel.clearConversation()
+            }
+            Button("ยกเลิก", role: .cancel) { }
+        } message: {
+            Text("ข้อความทั้งหมดในเซสชันนี้จะถูกลบ (เฟส 2 จะมีการบันทึกประวัติลงเครื่อง)")
+        }
+    }
+
+    // MARK: - พื้นที่แสดงข้อความ
+
+    private var messagesArea: some View {
+        ScrollViewReader { proxy in
+            ZStack(alignment: .bottomTrailing) {
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 10) {
+                        if viewModel.messages.isEmpty {
+                            emptyState
+                        }
+                        ForEach(viewModel.messages) { message in
+                            MessageBubbleView(message: message,
+                                              fontScale: chatFontScale,
+                                              onDelete: { delete(message) },
+                                              onShare: { text in shareText = ShareableText(text: text) })
+                                .id(message.id)
+                        }
+                        statusRow
+                        noticeRow
+                        errorRow
+                        Color.clear
+                            .frame(height: 1)
+                            .id(bottomAnchorID)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                }
+                .simultaneousGesture(
+                    DragGesture().onChanged { value in
+                        // ลากขึ้น = ผู้ใช้กำลังอ่านข้อความเก่า → หยุด auto-scroll
+                        if value.translation.height > 12 {
+                            autoScrollEnabled = false
+                        }
+                    }
+                )
+                .onChange(of: viewModel.messages.count) { _ in
+                    autoScrollEnabled = true
+                    scrollToBottom(proxy: proxy, animated: true)
+                }
+                .onChange(of: viewModel.messages.last?.text) { _ in
+                    guard autoScrollEnabled else { return }
+                    scrollToBottom(proxy: proxy, animated: false)
+                }
+
+                if !autoScrollEnabled {
+                    Button {
+                        autoScrollEnabled = true
+                        scrollToBottom(proxy: proxy, animated: true)
+                    } label: {
+                        Label("ไปข้อความล่าสุด", systemImage: "arrow.down.circle.fill")
+                            .font(.caption)
+                            .padding(.horizontal, 12)
+                            .frame(minHeight: 44)
+                            .background(
+                                Capsule().fill(Color(UIColor.secondarySystemBackground))
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.trailing, 12)
+                    .padding(.bottom, 8)
+                    .shadow(radius: 2)
+                    .accessibilityLabel("เลื่อนไปข้อความล่าสุด")
+                }
+            }
+        }
+    }
+
+    private var emptyState: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("เริ่มสนทนากับ Agent", systemImage: "sparkles")
+                .font(.headline)
+            Text("Agent ตอบตามภาษาที่คุณพิมพ์ • เฟส 1 นี้คุยกับโมเดลผ่าน OpenRouter ได้แล้ว ส่วนการอ่านไฟล์ทั้งเครื่อง รันคำสั่ง shell และการเข้าถึงอินเทอร์เน็ตจะมาในเฟส 2–3")
+                .font(.footnote)
+                .foregroundColor(.secondary)
+            if !settings.hasAPIKey || settings.modelID.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Label("ยังต้องตั้งค่าให้ครบ", systemImage: "exclamationmark.triangle.fill")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(.orange)
+                    Text(!settings.hasAPIKey ? "• ยังไม่มี API Key" : "• ยังไม่ได้เลือกโมเดล")
+                        .font(.footnote)
+                    Text("ไปที่แท็บ \"ตั้งค่า\" เพื่อใส่ API Key และ Model ID")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                }
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Color.orange.opacity(0.12))
+                )
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color(UIColor.secondarySystemBackground))
+        )
+    }
+
+    @ViewBuilder
+    private var statusRow: some View {
+        if viewModel.isBusy {
+            HStack(spacing: 8) {
+                ProgressView()
+                    .scaleEffect(0.8)
+                Text(viewModel.statusText.isEmpty ? "กำลังทำงาน…" : viewModel.statusText)
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
+                Spacer(minLength: 0)
+                if viewModel.backgroundKeeper.isActive {
+                    Label("ทำงานเบื้องหลัง", systemImage: "clock.arrow.circlepath")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .padding(.horizontal, 4)
+        }
+    }
+
+    @ViewBuilder
+    private var noticeRow: some View {
+        if let notice = viewModel.lastNotice {
+            HStack(alignment: .top, spacing: 6) {
+                Image(systemName: "info.circle")
+                    .font(.caption)
+                Text(notice)
+                    .font(.caption)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+                Button {
+                    viewModel.dismissNotice()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.caption)
+                        .frame(width: 32, height: 32)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("ปิดข้อความแจ้งเตือน")
+            }
+            .foregroundColor(.secondary)
+            .padding(8)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Color(UIColor.tertiarySystemBackground))
+            )
+        }
+    }
+
+    @ViewBuilder
+    private var errorRow: some View {
+        if let error = viewModel.errorMessage {
+            HStack(alignment: .top, spacing: 6) {
+                Image(systemName: "xmark.octagon.fill")
+                    .font(.caption)
+                Text(error)
+                    .font(.caption)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .foregroundColor(.red)
+            .padding(8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Color.red.opacity(0.10))
+            )
+        }
+    }
+
+    // MARK: - แถบ Token Usage
+
+    private var usageBar: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "chart.bar.doc.horizontal")
+                .font(.caption2)
+                .foregroundColor(.secondary)
+            Text(usage.hasData ? "Token – \(usage.shortText)" : "Token – ยังไม่มีข้อมูล")
+                .font(.caption2.monospacedDigit())
+                .foregroundColor(.secondary)
+                .lineLimit(1)
+            Spacer(minLength: 0)
+            Text(settings.modelID.isEmpty ? "ยังไม่เลือกโมเดล" : settings.modelID)
+                .font(.caption2)
+                .foregroundColor(.secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+        }
+        .padding(.horizontal, 12)
+        .frame(minHeight: 28)
+        .background(Color(UIColor.tertiarySystemBackground))
+        .accessibilityElement(children: .combine)
+    }
+
+    // MARK: - ช่องพิมพ์
+
+    private var composerBar: some View {
+        HStack(alignment: .bottom, spacing: 8) {
+            ZStack(alignment: .topLeading) {
+                if inputText.isEmpty {
+                    Text("พิมพ์คำสั่ง…")
+                        .font(.system(size: 16 * chatFontScale))
+                        .foregroundColor(.secondary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 14)
+                        .allowsHitTesting(false)
+                }
+                MultilineInputField(text: $inputText,
+                                    height: $composerHeight,
+                                    font: InputFontProvider.font(scale: chatFontScale),
+                                    minHeight: 38,
+                                    maxHeight: 118,
+                                    isEditable: !viewModel.isBusy)
+                    .frame(height: composerHeight)
+                    .padding(.horizontal, 5)
+            }
+            .frame(minHeight: 44)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color(UIColor.secondarySystemBackground))
+            )
+
+            if viewModel.isBusy {
+                Button {
+                    viewModel.stop()
+                } label: {
+                    Image(systemName: "stop.circle.fill")
+                        .font(.system(size: 30))
+                        .foregroundColor(.red)
+                        .frame(width: 44, height: 44)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("หยุด")
+            } else {
+                Button {
+                    sendCurrentInput()
+                } label: {
+                    Image(systemName: "arrow.up.circle.fill")
+                        .font(.system(size: 30))
+                        .foregroundColor(canSend ? .accentColor : .gray)
+                        .frame(width: 44, height: 44)
+                }
+                .buttonStyle(.plain)
+                .disabled(!canSend)
+                .accessibilityLabel("ส่งข้อความ")
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(Color(UIColor.systemBackground))
+    }
+
+    private var canSend: Bool {
+        !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !viewModel.isBusy
+    }
+
+    // MARK: - แบนเนอร์แจ้งสิทธิ์
+
+    private func accessBanner(report: SystemAccessReport) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .top, spacing: 6) {
+                Image(systemName: "lock.shield.fill")
+                    .font(.footnote)
+                Text("ยังเข้าถึงไฟล์ทั้งเครื่องไม่ได้")
+                    .font(.footnote.weight(.semibold))
+                Spacer(minLength: 0)
+                Button {
+                    showAccessNotice = false
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .frame(width: 32, height: 32)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("ปิดคำแนะนำ")
+            }
+            Text("อ่าน /var/mobile ไม่ได้ แปลว่าแอปถูกจำกัดด้วย sandbox — ต้องติดตั้งผ่าน TrollStore (พร้อม entitlements no-sandbox) หรือเจลเบรคเครื่องด้วย palera1n แล้วรันแอปเป็น root")
+                .font(.caption)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(report.summaryMessage)
+                .font(.system(.caption2, design: .monospaced))
+                .foregroundColor(.secondary)
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.yellow.opacity(0.18))
+    }
+
+    // MARK: - Actions
+
+    private func sendCurrentInput() {
+        let text = inputText
+        inputText = ""
+        viewModel.send(text)
+        #if canImport(UIKit)
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        #endif
+    }
+
+    private func delete(_ message: ChatMessage) {
+        // เฟส 1: ลบได้เฉพาะข้อความที่แสดงอยู่ในหน่วยความจำ
+        withAnimation {
+            viewModel.remove(message: message)
+        }
+    }
+
+    private func scrollToBottom(proxy: ScrollViewProxy, animated: Bool) {
+        if animated {
+            withAnimation(.easeOut(duration: 0.2)) {
+                proxy.scrollTo(bottomAnchorID, anchor: .bottom)
+            }
+        } else {
+            proxy.scrollTo(bottomAnchorID, anchor: .bottom)
+        }
+    }
+
+    private func checkSystemAccess() {
+        let report = SystemAccessChecker.check()
+        accessReport = report
+        showAccessNotice = report.needsJailbreakNotice
+    }
+
+    private func transcriptText() -> String {
+        viewModel.messages.map { message in
+            switch message.role {
+            case .user: return "ผู้ใช้: \(message.text)"
+            case .assistant: return "Agent: \(message.text)"
+            case .system: return "ระบบ: \(message.text)"
+            case .tool: return "tool \(message.name ?? ""): \(message.text)"
+            }
+        }
+        .joined(separator: "\n\n")
+    }
+}

@@ -1,0 +1,177 @@
+name: Build iOS Agent Sandbox (unsigned IPA)
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+  workflow_dispatch:
+
+# ต้องมีสิทธิ์ write เพื่ออัปโหลด .ipa ขึ้น Releases (ให้ดาวน์โหลดจากมือถือได้โดยไม่ต้องล็อกอิน)
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build + ldid + IPA
+    runs-on: macos-14
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: เลือก Xcode ที่รองรับ deployment target iOS 15.0 (อัตโนมัติ)
+        run: |
+          # ลองใช้ Xcode 15.x ก่อน (ตรงตามสเปกโปรเจกต์) ถ้า runner ไม่มีแล้ว
+          # จะไล่หาตัวอื่นที่ยัง "คอมไพล์ให้ iOS 15.0 ได้จริง" แล้วค่อยใช้ตัวนั้น
+          printf 'import UIKit\n' > /tmp/probe.swift
+          chosen=""
+
+          try_xcode() {
+            local app="$1"
+            [ -d "$app" ] || return 1
+            sudo xcode-select -s "$app" >/dev/null 2>&1 || return 1
+            local sdk
+            sdk="$(xcrun --sdk iphoneos --show-sdk-path 2>/dev/null)" || return 1
+            [ -n "$sdk" ] || return 1
+            if swiftc -target arm64-apple-ios15.0 -sdk "$sdk" -typecheck /tmp/probe.swift >/dev/null 2>&1; then
+              chosen="$app"
+              return 0
+            fi
+            echo "  ข้าม $(basename "$app") — ไม่รองรับ iOS 15.0"
+            return 1
+          }
+
+          for app in /Applications/Xcode_15.4.app /Applications/Xcode_15.3.app \
+                     /Applications/Xcode_15.2.app /Applications/Xcode_15.1.app \
+                     /Applications/Xcode_15.0.1.app /Applications/Xcode_15.0.app; do
+            try_xcode "$app" && break
+          done
+
+          if [ -z "$chosen" ]; then
+            for app in /Applications/Xcode*.app /Applications/Xcode.app; do
+              try_xcode "$app" && break
+            done
+          fi
+
+          if [ -z "$chosen" ]; then
+            echo "::warning title=ไม่พบ Xcode ที่รองรับ iOS 15.0::จะลองใช้ค่าเริ่มต้นของ runner (ถ้า build ล้มเหลวเรื่อง deployment target ให้เปลี่ยน runs-on เป็น macos-14 หรือ macos-15)"
+          else
+            echo "เลือกใช้: $chosen"
+          fi
+
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version | sed 's/^/iOS SDK: /'
+
+      - name: ตรวจว่าไม่ใช้ API ของ iOS 16+ (deployment target 15.0)
+        run: bash Scripts/check-ios15-compat.sh .
+
+      - name: รัน unit test ของแกนกลาง (OpenRouterCore) — ต้องผ่านก่อน build
+        run: bash verification/run-verification.sh
+
+      - name: รัน E2E กับเซิร์ฟเวอร์ OpenRouter จำลอง (SSE / tool_calls / retry)
+        run: bash verification/e2e/run-e2e.sh
+
+      - name: ติดตั้ง XcodeGen
+        run: brew install xcodegen || (brew update && brew install xcodegen)
+
+      - name: ติดตั้ง ldid
+        run: |
+          set -uo pipefail
+          if brew install ldid-procursus; then
+            echo "ติดตั้ง ldid (procursus) สำเร็จ"
+          elif brew install ldid; then
+            echo "ติดตั้ง ldid (saurik) สำเร็จ"
+          else
+            echo "brew ติดตั้ง ldid ไม่ได้ — จะลองคอมไพล์จากซอร์ส"
+            brew install libplist || true
+            git clone --depth 1 https://github.com/ProcursusTeam/ldid /tmp/ldid-src || true
+            if [ -d /tmp/ldid-src ]; then
+              (cd /tmp/ldid-src && make CXXFLAGS="-I$(brew --prefix libplist)/include" LDFLAGS="-L$(brew --prefix libplist)/lib" ) || true
+              [ -f /tmp/ldid-src/ldid ] && sudo cp /tmp/ldid-src/ldid /usr/local/bin/ldid && sudo chmod +x /usr/local/bin/ldid || true
+            fi
+          fi
+          if command -v ldid >/dev/null 2>&1; then
+            ldid --version 2>&1 | head -2
+          else
+            echo "::warning title=ไม่มี ldid::จะใช้ codesign ad-hoc แทน ทำให้ entitlements สิทธิ์สูง (no-sandbox) ไม่ถูกฝัง — TrollStore จะติดตั้งได้แต่ Agent จะอ่านไฟล์ทั้งเครื่องไม่ได้"
+          fi
+
+      - name: สร้างโปรเจกต์ Xcode จาก project.yml
+        run: xcodegen generate
+
+      - name: Build แบบไม่ลงนาม (CODE_SIGNING_ALLOWED=NO)
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project iOSAgentSandbox.xcodeproj \
+            -scheme iOSAgentSandbox \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            IPHONEOS_DEPLOYMENT_TARGET=15.0 \
+            build | tee build.log | tail -n 60
+
+      - name: ตรวจ deployment target ของผลลัพธ์
+        run: |
+          PLIST=build/Build/Products/Release-iphoneos/iOSAgentSandbox.app/Info.plist
+          MIN_OS=$(/usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' "$PLIST")
+          echo "MinimumOSVersion = $MIN_OS"
+          case "$MIN_OS" in
+            15.*) echo "✓ ใช้กับ iOS 15.0 ได้ (เครื่องเป้าหมาย iOS 15.8.x)" ;;
+            *) echo "❌ deployment target ไม่ใช่สาย 15.x"; exit 1 ;;
+          esac
+
+      - name: เซ็นด้วย ldid (entitlements no-sandbox) และแพ็คเป็น .ipa
+        run: |
+          mkdir -p build-artifacts
+          bash Scripts/sign-and-package.sh
+          ls -lh build-artifacts/
+          # ตรวจว่าไบนารีในไอแพกมี entitlements ที่ต้องการจริง
+          cd build-artifacts && unzip -o -q iOSAgentSandbox.ipa -d verify
+          if command -v ldid >/dev/null 2>&1; then
+            ldid -e verify/Payload/iOSAgentSandbox.app/iOSAgentSandbox | grep -q "no-sandbox" \
+              && echo "✓ พบ com.apple.private.security.no-sandbox ใน entitlements" \
+              || { echo "❌ ไม่พบ no-sandbox ใน entitlements"; exit 1; }
+          fi
+
+      - name: อัปโหลดไฟล์ IPA เป็น artifact (สำหรับผู้ที่ล็อกอิน GitHub)
+        uses: actions/upload-artifact@v4
+        with:
+          name: iOSAgentSandbox-ipa
+          path: build-artifacts/iOSAgentSandbox.ipa
+          if-no-files-found: error
+
+      - name: เผยแพร่ .ipa ขึ้น Releases (ดาวน์โหลดจาก iPhone ได้โดยไม่ต้องล็อกอิน)
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="latest-build"
+          TITLE="Latest build (auto)"
+          NOTES="บิลด์อัตโนมัติจาก commit ${GITHUB_SHA::7} • $(date -u +'%Y-%m-%d %H:%M UTC') • เซ็นด้วย ldid + entitlements no-sandbox"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --title "$TITLE" --notes "$NOTES"
+          else
+            gh release create "$TAG" --title "$TITLE" --notes "$NOTES"
+          fi
+          gh release upload "$TAG" build-artifacts/iOSAgentSandbox.ipa --clobber
+          URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/iOSAgentSandbox.ipa"
+          {
+            echo "## ดาวน์โหลด .ipa"
+            echo ""
+            echo "- ลิงก์ตรง (เปิดบน iPhone ใน Safari แล้วเลือกเปิดด้วย TrollStore): $URL"
+            echo "- หรือไปที่หน้า Releases ของ repo แล้วโหลดไฟล์ iOSAgentSandbox.ipa"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: อัปโหลดบันทึกการ build (กรณีล้มเหลว)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
+          if-no-files-found: ignore

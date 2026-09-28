@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Entitlements สำหรับแอปที่รันนอก sandbox (TrollStore / palera1n rootful+rootless)
+  ใช้กับ ldid เท่านั้น:  ldid -S<file นี้> <binary>
+  Xcode ไม่สามารถเซ็นด้วย entitlements เหล่านี้ได้ (ไม่มี provisioning profile รองรับ)
+  จึงต้อง build ด้วย CODE_SIGNING_ALLOWED=NO แล้วเซ็นเองด้วย ldid
+
+  ความหมายของแต่ละคีย์:
+  • platform-application = true
+      ทำให้ไบนารีถูกมองว่าเป็นแอปแพลตฟอร์ม (เหมือนแอปของ Apple) จึงรันได้โดยไม่ต้องมี
+      provisioning profile และไม่ติดข้อจำกัดผู้ใช้ที่ลงนามแอปปกติ
+      จำเป็นเมื่อติดตั้งผ่าน TrollStore (ไม่ต้องใช้เมื่อรันเป็น root ผ่าน launchctl บน palera1n)
+  • com.apple.private.security.no-container = true
+      ปิดการใช้ data container ของแอป แอปจึงไม่ถูกจำกัดให้เห็นแค่โฟลเดอร์ของตัวเอง
+      ทำให้อ่าน/เขียน /var/mobile/... และ path อื่นได้โดยตรง
+  • com.apple.private.security.no-sandbox = true
+      ยกเลิก sandbox ของโปรเซสทั้งหมด (ตัวสำคัญที่สุดสำหรับ FileSystemService/ShellService)
+      ถ้าไม่มีตัวนี้ แม้เปิด /var/mobile ก็ยังถูก deny จาก Sandbox kernel extension
+  • com.apple.private.persona-mgmt = true
+      อนุญาตให้จัดการ user persona ซึ่ง TrollStore ใช้ตอนสลับไปรันโปรเซสเป็นผู้ใช้ root
+      (posix_spawnattr_set_persona_np ต้องมีสิทธิ์นี้) จำเป็นเฉพาะเส้นทาง TrollStore
+  • com.apple.private.security.container-required = false
+      ระบุว่าแอปไม่บังคับให้มี container (คู่กับ no-container) ถ้าไม่ใส่ อาจถูกระบบ
+      บังคับสร้าง container และได้ path ใน /var/containers/... แทนที่จะเข้า /var/mobile
+
+  หมายเหตุ (TrollStore vs palera1n):
+  - TrollStore: ต้องมีครบทั้ง 5 คีย์ (รวม persona-mgmt) แล้ว ldid -S ตอนติดตั้ง TrollStore จะเซ็นซ้ำด้วย 
+    fakesign ให้เอง
+  - palera1n (rootful): อัปโหลด .app ไปไว้ /Applications แล้วรันเป็น root (launchctl) — ที่จำเป็นจริง ๆ คือ
+    no-sandbox/no-container; platform-application ช่วยให้ launchd ยอมรับไบนารีที่ไม่ได้เซ็นจริง
+  - rootless (/var/jb): path ของ shell และเครื่องมือจะอยู่ใต้ /var/jb ต้องเซ็นด้วย ldid เหมือนกัน
+
+  ถ้าต้องการให้ Keychain ทำงานด้วย (ปัจจุบัน KeychainHelper จะสลับไปที่เก็บสำรองอัตโนมัติถ้าใช้ไม่ได้)
+  ให้เพิ่มคีย์เหล่านี้ (ต้องแก้ Team ID ให้ตรงกับที่ใช้เซ็น):
+    <key>application-identifier</key>
+    <string>TEAMID.com.example.iosagentsandbox</string>
+    <key>keychain-access-groups</key>
+    <array>
+      <string>TEAMID.com.example.iosagentsandbox</string>
+    </array>
+-->
+<plist version="1.0">
+<dict>
+	<key>platform-application</key>
+	<true/>
+	<key>com.apple.private.security.no-container</key>
+	<true/>
+	<key>com.apple.private.security.no-sandbox</key>
+	<true/>
+	<key>com.apple.private.persona-mgmt</key>
+	<true/>
+	<key>com.apple.private.security.container-required</key>
+	<false/>
+</dict>
+</plist>
