@@ -397,6 +397,19 @@ struct ChatView: View {
         .background(Color.yellow.opacity(0.18))
     }
 
+    // MARK: - Binding ของหน้าต่างอนุมัติ
+
+    /// หน้าต่างอนุมัติผูกกับ pendingApproval ของ view model
+    /// ถ้าผู้ใช้ปัดปิดหน้าต่างเอง (ไม่กดปุ่ม) ถือว่า "ไม่อนุญาต" เพื่อความปลอดภัย
+    private var approvalBinding: Binding<ApprovalRequest?> {
+        Binding(get: { viewModel.pendingApproval },
+                set: { newValue in
+                    if newValue == nil, viewModel.pendingApproval != nil {
+                        viewModel.resolveApproval(.deny)
+                    }
+                })
+    }
+
     // MARK: - Actions
 
     private func sendCurrentInput() {
@@ -409,7 +422,7 @@ struct ChatView: View {
     }
 
     private func delete(_ message: ChatMessage) {
-        // เฟส 1: ลบได้เฉพาะข้อความที่แสดงอยู่ในหน่วยความจำ
+        // ลบออกจากหน้าจอและจากไฟล์ประวัติที่บันทึกไว้ (บันทึกอัตโนมัติหลังลบ)
         withAnimation {
             viewModel.remove(message: message)
         }
