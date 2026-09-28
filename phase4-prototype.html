@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>AgentAI — Phase 4: Component Library + Developer Specs</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=Noto+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --font-main: 'IBM Plex Sans Thai', 'Noto Sans Thai', -apple-system, sans-serif;
+  --radius-card: 18px; --radius-pill: 28px;
+  --shadow-card: 0 2px 10px rgba(0,0,0,0.05); --shadow-sheet: 0 8px 30px rgba(0,0,0,0.12);
+  --spacing-8: 8px; --spacing-12: 12px; --spacing-16: 16px; --spacing-24: 24px; --spacing-32: 32px;
+  --bg: #F5F3F0; --surface: #FFFFFF; --surface-2: #EDEAE6;
+  --text-primary: #1C1916; --text-secondary: #6B6058; --text-muted: #9A9088;
+  --accent: #B07A2A; --accent-soft: #F2E6CE; --accent-deep: #8A5E1E;
+  --success: #2D5A3F; --success-soft: #E2EBE5; --warning: #9A6B1E; --warning-soft: #F5EDD8;
+  --error: #8B2E2E; --error-soft: #F4E4E4; --border: #E2DDD8; --overlay: rgba(28,25,22,0.30); --glass: rgba(255,255,255,0.90);
+}
+[data-theme="dark"] {
+  --bg: #161310; --surface: #1E1C18; --surface-2: #2A2721;
+  --text-primary: #F0EDE8; --text-secondary: #A89F94; --text-muted: #6B5E56;
+  --accent: #D49A4A; --accent-soft: rgba(212,154,74,0.12); --accent-deep: #A87D2E;
+  --success: #4A8F6A; --success-soft: rgba(74,143,106,0.12);
+  --warning: #C48A3A; --warning-soft: rgba(196,138,58,0.12);
+  --error: #C06A6A; --error-soft: rgba(192,106,106,0.12);
+  --border: #2A2721; --overlay: rgba(240,237,232,0.30); --glass: rgba(30,28,24,0.92);
+}
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+body { font-family: var(--font-main); background: #3D342E; color: var(--text-primary); margin: 0; padding: 0; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; }
+.phone-frame { position: relative; width: 390px; height: 844px; background: var(--bg); border-radius: 44px; box-shadow: 0 24px 60px rgba(0,0,0,0.35), 0 8px 20px rgba(0,0,0,0.15), inset 0 0 0 1px rgba(255,255,255,0.06); overflow: hidden; display: flex; flex-direction: column; }
+.phone-frame::before { content:''; position:absolute; top:0; left:50%; transform:translateX(-50%); width:160px; height:28px; background:var(--surface); border-bottom-left-radius:20px; border-bottom-right-radius:20px; z-index:100; pointer-events:none; box-shadow:inset 0 -1px 0 var(--border); }
+.phone-frame::after { content:''; position:absolute; top:10px; left:50%; transform:translateX(-50%); width:60px; height:4px; background:#2A2A2A; border-radius:2px; z-index:101; }
+
+.app-header { position:sticky; top:0; z-index:50; padding:60px var(--spacing-16) 12px; background:linear-gradient(180deg, var(--glass) 50%, rgba(255,255,255,0) 100%); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:var(--spacing-12); }
+.phone-frame .app-header { padding-top: 60px; }
+.header-left { display:flex; align-items:center; gap:10px; min-width:0; }
+.header-avatar { width:36px; height:36px; border-radius:50%; background:linear-gradient(135deg, var(--accent-deep), var(--accent)); display:flex; align-items:center; justify-content:center; font-weight:700; color:#fff; font-size:14px; flex-shrink:0; letter-spacing:0.02em; }
+.header-info { min-width:0; }
+.header-title { font-size:16px; font-weight:600; color:var(--text-primary); line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.header-sub { font-size:12px; color:var(--text-secondary); line-height:1.2; }
+
+.chat-scroll { flex:1; overflow-y:auto; overflow-x:hidden; padding:var(--spacing-16); scroll-behavior:smooth; -ms-overflow-style:none; scrollbar-width:none; }
+.chat-scroll::-webkit-scrollbar { display:none; }
+
+.section-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin: var(--spacing-24) 0 var(--spacing-12); font-weight: 700; }
+
+/* Component Cards */
+.comp-card { background: var(--surface); border: 1.5px solid var(--border); border-radius: 16px; padding: 14px; margin-bottom: var(--spacing-16); box-shadow: var(--shadow-card); }
+.comp-card h4 { font-size: 13px; font-weight: 700; color: var(--text-primary); margin: 0 0 8px; }
+.comp-card .comp-meta { font-size: 11px; color: var(--text-muted); margin-bottom: 10px; }
+.comp-visual { background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+
+/* Token Table */
+.token-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.token-table th { text-align: left; padding: 8px 6px; border-bottom: 2px solid var(--border); color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; font-size: 9px; }
+.token-table td { padding: 8px 6px; border-bottom: 1px solid var(--border); color: var(--text-secondary); }
+.token-table .token-name { font-weight: 600; color: var(--text-primary); font-family: ui-monospace, SFMono-Regular, monospace; font-size: 10px; }
+.token-table .token-value { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 10px; }
+
+/* Code Block */
+.code-block { background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; padding: 12px; font-family: ui-monospace, SFMono-Regular, monospace; font-size: 11px; color: var(--text-secondary); line-height: 1.5; overflow-x: auto; white-space: pre-wrap; word-break: break-word; margin-top: 8px; }
+
+/* Copy Library Table */
+.copy-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.copy-table th { text-align: left; padding: 8px 6px; border-bottom: 2px solid var(--border); color: var(--text-muted); font-weight: 700; font-size: 9px; text-transform: uppercase; letter-spacing: 0.04em; }
+.copy-table td { padding: 8px 6px; border-bottom: 1px solid var(--border); color: var(--text-secondary); }
+.copy-table .col-th { font-weight: 600; color: var(--text-primary); white-space: nowrap; }
+
+/* Decisions List */
+.decisions { counter-reset: decision; }
+.decision-item { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.decision-item:last-child { border-bottom: none; }
+.decision-num { width: 28px; height: 28px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-deep); font-weight: 700; font-size: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.decision-body h5 { font-size: 13px; font-weight: 600; color: var(--text-primary); margin: 0 0 4px; }
+.decision-body p { font-size: 12px; color: var(--text-secondary); line-height: 1.5; margin: 0; }
+
+/* Summary Box */
+.summary-box { background: linear-gradient(135deg, var(--accent-soft), var(--surface-2)); border: 1.5px solid var(--accent); border-radius: 16px; padding: 16px; }
+.summary-box .summary-title { font-size: 15px; font-weight: 700; color: var(--accent-deep); margin-bottom: 8px; }
+.summary-box .summary-text { font-size: 13px; color: var(--text-secondary); line-height: 1.6; }
+
+/* Controls */
+.controls-bar { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 500; display: flex; gap: 10px; background: rgba(30,28,24,0.90); backdrop-filter: blur(12px); padding: 8px 14px; border-radius: 24px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+.controls-bar button { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.10); color: #F2F0EC; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: var(--font-main); transition: all 0.15s; }
+.controls-bar button:hover { background: rgba(255,255,255,0.18); border-color: rgba(255,255,255,0.25); }
+.controls-bar button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+</style>
+</head>
+<body>
+
+<div class="controls-bar" role="toolbar" aria-label="ตัวเลือกการดูต้นแบบ">
+  <button onclick="setTheme('light')" id="btn-light" class="active">Light</button>
+  <button onclick="setTheme('dark')" id="btn-dark">Dark</button>
+</div>
+
+<div class="phone-frame" id="phone" role="region" aria-label="ต้นแบบเฟส 4: Component Library และ Developer Specs" data-theme="light">
+  <header class="app-header" role="banner">
+    <div class="header-left">
+      <div class="header-avatar" aria-label="ไอคอน Agent">AI</div>
+      <div class="header-info">
+        <div class="header-title">Component Library + Specs</div>
+        <div class="header-sub">เฟส 4 — สำหรับนักพัฒนา</div>
+      </div>
+    </div>
+  </header>
+
+  <main class="chat-scroll" id="chat-scroll" role="main" aria-label="พื้นที่แสดงสเปกสำหรับนักพัฒนา">
+
+    <!-- Component Library -->
+    <section aria-label="Component Library">
+      <div class="section-label">Component Library</div>
+
+      <!-- Status Line -->
+      <article class="comp-card" aria-label="Component: Status Line">
+        <h4>Live Status Line</h4>
+        <div class="comp-meta">Variants: idle, working, waiting, completed | States: expanded, collapsed</div>
+        <div class="comp-visual">
+          <div style="padding: 10px 14px; border-radius: 14px; background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow-card); display: flex; align-items: center; gap: 10px; cursor: pointer;">
+            <div style="width:28px;height:28px;border-radius:50%;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent-deep)" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg></div>
+            <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">กำลังเลือกที่พักที่เหมาะสม</div><div style="font-size:11px;color:var(--text-muted);">ค้นหาที่พัก · 6 แหล่งข้อมูล</div></div>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><polyline points="9 6 15 12 9 18"/></svg>
+          </div>
+        </div>
+      </article>
+
+      <!-- Timeline Step -->
+      <article class="comp-card" aria-label="Component: Timeline Step">
+        <h4>Timeline Step</h4>
+        <div class="comp-meta">States: pending, running, success, failed, skipped, waiting_user</div>
+        <div class="comp-visual">
+          <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);position:relative;">
+            <div style="position:absolute;left:15px;top:38px;width:2px;height:calc(100% - 28px);background:var(--border);z-index:0;"></div>
+            <div style="position:relative;z-index:1;width:32px;height:32px;border-radius:50%;background:var(--success-soft);border:2px solid var(--success);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2"><polyline points="4 12 9 17 20 7"/></svg></div>
+            <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;color:var(--text-primary);">ค้นหาข้อมูลพื้นฐาน</div><div style="font-size:12px;color:var(--text-secondary);">เสร็จ 14:33</div><span style="display:inline-block;padding:2px 8px;border-radius:10px;background:var(--success-soft);color:var(--success);font-size:10px;font-weight:600;margin-top:6px;">สำเร็จ</span></div>
+          </div>
+        </div>
+      </article>
+
+      <!-- Thinking Card -->
+      <article class="comp-card" aria-label="Component: Thinking Card">
+        <h4>Thinking Card</h4>
+        <div class="comp-meta">States: expanded, collapsed | Color: surface-2</div>
+        <div class="comp-visual">
+          <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-card);padding:16px;cursor:pointer;" onclick="this.querySelector('.think-body').style.display = this.querySelector('.think-body').style.display === 'none' ? 'block' : 'none';">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><span style="width:28px;height:28px;border-radius:50%;background:var(--surface);border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg></span><span style="font-size:13px;font-weight:600;color:var(--text-secondary);font-style:italic;">กำลังคิดเกี่ยวกับแผนการเดินทาง</span></div>
+            <div class="think-body" style="font-size:13px;color:var(--text-secondary);line-height:1.5;">Agent กำลังประมวลผลข้อมูลจากหลายแหล่ง เพื่อเลือกเส้นทางที่เหมาะสมที่สุด</div>
+          </div>
+        </div>
+      </article>
+
+      <!-- Web Search Card -->
+      <article class="comp-card" aria-label="Component: Web Search Card">
+        <h4>Web Search Card</h4>
+        <div class="comp-meta">States: default | Icon: globe SVG (2px stroke)</div>
+        <div class="comp-visual">
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-card);padding:14px;box-shadow:var(--shadow-card);">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;"><span style="width:30px;height:30px;border-radius:10px;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent-deep)" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span><span style="font-size:13px;font-weight:600;color:var(--text-primary);">ค้นหาเว็บ — แหล่งข้อมูลที่น่าเชื่อถือ</span></div>
+            <div style="display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;"><span style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:16px;background:var(--surface-2);border:1px solid var(--border);font-size:12px;color:var(--text-secondary);white-space:nowrap;flex-shrink:0;">booking.com</span><span style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:16px;background:var(--surface-2);border:1px solid var(--border);font-size:12px;color:var(--text-secondary);white-space:nowrap;flex-shrink:0;">tripadvisor.co.th</span></div>
+          </div>
+        </div>
+      </article>
+
+      <!-- Bottom Sheet -->
+      <article class="comp-card" aria-label="Component: Bottom Sheet">
+        <h4>Bottom Sheet (Detail)</h4>
+        <div class="comp-meta">States: open, closed | Animation: translateY(100%) -> 0, 350ms ease</div>
+        <div class="comp-visual">
+          <button onclick="this.nextElementSibling.style.display='block';this.style.display='none';" style="padding:10px 20px;border-radius:14px;background:var(--accent);color:#fff;border:none;font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font-main);box-shadow:0 4px 12px rgba(176,122,42,0.25);">เปิด Detail Sheet</button>
+          <div style="display:none;position:fixed;inset:0;background:var(--overlay);z-index:200;display:flex;align-items:flex-end;justify-content:center;" onclick="if(event.target===this)this.style.display='none';">
+            <aside style="width:100%;max-height:88vh;background:var(--surface);border-top-left-radius:28px;border-top-right-radius:28px;padding:20px 20px 36px;box-shadow:0 -10px 40px rgba(0,0,0,0.15);overflow-y:auto;" onclick="event.stopPropagation();">
+              <span style="display:block;width:36px;height:5px;border-radius:3px;background:var(--border);margin:0 auto 16px;"></span>
+              <h2 style="font-size:18px;font-weight:700;margin:0 0 4px;color:var(--text-primary);">รายละเอียดขั้นตอน</h2>
+              <p style="font-size:13px;color:var(--text-secondary);margin-bottom:20px;">ขั้นตอนที่ 3 — กำลังเลือกที่พัก</p>
+              <div style="margin-bottom:12px;"><h4 style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin:0 0 10px;font-weight:600;">แหล่งข้อมูล</h4><div style="font-size:13px;color:var(--text-secondary);line-height:1.5;">booking.com · tripadvisor.co.th · airbnb.co.th</div></div>
+              <div style="display:flex;gap:10px;margin-top:20px;padding-top:16px;border-top:1px solid var(--border);"><button onclick="this.closest('[style*=&quot;fixed&quot;]').style.display='none';" style="flex:1;padding:12px;border-radius:14px;font-size:14px;font-weight:600;border:1px solid var(--border);background:var(--surface);color:var(--text-primary);cursor:pointer;font-family:var(--font-main);">ปิด</button><button onclick="this.closest('[style*=&quot;fixed&quot;]').style.display='none';" style="flex:1;padding:12px;border-radius:14px;font-size:14px;font-weight:600;border:none;background:var(--accent);color:#fff;cursor:pointer;font-family:var(--font-main);box-shadow:0 4px 12px rgba(176,122,42,0.25);">ลองใหม่</button></div>
+            </aside>
+          </div>
+        </div>
+      </article>
+
+      <!-- Permission Dialog -->
+      <article class="comp-card" aria-label="Component: Permission Dialog">
+        <h4>Permission Request</h4>
+        <div class="comp-meta">Buttons: allow-once, allow-always, deny, edit-first | Risk levels: low, medium, high</div>
+        <div class="comp-visual">
+          <div style="background:var(--surface);border:1.5px solid var(--warning);border-radius:20px;padding:16px;box-shadow:var(--shadow-card);">
+            <div style="font-size:15px;font-weight:700;color:var(--text-primary);margin-bottom:4px;">Agent ต้องการอนุญาตก่อนทำงานต่อ</div>
+            <div style="font-size:13px;color:var(--text-secondary);margin-bottom:16px;line-height:1.5;">จะส่งอีเมลจองโรงแรม — ผลที่ตามมา: อีเมลจะถูกส่งจากบัญชีของคุณ</div>
+            <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;"><button onclick="alert('อนุญาตครั้งนี้')" style="flex:1;min-width:100px;padding:10px 14px;border-radius:14px;font-size:12px;font-weight:600;border:none;background:var(--accent);color:#fff;cursor:pointer;font-family:var(--font-main);">อนุญาตครั้งนี้</button><button onclick="alert('อนุญาตเสมอ')" style="flex:1;min-width:100px;padding:10px 14px;border-radius:14px;font-size:12px;font-weight:600;border:1px solid var(--border);background:var(--surface);color:var(--text-secondary);cursor:pointer;font-family:var(--font-main);">อนุญาตเสมอ</button><button onclick="alert('ปฏิเสธ')" style="flex:1;min-width:100px;padding:10px 14px;border-radius:14px;font-size:12px;font-weight:600;border:1px solid var(--error);background:var(--error-soft);color:var(--error);cursor:pointer;font-family:var(--font-main);">ปฏิเสธ</button></div>
+          </div>
+        </div>
+      </article>
+
+      <!-- Input Bar -->
+      <article class="comp-card" aria-label="Component: Input Bar">
+        <h4>Input Bar</h4>
+        <div class="comp-meta">States: default, focus, stop-mode | Attachment preview: chip style</div>
+        <div class="comp-visual">
+          <form onsubmit="event.preventDefault();" aria-label="ฟอร์มส่งข้อความ" style="display:flex;align-items:flex-end;gap:10px;padding:10px 14px;background:var(--surface);border:1.5px solid var(--border);border-radius:28px;box-shadow:var(--shadow-card);min-height:52px;">
+            <button type="button" aria-label="เพิ่มไฟล์" style="width:40px;height:40px;border-radius:50%;border:none;background:transparent;color:var(--text-secondary);cursor:pointer;display:flex;align-items:center;justify-content:center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></button>
+            <textarea rows="1" placeholder="พิมพ์ข้อความหรือคำสั่ง..." style="flex:1;border:none;background:transparent;resize:none;font-family:var(--font-main);font-size:15px;color:var(--text-primary);line-height:1.5;outline:none;max-height:120px;" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();}"></textarea>
+            <button type="button" aria-label="ไมโครโฟน" style="width:40px;height:40px;border-radius:50%;border:none;background:transparent;color:var(--text-secondary);cursor:pointer;display:flex;align-items:center;justify-content:center;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg></button>
+            <button type="submit" aria-label="ส่ง" style="width:44px;height:44px;border-radius:50%;border:none;background:var(--accent);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(176,122,42,0.25);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
+          </form>
+        </div>
+      </article>
+
+    </section>
+
+    <!-- Design Tokens -->
+    <section aria-label="Design Tokens">
+      <div class="section-label">Design Tokens (Light / Dark)</div>
+      <article class="comp-card" aria-label="Color Tokens">
+        <h4>Color Tokens</h4>
+        <table class="token-table" aria-label="ตารางสี">
+          <thead><tr><th>Token</th><th>Light</th><th>Dark</th><th>Usage</th></tr></thead>
+          <tbody>
+            <tr><td class="token-name">--bg</td><td class="token-value">#F5F3F0</td><td class="token-value">#161310</td><td>พื้นหลังหลัก</td></tr>
+            <tr><td class="token-name">--surface</td><td class="token-value">#FFFFFF</td><td class="token-value">#1E1C18</td><td>พื้น card / sheet</td></tr>
+            <tr><td class="token-name">--text-primary</td><td class="token-value">#1C1916</td><td class="token-value">#F0EDE8</td><td>ข้อความหลัก</td></tr>
+            <tr><td class="token-name">--accent</td><td class="token-value">#B07A2A</td><td class="token-value">#D49A4A</td><td>สีเน้น (amber)</td></tr>
+            <tr><td class="token-name">--success</td><td class="token-value">#2D5A3F</td><td class="token-value">#4A8F6A</td><td>สถานะสำเร็จ</td></tr>
+            <tr><td class="token-name">--warning</td><td class="token-value">#9A6B1E</td><td class="token-value">#C48A3A</td><td>สถานะเตือน</td></tr>
+            <tr><td class="token-name">--error</td><td class="token-value">#8B2E2E</td><td class="token-value">#C06A6A</td><td>สถานะล้มเหลว</td></tr>
+          </tbody>
+        </table>
+      </article>
+
+      <article class="comp-card" aria-label="Typography Tokens">
+        <h4>Typography Tokens</h4>
+        <table class="token-table" aria-label="ตารางตัวอักษร">
+          <thead><tr><th>Scale</th><th>Size (pt)</th><th>Weight</th><th>line-height</th><th>Usage</th></tr></thead>
+          <tbody>
+            <tr><td>H1</td><td>28</td><td>700</td><td>1.25</td><td>หัวเรื่องหลัก</td></tr>
+            <tr><td>H2</td><td>22</td><td>600</td><td>1.3</td><td>ชื่อบทสนทนา</td></tr>
+            <tr><td>Body</td><td>16</td><td>400</td><td>1.7</td><td>ข้อความ Agent</td></tr>
+            <tr><td>Caption</td><td>12</td><td>500</td><td>1.4</td><td>Timestamp, label</td></tr>
+          </tbody>
+        </table>
+      </article>
+
+      <article class="comp-card" aria-label="Spacing Grid">
+        <h4>Spacing Grid (4pt base)</h4>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+          <span style="padding:4px 10px;border-radius:10px;background:var(--surface-2);border:1px solid var(--border);font-size:11px;font-weight:600;color:var(--text-secondary);font-family:ui-monospace,monospace;">4pt</span>
+          <span style="padding:4px 10px;border-radius:10px;background:var(--surface);border:1px solid var(--border);font-size:11px;font-weight:600;color:var(--text-secondary);font-family:ui-monospace,monospace;">8pt</span>
+          <span style="padding:4px 10px;border-radius:10px;background:var(--surface);border:1px solid var(--border);font-size:11px;font-weight:600;color:var(--text-secondary);font-family:ui-monospace,monospace;">12pt</span>
+          <span style="padding:4px 10px;border-radius:10px;background:var(--surface);border:1px solid var(--border);font-size:11px;font-weight:600;color:var(--text-secondary);font-family:ui-monospace,monospace;">16pt</span>
+          <span style="padding:4px 10px;border-radius:10px;background:var(--surface);border:1px solid var(--border);font-size:11px;font-weight:600;color:var(--text-secondary);font-family:ui-monospace,monospace;">24pt</span>
+          <span style="padding:4px 10px;border-radius:10px;background:var(--surface);border:1px solid var(--border);font-size:11px;font-weight:600;color:var(--text-secondary);font-family:ui-monospace,monospace;">32pt</span>
+        </div>
+      </article>
+    </section>
+
+    <!-- Status Copy Library -->
+    <section aria-label="Status Copy Library">
+      <div class="section-label">Status Copy Library (Thai / English)</div>
+      <article class="comp-card" aria-label="Status Labels">
+        <h4>Event Types + Status Labels</h4>
+        <table class="copy-table" aria-label="ตารางสถานะ">
+          <thead><tr><th>Type</th><th>Thai Label</th><th>English Label</th><th>Thai Description</th></tr></thead>
+          <tbody>
+            <tr><td class="col-th">thinking</td><td>กำลังคิด...</td><td>Thinking...</td><td>Agent กำลังประมวลผลข้อมูล</td></tr>
+            <tr><td class="col-th">web_search</td><td>ค้นหาเว็บ</td><td>Web search</td><td>ค้นหาแหล่งข้อมูลจากเว็บ</td></tr>
+            <tr><td class="col-th">read_file</td><td>อ่านไฟล์</td><td>Reading file</td><td>กำลังอ่านไฟล์ที่ส่งมา</td></tr>
+            <tr><td class="col-th">write_file</td><td>เขียนไฟล์</td><td>Writing file</td><td>กำลังสร้างหรือแก้ไขไฟล์</td></tr>
+            <tr><td class="col-th">run_code</td><td>รันโค้ด</td><td>Running code</td><td>กำลังประมวลผลโค้ด</td></tr>
+            <tr><td class="col-th">connector</td><td>เชื่อมต่อแอป</td><td>App connector</td><td>กำลังทำงานกับแอปอื่น</td></tr>
+            <tr><td class="col-th">ask_user</td><td>ขอคำตอบจากคุณ</td><td>Waiting for you</td><td>รอคำตอบหรือการอนุมัติ</td></tr>
+            <tr><td class="col-th">permission</td><td>ต้องการอนุญาต</td><td>Needs approval</td><td>ต้องขอสิทธิ์ก่อนดำเนินการต่อ</td></tr>
+          </tbody>
+        </table>
+      </article>
+
+      <article class="comp-card" aria-label="Status Badges">
+        <h4>Status Badges (Every Status)</h4>
+        <table class="copy-table" aria-label="ตาราง Badge สถานะ">
+          <thead><tr><th>Status</th><th>Thai Badge</th><th>English Badge</th><th>Color Token</th></tr></thead>
+          <tbody>
+            <tr><td class="col-th">pending</td><td>รอ</td><td>Waiting</td><td>surface-2 + text-muted</td></tr>
+            <tr><td class="col-th">running</td><td>กำลังทำ</td><td>Running</td><td>accent-soft + accent-deep</td></tr>
+            <tr><td class="col-th">waiting_user</td><td>รอคุณ</td><td>Waiting for you</td><td>warning-soft + warning</td></tr>
+            <tr><td class="col-th">succeeded</td><td>สำเร็จ</td><td>Done</td><td>success-soft + success</td></tr>
+            <tr><td class="col-th">failed</td><td>ล้มเหลว</td><td>Failed</td><td>error-soft + error</td></tr>
+            <tr><td class="col-th">skipped</td><td>ข้าม</td><td>Skipped</td><td>surface-2 + text-muted (opacity: 0.7)</td></tr>
+          </tbody>
+        </table>
+      </article>
+
+      <article class="comp-card" aria-label="User-Facing Messages">
+        <h4>User-Facing Copy (ไม่มีศัพท์เทคนิค)</h4>
+        <table class="copy-table" aria-label="ตารางข้อความที่แสดงให้ผู้ใช้">
+          <thead><tr><th>Context</th><th>Thai Message</th><th>English Message</th></tr></thead>
+          <tbody>
+            <tr><td class="col-th">Reading file</td><td>กำลังอ่านไฟล์ที่คุณส่ง...</td><td>Reading the file you sent...</td></tr>
+            <tr><td class="col-th">Web search found</td><td>พบ 8 แหล่งข้อมูล กำลังเลือกที่น่าเชื่อถือ</td><td>Found 8 sources, selecting the most reliable</td></tr>
+            <tr><td class="col-th">Permission</td><td>ต้องการอนุญาตก่อนส่งอีเมลนี้</td><td>Needs approval before sending this email</td></tr>
+            <tr><td class="col-th">Takeover</td><td>Agent ต้องการความช่วยเหลือจากคุณ — คุณทำเองได้ และ Agent จะไม่เห็นรหัสที่พิมพ์</td><td>Agent needs your help — you can do it yourself, and Agent won't see your input</td></tr>
+            <tr><td class="col-th">Security alert</td><td>เว็บนี้พยายามสั่งให้ทำสิ่งอื่น — เราไม่ทำตามและกำลังดำเนินงานต่อ</td><td>This site tried to instruct something else — we ignored it and are continuing</td></tr>
+            <tr><td class="col-th">Completed</td><td>ทำเสร็จแล้ว ใช้เวลา 1 นาที 12 วินาที</td><td>Done. Took 1 minute 12 seconds.</td></tr>
+            <tr><td class="col-th">Partial success</td><td>ทำเสร็จบางขั้นตอน — บางขั้นไม่สำเร็จ</td><td>Partially completed — some steps failed</td></tr>
+            <tr><td class="col-th">Undo available</td><td>ทำเสร็จแล้ว — ย้อนกลับได้ภายใน 30 วินาที</td><td>Done — undo available for 30 seconds</td></tr>
+            <tr><td class="col-th">Rate limit warning</td><td>โควตาใกล้หมด — ใช้ไป 65%</td><td>Quota running low — 65% used</td></tr>
+          </tbody>
+        </table>
+      </article>
+    </section>
+
+    <!-- Data Structure -->
+    <section aria-label="Data Structure">
+      <div class="section-label">Event Data Structure (TypeScript)</div>
+      <article class="comp-card" aria-label="โครงสร้างข้อมูล Event">
+        <div class="code-block">interface AgentEvent {
+  id: string;
+  seq: number;
+  parent_id?: string;
+  type: 'thinking' | 'web_search' | 'browse' | 'read_file' | 'write_file' | 'run_code' | 'connector' | 'subagent' | 'plan' | 'ask_user' | 'permission';
+  status: 'pending' | 'running' | 'waiting_user' | 'succeeded' | 'failed' | 'skipped' | 'cancelled';
+  title: { th: string; en: string };
+  detail?: { th: string; en: string };
+  started_at: string;  // ISO 8601
+  ended_at?: string;   // ISO 8601
+  progress?: number;   // 0 - 100
+  requires_approval: boolean;
+  reversible: boolean;
+  sensitivity: 'none' | 'personal' | 'financial' | 'credentials';
+  sources?: { id: string; domain: string; url: string; favicon_url?: string }[];
+  artifacts?: { id: string; file_type: string; file_name: string; file_size?: number; url?: string; created_at: string }[];
+  error?: {
+    code: string;
+    user_message: { th: string; en: string };
+    retryable: boolean;
+  };
+}</div>
+      </article>
+
+      <article class="comp-card" aria-label="Lifecycle และ Reconnect">
+        <h4>Lifecycle & Reconnect</h4>
+        <div class="comp-visual">
+          <p style="font-size:13px;color:var(--text-secondary);line-height:1.5;margin:0;">Lifecycle: started → updated → completed / failed / skipped / cancelled. Reconnect: ส่ง event ซ้ำด้วย <code style="font-family:ui-monospace;font-size:11px;background:var(--surface-2);padding:1px 4px;border-radius:4px;">seq</code> เดิม — ไม่สร้างซ้ำ. Unknown event: แสดงเป็นขั้นตอนทั่วไปโดยไม่ crash.</p>
+        </div>
+      </article>
+    </section>
+
+    <!-- Edge Cases -->
+    <section aria-label="Edge Cases">
+      <div class="section-label">Edge Cases (6 กรณี)</div>
+      <article class="comp-card" aria-label="Edge Cases">
+        <ol style="padding-left:18px;margin:0;font-size:13px;color:var(--text-secondary);line-height:1.7;">
+          <li style="margin-bottom:8px;"><strong style="color:var(--text-primary);">ไม่มี progress</strong> — ไม่แสดงเปอร์เซ็นต์ใน Timeline (แสดงเฉพาะสถานะ)</li>
+          <li style="margin-bottom:8px;"><strong style="color:var(--text-primary);">ไม่มี sources</strong> — Web Search Card ไม่แสดง chip แหล่งข้อมูล</li>
+          <li style="margin-bottom:8px;"><strong style="color:var(--text-primary);">ไม่มี artifacts</strong> — File Card ไม่ปรากฏใน Detail Sheet</li>
+          <li style="margin-bottom:8px;"><strong style="color:var(--text-primary);">ไม่มี user_message ใน error</strong> — ใช้ข้อความเริ่มต้น "เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ — ลองใหม่อีกครั้ง"</li>
+          <li style="margin-bottom:8px;"><strong style="color:var(--text-primary);">parent_id มีอยู่</strong> — แสดงเป็นเลนย่อย (sub-agent); ความคืบหน้าหลัก = ค่าเฉลี่ยงานย่อย</li>
+          <li style="margin-bottom:8px;"><strong style="color:var(--text-primary);">reversible = false</strong> — ไม่แสดงปุ่ม Undo; ถ้าผู้ใช้กด → แสดงข้อความ "ไม่สามารถย้อนกลับได้"</li>
+        </ol>
+      </article>
+    </section>
+
+    <!-- Decisions -->
+    <section aria-label="เหตุผลการตัดสินใจสำคัญ">
+      <div class="section-label">เหตุผลการตัดสินใจสำคัญ (7 ข้อ)</div>
+      <div class="decisions">
+        <article class="decision-item" aria-label="เหตุผลที่ 1">
+          <span class="decision-num" aria-hidden="true">1</span>
+          <div class="decision-body">
+            <h5>ไม่ใช้อิโมจิใน UI ทั้งหมด</h5>
+            <p>อิโมจิทำให้ UI ดูไม่เป็นมืออาชีพและไม่เหมาะกับแอปที่จัดการข้อมูลส่วนตัว — การใช้ SVG stroke + ข้อความภาษาไทยให้ความรู้สึกเป็นระบบและชัดเจนกว่า ไม่ขึ้นอยู่กับ font อิโมจิของระบบ</p>
+          </div>
+        </article>
+        <article class="decision-item" aria-label="เหตุผลที่ 2">
+          <span class="decision-num" aria-hidden="true">2</span>
+          <div class="decision-body">
+            <h5>Agent message ไม่มี bubble (อ่านแบบเอกสาร)</h5>
+            <p>การไม่ใช้ bubble สร้างความแตกต่างจาก ChatGPT clone และทำให้ข้อความ Agent อ่านสบายขึ้น (line-height 1.7) — progressive disclosure (Timeline + Detail Sheet) ทำงานได้ดีกว่าเมื่อข้อความไม่ถูกจำกัดด้วย bubble width</p>
+          </div>
+        </article>
+        <article class="decision-item" aria-label="เหตุผลที่ 3">
+          <span class="decision-num" aria-hidden="true">3</span>
+          <div class="decision-body">
+            <h5>ใช้สี Warm Amber (#B07A2A) แทนสีฟ้า/ม่วง AI</h5>
+            <p>สีฟ้าและม่วงเป็นเอกลักษณ์ของ ChatGPT, Claude, Gemini — การใช้ amber สื่อถึง "อบอุ่น เป็นกันเอง" และลดความเครียดเมื่ออ่านข้อมูลที่ซับซ้อน ไม่ถูกเข้าใจผิดว่าเป็น clone</p>
+          </div>
+        </article>
+        <article class="decision-item" aria-label="เหตุผลที่ 4">
+          <span class="decision-num" aria-hidden="true">4</span>
+          <div class="decision-body">
+            <h5>ไม่แสดงตัวเลขประมาณการเมื่อไม่มีข้อมูลจริง</h5>
+            <p>การแสดงตัวเลขที่ไม่มีข้อมูลรองรับทำให้ผู้ใช้เข้าใจผิดและลดความน่าเชื่อถือ — ระบบแสดงเฉพาะสถานะ "กำลังทำ" และความคืบหน้าเปอร์เซ็นต์ (ถ้ามีข้อมูล)</p>
+          </div>
+        </article>
+        <article class="decision-item" aria-label="เหตุผลที่ 5">
+          <span class="decision-num" aria-hidden="true">5</span>
+          <div class="decision-body">
+            <h5>Timeline ใช้ vertical connector line แทน card แยกกัน</h5>
+            <p>เส้นเชื่อมสร้างความรู้สึกว่า "ขั้นตอนเหล่านี้เป็นงานเดียวกัน" และลดพื้นที่ในแนวตั้ง (ไม่ต้องมี margin ใหญ่ระหว่าง card) — อ่านง่ายกว่าแม้มี 6-8 ขั้นตอน</p>
+          </div>
+        </article>
+        <article class="decision-item" aria-label="เหตุผลที่ 6">
+          <span class="decision-num" aria-hidden="true">6</span>
+          <div class="decision-body">
+            <h5>Detail Sheet แยกเป็น bottom sheet ไม่แสดงใน Timeline</h5>
+            <p>ข้อมูลเทคนิค (แหล่งข้อมูล, โค้ด, ข้อผิดพลาด) มีความยาวและซับซ้อน — ถ้าแสดงใน Timeline จะทำให้ Timeline ยืดและอ่านยาก — progressive disclosure (แตะ citation เพื่อเปิด) ทำงานได้ดีกว่า</p>
+          </div>
+        </article>
+        <article class="decision-item" aria-label="เหตุผลที่ 7">
+          <span class="decision-num" aria-hidden="true">7</span>
+          <div class="decision-body">
+            <h5>ทุกข้อความที่ผู้ใช้เห็นเป็นภาษาไทยธรรมดา (ไม่ใช้ศัพท์เทคนิค)</h5>
+            <p>ผู้ใช้เป้าหมายไม่ใช่โปรแกรมเมอร์ — การใช้ "กำลังค้นหาเว็บ" แทน "invoking web_search tool" ทำให้ผู้ใช้เข้าใจและรู้สึกควบคุมได้จริง ไม่รู้สึกว่าเป็นแค่ผู้สังเกตการณ์</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <!-- Final Summary -->
+    <section aria-label="สรุปรวม">
+      <div class="section-label">สรุปรวมทั้ง 4 เฟส</div>
+      <article class="summary-box" aria-label="สรุปรวมการเปลี่ยนแปลงทั้งหมด">
+        <div class="summary-title">สรุปรวม: เพิ่ม / แก้ / ตัด จากพรอมต์ต้นฉบับ</div>
+        <div class="summary-text">
+          <strong>เพิ่ม:</strong> Component Library ครบทุก component (8 card types + status line + timeline + sheets + input) พร้อม variants/states; Design Tokens ฉบับเต็ม (Light/Dark); Prototype Spec (animation/interactions/accessibility); Status Copy Library (ไทย/อังกฤษ); Data Structure (TypeScript) พร้อม lifecycle/reconnect; Edge Cases (6 กรณี); Decisions (7 ข้อ); สรุปรวม 4 เฟส<br><br>
+          <strong>แก้:</strong> ไม่มี emoji ในทุกไฟล์ (ตรวจสอบด้วย grep); ไม่ดู AI-template (สี amber ตลอด, ไม่มี bubble Agent, typography มืออาชีพ, progressive disclosure); ทุก status copy ใช้ภาษาไทยธรรมดา (ไม่ใช้ศัพท์เทคนิค); ไม่แสดงตัวเลขประมาณการเมื่อไม่มีข้อมูลจริง<br><br>
+          <strong>ตัด:</strong> ไม่มีการใช้ bubble สำหรับ Agent message (อ่านแบบเอกสาร); ไม่มี rainbow gradient; ไม่มี neon effects; ไม่มี robot icons; ไม่มี spinner เปล่า (ทุกสถานะมี label + icon); ไม่มีศัพท์เทคนิคใน UI ที่ผู้ใช้เห็นโดยปริยาย<br><br>
+          <strong>GitHub Token:</strong> Clone repo `pr4yhk6zt6-wq/Test` → commit `15cf888` (เฟส 1-2) → `d80476a` (เฟส 3) → เฟส 4 จะ push ต่อด้วย token `ghp_...`
+        </div>
+      </article>
+    </section>
+
+  </main>
+
+  <footer class="input-bar-wrap" style="padding: 8px 16px 24px; background: linear-gradient(0deg, var(--glass) 60%, rgba(255,255,255,0) 100%); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-top: 1px solid var(--border);">
+    <div style="font-size: 11px; color: var(--text-muted); text-align: center; font-weight: 500;">
+      Phase 4 — Component Library + Developer Specs | Design by Senior Product Designer | Not an AI template
+    </div>
+  </footer>
+
+</div>
+
+<script>
+function setTheme(t) {
+  document.getElementById('phone').setAttribute('data-theme', t);
+  document.getElementById('btn-light').classList.toggle('active', t === 'light');
+  document.getElementById('btn-dark').classList.toggle('active', t === 'dark');
+}
+</script>
+
+</body>
+</html>
