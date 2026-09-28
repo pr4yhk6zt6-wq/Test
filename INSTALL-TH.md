@@ -1,23 +1,27 @@
 # คู่มือติดตั้งแอป (ภาษาไทย) — บิลด์ดีไซน์ v2
 
 ไฟล์นี้เขียนสำหรับบิลด์ที่สร้างจากสาขา `redesign/agent-ui` (ดีไซน์ v2 ทั้งชุด)
-อัปเดตล่าสุด: **28 กันยายน 2569** · commit `4ea95cd` · build ผ่าน GitHub Actions เรียบร้อยแล้ว (run `36454597850` — ผ่านครบ 14 ขั้น รวม unit test 265 รายการ, build และแพ็ค .ipa)
+อัปเดตล่าสุด: **28 กันยายน 2569** · commit `4ea95cd` · build ผ่าน GitHub Actions (run `36454597850` — ผ่านครบ 14 ขั้น รวม unit test 265 รายการ, build และแพ็ค .ipa)
+รวมเข้า `main` แล้ว (merge commit `08d8dba`) และงานบน `main` ผ่านครบ 15 ขั้น — ไฟล์ `.ipa` อยู่บนหน้า Releases แล้ว (3.4 MB)
 
 ---
 
 ## 1. เอาไฟล์ .ipa มาจากไหน
 
-มี 2 ทาง เลือกทางใดทางหนึ่ง
+มี 2 ทาง เลือกทางใดทางหนึ่ง — **ตอนนี้ใช้ทางที่ 2 ได้แล้ว เร็วที่สุด**
 
-**ทางที่ 1 — จากผลการ build ของ Pull Request (ใช้ได้ทันทีตอนนี้)**
+**ลิงก์ตรงที่เปิดจาก iPhone ได้เลย (ไม่ต้องล็อกอิน GitHub):**
+`https://github.com/pr4yhk6zt6-wq/Test/releases/download/latest-build/iOSAgentSandbox.ipa`
+
+**ทางที่ 1 — จากผลการ build ของ GitHub Actions (ต้องล็อกอิน GitHub)**
 1. เปิดหน้า Actions ของ repo: `github.com/pr4yhk6zt6-wq/Test/actions` (ต้องล็อกอิน GitHub)
 2. เลือกงานชื่อ **Build iOS Agent Sandbox (unsigned IPA)** ของ commit `4ea95cd` (build ล่าสุด)
 3. เลื่อนลงไปหัวข้อ **Artifacts** → กดดาวน์โหลด **iOSAgentSandbox-ipa** (ได้ไฟล์ zip ที่ข้างในคือ `iOSAgentSandbox.ipa`)
 4. ย้ายไฟล์ `.ipa` ไปไว้ในแอป **ไฟล์** ของ iPhone (หรือส่งผ่าน AirDrop ให้เครื่อง iPhone เป้าหมาย)
 
-**ทางที่ 2 — จากหน้า Releases (สะดวกที่สุด แต่ต้องรวม PR เข้า main ก่อน)**
-- ถ้ารวม PR #1 เข้า `main` งาน build จะอัปโหลด `.ipa` ขึ้น Releases ให้อัตโนมัติ
-- ลิงก์ตรงที่เปิดบน iPhone ได้เลย (ไม่ต้องล็อกอิน): `https://github.com/pr4yhk6zt6-wq/Test/releases/download/latest-build/iOSAgentSandbox.ipa`
+**ทางที่ 2 — จากหน้า Releases (สะดวกที่สุด ใช้ได้แล้วตอนนี้)**
+- ทุกครั้งที่ `main` ถูกอัปเดต ระบบจะสร้าง `.ipa` ใหม่และอัปโหลดขึ้น Releases ให้อัตโนมัติ (ไม่ต้องล็อกอิน)
+- ลิงก์ตรงที่เปิดบน iPhone ได้เลย: `https://github.com/pr4yhk6zt6-wq/Test/releases/download/latest-build/iOSAgentSandbox.ipa`
 
 > ไฟล์ `.ipa` นี้ถูกเซ็นด้วย `ldid` พร้อม entitlements `no-sandbox` แล้ว ซึ่ง **ไม่ใช่การเซ็นของ Apple** จึงต้องติดตั้งด้วยวิธีด้านล่างเท่านั้น (ติดตั้งผ่าน App Store / TestFlight ไม่ได้)
 
