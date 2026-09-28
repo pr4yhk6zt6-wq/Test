@@ -99,6 +99,12 @@ FILES=(
   "Services/Tools/ShellTool.swift"
   "Services/Tools/HttpTools.swift"
   "Services/Tools/ToolRegistry.swift"
+  # เฟส 3 — ชั้นไฟล์ สิทธิ์ และ shell จริง (posix_spawn)
+  "Services/Tools/PrivilegePolicy.swift"
+  "Services/FileSystemService.swift"
+  "Services/EntitlementProbe.swift"
+  "Services/ShellService.swift"
+  "Services/PrivilegeService.swift"
 )
 for rel in "${FILES[@]}"; do
   cp "$PROJECT_ROOT/$rel" "$WORK/$(basename "$rel")"

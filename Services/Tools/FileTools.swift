@@ -4,6 +4,9 @@
 //
 //  tools ฝั่งไฟล์ของเฟส 2: read_file, write_file, list_directory, search_files
 //
+//  เฟส 3: ทุกอย่างเรียกผ่าน FileSystemService (ชั้นเดียวกับที่ FileBrowserView จะใช้ในเฟส 4)
+//  จึงได้ข้อความ error ภาษาไทยที่บอกสาเหตุจริง และกฎหน่วยความจำถูกบังคับใช้ที่ชั้นเดียว
+//
 //  กฎหน่วยความจำ (เครื่อง RAM 2GB): ห้ามโหลดไฟล์ทั้งไฟล์เข้าหน่วยความจำ
 //  การอ่านจึงทำผ่าน FileHandle ทีละก้อน (64KB) และหยุดเมื่อได้ครบตามที่ขอ
 //
@@ -11,143 +14,6 @@
 //
 
 import Foundation
-
-// MARK: - ตัวอ่านไฟล์แบบทีละก้อน
-
-enum ChunkedFileReader {
-
-    /// ขนาดก้อนที่อ่านต่อครั้ง
-    static let chunkSize = 64 * 1024
-
-    struct Prefix {
-        let text: String
-        let bytesRead: Int
-        let totalBytes: Int64
-        let isBinary: Bool
-        /// true = ยังมีข้อมูลเหลือในไฟล์ที่ยังไม่ได้อ่าน
-        let hasMore: Bool
-    }
-
-    /// อ่าน "ส่วนต้น" ของไฟล์ไม่เกิน maxBytes (ค่าเริ่มต้น 96KB) โดยไม่โหลดทั้งไฟล์
-    static func readPrefix(path: String, maxBytes: Int = 96 * 1024) throws -> Prefix {
-        let fileManager = FileManager.default
-        guard fileManager.fileExists(atPath: path) else {
-            throw NSError(domain: NSCocoaErrorDomain, code: NSFileNoSuchFileError, userInfo: nil)
-        }
-
-        let attributes = try fileManager.attributesOfItem(atPath: path)
-        let totalBytes = (attributes[.size] as? NSNumber)?.int64Value ?? 0
-
-        guard let handle = FileHandle(forReadingAtPath: path) else {
-            throw NSError(domain: NSCocoaErrorDomain, code: NSFileReadNoPermissionError, userInfo: nil)
-        }
-        defer {
-            do {
-                try handle.close()
-            } catch {
-                // ปิดไม่สำเร็จไม่กระทบผลลัพธ์ — ปล่อยให้ระบบเก็บคืนเอง
-            }
-        }
-
-        var collected = Data()
-        let ceiling = max(1, min(maxBytes, ToolOutputLimiter.maxReadBytes))
-
-        while collected.count < ceiling {
-            try Task.checkCancellation()
-            let remaining = ceiling - collected.count
-            let readSize = Swift.min(chunkSize, remaining)
-            guard let chunk = try handle.read(upToCount: readSize), !chunk.isEmpty else {
-                break
-            }
-            collected.append(chunk)
-        }
-
-        let isBinary = Self.looksBinary(collected)
-        let text = Self.decode(collected)
-        let hasMore = totalBytes > Int64(collected.count)
-
-        return Prefix(text: text,
-                      bytesRead: collected.count,
-                      totalBytes: totalBytes,
-                      isBinary: isBinary,
-                      hasMore: hasMore)
-    }
-
-    /// เดาว่าเป็นไฟล์ไบนารีหรือไม่ (เจอไบต์ 0 ในส่วนต้น)
-    static func looksBinary(_ data: Data) -> Bool {
-        let sample = data.prefix(4096)
-        for byte in sample where byte == 0 {
-            return true
-        }
-        return false
-    }
-
-    /// ถอดรหัสข้อความ: UTF-8 → ตัดไบต์ท้ายที่ค้าง → ISO Latin-1 → lossy UTF-8
-    static func decode(_ data: Data) -> String {
-        if data.isEmpty { return "" }
-        if let text = String(data: data, encoding: .utf8) { return text }
-        if data.count > 4 {
-            for drop in 1...3 {
-                if let text = String(data: Data(data.dropLast(drop)), encoding: .utf8) {
-                    return text
-                }
-            }
-        }
-        if let text = String(data: data, encoding: .isoLatin1) { return text }
-        return String(decoding: data, as: UTF8.self)
-    }
-
-    /// อ่านเฉพาะส่วนต้นของไฟล์ (ใช้ทำตัวอย่าง hex ของไฟล์ไบนารี) — ไม่โหลดทั้งไฟล์
-    static func readHead(path: String, maxBytes: Int = 256) throws -> Data {
-        guard let handle = FileHandle(forReadingAtPath: path) else {
-            throw NSError(domain: NSCocoaErrorDomain, code: NSFileReadNoPermissionError, userInfo: nil)
-        }
-        defer {
-            do {
-                try handle.close()
-            } catch {
-                // ปิดไม่สำเร็จไม่กระทบผลลัพธ์
-            }
-        }
-        return try handle.read(upToCount: max(1, min(maxBytes, ToolOutputLimiter.maxReadBytes))) ?? Data()
-    }
-
-    /// แสดงตัวอย่างแบบ hex (ใช้เมื่อไฟล์เป็นไบนารี — 256 ไบต์แรก)
-    static func hexPreview(_ data: Data, maxBytes: Int = 256) -> String {
-        var lines: [String] = []
-        let chunk = data.prefix(maxBytes)
-        var offset = 0
-        var lineBytes: [UInt8] = []
-        var ascii = ""
-
-        for byte in chunk {
-            lineBytes.append(byte)
-            ascii.append(byte >= 32 && byte < 127 ? Character(UnicodeScalar(byte)) : ".")
-            if lineBytes.count == 16 {
-                lines.append(String(format: "%08x  ", offset) + hexPart(lineBytes) + " |" + ascii + "|")
-                offset += 16
-                lineBytes.removeAll()
-                ascii = ""
-            }
-        }
-        if !lineBytes.isEmpty {
-            lines.append(String(format: "%08x  ", offset) + hexPart(lineBytes) + " |" + ascii + "|")
-        }
-        return lines.joined(separator: "\n")
-    }
-
-    private static func hexPart(_ bytes: [UInt8]) -> String {
-        var text = ""
-        for (index, byte) in bytes.enumerated() {
-            text += String(format: "%02x ", byte)
-            if index == 7 { text += " " }
-        }
-        while text.count < 51 {
-            text += " "
-        }
-        return text
-    }
-}
 
 // MARK: - อ่านไฟล์
 
@@ -310,7 +176,6 @@ struct WriteFileTool: AgentTool {
         let path = PathGuard.normalize(rawPath, workspace: context.workspacePath)
         let append = args.bool("append", default: false)
         let createDirectories = args.bool("create_directories", default: true)
-        let fileManager = FileManager.default
 
         if let reason = PathGuard.protectionReason(for: path, workspace: context.workspacePath), !context.isApproved {
             return .failure(.blocked,
@@ -318,46 +183,20 @@ struct WriteFileTool: AgentTool {
                             "ให้ผู้ใช้อนุมัติในแอปแล้วเรียก tool นี้อีกครั้ง (หรือเปลี่ยนไปเขียนใน \(PathGuard.displayPath(context.workspacePath, workspace: context.workspacePath)))")
         }
 
-        let data = Data(content.utf8)
-        guard data.count <= WriteFileTool.maximumContentBytes else {
-            return .failure(.tooLarge,
-                            "เนื้อหาที่จะเขียนใหญ่เกินไป (\(NetworkPolicy.formatBytes(Int64(data.count))) " +
-                            "เกินเพดาน \(NetworkPolicy.formatBytes(Int64(WriteFileTool.maximumContentBytes)))) — แบ่งเขียนหลายครั้งด้วย append=true")
-        }
 
         do {
-            let existedBefore = fileManager.fileExists(atPath: path)
-
-            if createDirectories {
-                let directory = (path as NSString).deletingLastPathComponent
-                if !directory.isEmpty, !fileManager.fileExists(atPath: directory) {
-                    try fileManager.createDirectory(atPath: directory,
-                                                    withIntermediateDirectories: true,
-                                                    attributes: nil)
-                }
-            }
-
-            if append, existedBefore {
-                let handle = try FileHandle(forWritingTo: URL(fileURLWithPath: path))
-                defer {
-                    do {
-                        try handle.close()
-                    } catch {
-                        // ปิดไม่สำเร็จเป็นเรื่องของระบบ ไม่กระทบผลลัพธ์ที่เขียนเสร็จแล้ว
-                    }
-                }
-                try handle.seekToEnd()
-                try handle.write(contentsOf: data)
-            } else {
-                try data.write(to: URL(fileURLWithPath: path), options: .atomic)
-            }
-
-            let attributes = try? fileManager.attributesOfItem(atPath: path)
-            let size = (attributes?[.size] as? NSNumber)?.int64Value ?? Int64(data.count)
-            let mode = append && existedBefore ? "ต่อท้าย" : (existedBefore ? "เขียนทับ" : "สร้างใหม่")
+            // เขียนผ่าน FileSystemService เพื่อให้ได้ข้อความ error ภาษาไทยและเพดานขนาดที่เดียวกันทั้งแอป
+            let report = try FileSystemService.write(content,
+                                                     to: path,
+                                                     append: append,
+                                                     createDirectories: createDirectories,
+                                                     maximumBytes: WriteFileTool.maximumContentBytes)
+            let mode = (append && report.didOverwriteExisting)
+                ? "ต่อท้าย"
+                : (report.didOverwriteExisting ? "เขียนทับ" : "สร้างใหม่")
 
             return .short("สำเร็จ: \(mode)ไฟล์ \(PathGuard.displayPath(path, workspace: context.workspacePath)) " +
-                "(\(NetworkPolicy.formatBytes(size)))")
+                "(\(NetworkPolicy.formatBytes(report.finalSizeBytes)) • เขียนไป \(report.bytesWritten) ไบต์)")
         } catch {
             let mapped = ToolErrorMapper.describe(error, path: PathGuard.displayPath(path, workspace: context.workspacePath))
             return .failure(mapped.kind, mapped.message)
@@ -424,77 +263,45 @@ struct ListDirectoryTool: AgentTool {
         let maxEntries = args.intInRange("max_entries", default: 200, min: 1, max: 1000)
         let showHidden = args.bool("show_hidden", default: false)
 
-        let fileManager = FileManager.default
-        var isDirectory: ObjCBool = false
-        guard fileManager.fileExists(atPath: path, isDirectory: &isDirectory) else {
+        guard FileSystemService.isDirectory(path) != nil else {
             return .failure(.notFound, "ไม่พบโฟลเดอร์: \(PathGuard.displayPath(path, workspace: context.workspacePath))" +
                             (PathGuard.isProtected(path, workspace: context.workspacePath)
                              ? "\n(path นี้เป็นของระบบ — ถ้าอ่านไม่ได้ ให้ตรวจว่าแอปติดตั้งผ่าน TrollStore/palera1n แล้ว)"
                              : ""))
         }
-        guard isDirectory.boolValue else {
-            return .failure(.invalidArguments, "path นี้เป็นไฟล์ ไม่ใช่โฟลเดอร์: \(PathGuard.displayPath(path, workspace: context.workspacePath)) " +
-                            "— ใช้ read_file เพื่ออ่านไฟล์")
-        }
 
         do {
-            let entries = try fileManager.contentsOfDirectory(atPath: path)
-            var directories: [String] = []
-            var files: [String] = []
-            var skippedHidden = 0
-
-            for entry in entries {
-                if !showHidden, entry.hasPrefix(".") {
-                    skippedHidden += 1
-                    continue
-                }
-                let entryPath = (path as NSString).appendingPathComponent(entry)
-                var entryIsDirectory: ObjCBool = false
-                if fileManager.fileExists(atPath: entryPath, isDirectory: &entryIsDirectory), entryIsDirectory.boolValue {
-                    directories.append(entry)
-                } else {
-                    files.append(entry)
-                }
-                if directories.count + files.count >= maxEntries + 1 {
-                    break
-                }
-            }
-
-            directories.sort { $0.lowercased() < $1.lowercased() }
-            files.sort { $0.lowercased() < $1.lowercased() }
-            let ordered = directories + files
-            let shown = Array(ordered.prefix(maxEntries))
+            // อ่านรายการผ่าน FileSystemService (ชั้นเดียวกับ FileBrowserView ในเฟส 4)
+            let listing = try FileSystemService.list(path, includeHidden: showHidden, limit: maxEntries)
 
             let formatter = DateFormatter()
             formatter.locale = Locale(identifier: "th_TH")
             formatter.dateFormat = "yyyy-MM-dd HH:mm"
 
             var lines: [String] = []
-            for name in shown {
-                let entryPath = (path as NSString).appendingPathComponent(name)
-                let attributes = try? fileManager.attributesOfItem(atPath: entryPath)
-                let size = (attributes?[.size] as? NSNumber)?.int64Value ?? 0
-                let modified = attributes?[.modificationDate] as? Date
-                let isDir = directories.contains(name)
-                let kind = isDir ? "DIR " : "FILE"
-                var sizeText = isDir ? "        " : NetworkPolicy.formatBytes(size)
+            for entry in listing.entries {
+                let kind = entry.isSymbolicLink ? "LINK " : (entry.isDirectory ? "DIR " : "FILE")
+                var sizeText = entry.isDirectory ? "        " : NetworkPolicy.formatBytes(entry.sizeBytes)
                 while sizeText.count < 8 {
                     sizeText = " " + sizeText
                 }
-                let dateText = modified.map { formatter.string(from: $0) } ?? "—"
-                lines.append("\(kind) \(sizeText)  \(dateText)  \(name)\(isDir ? "/" : "")")
+                let dateText = entry.modificationDate.map { formatter.string(from: $0) } ?? "—"
+                lines.append("\(kind) \(sizeText)  \(dateText)  \(entry.name)\(entry.isDirectory ? "/" : "")")
             }
+
+            let directoryCount = listing.entries.filter { $0.isDirectory }.count
+            let fileCount = listing.entries.count - directoryCount
 
             var header = "โฟลเดอร์: \(PathGuard.displayPath(path, workspace: context.workspacePath))\n" +
-                "ทั้งหมด \(directories.count) โฟลเดอร์, \(files.count) ไฟล์"
-            if skippedHidden > 0 {
-                header += " (ซ่อนไฟล์ที่ขึ้นต้นด้วย . อยู่ \(skippedHidden) รายการ)"
+                "แสดง \(directoryCount) โฟลเดอร์, \(fileCount) ไฟล์"
+            if listing.skippedHidden > 0 {
+                header += " (ซ่อนไฟล์ที่ขึ้นต้นด้วย . อยู่ \(listing.skippedHidden) รายการ)"
             }
-            if ordered.count > shown.count {
-                header += "\nแสดงเฉพาะ \(shown.count) รายการแรกจาก \(ordered.count) รายการ"
+            if listing.totalCount > listing.entries.count {
+                header += "\nแสดงเฉพาะ \(listing.entries.count) รายการแรกจาก \(listing.totalCount) รายการที่ตรงเงื่อนไข"
             }
 
-            if shown.isEmpty {
+            if listing.entries.isEmpty {
                 return .ok("\(header)\n\n(โฟลเดอร์ว่าง)")
             }
             return .ok("\(header)\n\n" + lines.joined(separator: "\n"))
@@ -573,9 +380,7 @@ struct SearchFilesTool: AgentTool {
         let maxDepth = args.intInRange("max_depth", default: 6, min: 1, max: 12)
         let includeDirectories = args.bool("include_directories", default: false)
 
-        let fileManager = FileManager.default
-        var isDirectory: ObjCBool = false
-        guard fileManager.fileExists(atPath: root, isDirectory: &isDirectory), isDirectory.boolValue else {
+        guard FileSystemService.isDirectory(root) == true else {
             return .failure(.notFound, "ไม่พบโฟลเดอร์เริ่มต้น: \(PathGuard.displayPath(root, workspace: context.workspacePath))")
         }
 
@@ -591,24 +396,23 @@ struct SearchFilesTool: AgentTool {
             let current = queue.removeFirst()
             if current.depth > maxDepth { continue }
 
-            let entries: [String]
+            let names: [String]
             do {
-                entries = try fileManager.contentsOfDirectory(atPath: current.path)
+                names = try FileSystemService.directoryNames(current.path)
             } catch {
                 continue // โฟลเดอร์ที่อ่านไม่ได้ (สิทธิ์ไม่พอ) ข้ามไป ไม่ทำให้ทั้งการค้นหาล้ม
             }
 
-            for entry in entries {
+            for entry in names {
                 visited += 1
                 if visited > SearchFilesTool.maximumVisitedEntries {
                     hitVisitLimit = true
                     break
                 }
                 let entryPath = (current.path as NSString).appendingPathComponent(entry)
-                var entryIsDirectory: ObjCBool = false
-                let exists = fileManager.fileExists(atPath: entryPath, isDirectory: &entryIsDirectory)
+                let entryIsDirectory = FileSystemService.isDirectory(entryPath) ?? false
 
-                if exists, entryIsDirectory.boolValue {
+                if entryIsDirectory {
                     if includeDirectories, GlobMatcher.matchesAny(patterns, entry) {
                         matches.append(entryPath + "/")
                         if matches.count >= maxResults { break }

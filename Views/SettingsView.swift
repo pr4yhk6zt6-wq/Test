@@ -30,6 +30,9 @@ struct SettingsView: View {
 
     // สิทธิ์การเข้าถึง
     @State private var accessReport: SystemAccessReport = SystemAccessChecker.check()
+    /// ผลตรวจสิทธิ์แบบละเอียดของเฟส 3 (persona/root, entitlements, shell ที่ใช้จริง)
+    @State private var privilegeReport: PrivilegeReport?
+    @State private var showEntitlementSheet = false
 
     // เฟส 2 — สถานะการเชื่อมต่อเครือข่าย (ใช้กับตัวเลือก "ใช้เฉพาะ Wi-Fi")
     @ObservedObject private var connectivity = ConnectivityMonitor.shared
@@ -47,6 +50,7 @@ struct SettingsView: View {
             connectionSection
             usageSection
             accessSection
+            privilegeSection
             aboutSection
         }
         .navigationTitle("ตั้งค่า")
@@ -62,6 +66,10 @@ struct SettingsView: View {
                 // เลือกโมเดลแล้ว รันทดสอบการเชื่อมต่อให้อัตโนมัติ
                 runConnectionTest()
             }
+        }
+        .sheet(isPresented: $showEntitlementSheet) {
+            EntitlementExplanationView(scan: privilegeReport?.entitlements,
+                                       workspacePath: settings.workspacePath)
         }
         .alert(alertTitle, isPresented: $showAlert) {
             Button("ตกลง", role: .cancel) { }
@@ -387,6 +395,98 @@ struct SettingsView: View {
         .frame(minHeight: 32)
     }
 
+    // MARK: - Section: สิทธิ์ของแอป (เฟส 3)
+
+    private var privilegeSection: some View {
+        Section {
+            if let report = privilegeReport {
+                ForEach(report.checklist, id: \.title) { item in
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: item.isOK ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                            .foregroundColor(item.isOK ? .green : .orange)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(item.title)
+                                .font(.footnote)
+                            Text(item.value)
+                                .font(.system(.caption2, design: .monospaced))
+                                .foregroundColor(.secondary)
+                            if let note = item.note {
+                                Text(note)
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .frame(minHeight: 44)
+                }
+
+                Toggle(isOn: rootShellBinding) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("ลองรันคำสั่งเป็น root")
+                        Text("สลับ persona (TrollStore) ให้ execute_shell รันเป็น root — ถ้าทำไม่ได้จะถอยไปรันแบบผู้ใช้ปัจจุบันโดยอัตโนมัติ")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .frame(minHeight: 44)
+
+                ForEach(report.pendingAdvice, id: \.self) { advice in
+                    HStack(alignment: .top, spacing: 6) {
+                        Image(systemName: "lightbulb")
+                            .font(.caption2)
+                            .foregroundColor(.yellow)
+                        Text(advice)
+                            .font(.caption)
+                    }
+                }
+
+                Button {
+                    showEntitlementSheet = true
+                } label: {
+                    Label("คำอธิบาย entitlements ทั้ง \(PrivilegePolicy.entitlements.count) คีย์", systemImage: "lock.shield")
+                        .frame(minHeight: 44)
+                }
+
+                Button {
+                    refreshPrivileges()
+                } label: {
+                    Label("ตรวจสิทธิ์ใหม่", systemImage: "arrow.clockwise")
+                        .frame(minHeight: 44)
+                }
+            } else {
+                HStack(spacing: 8) {
+                    ProgressView()
+                    Text("กำลังตรวจสิทธิ์และสแกน entitlements…")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                }
+                .frame(minHeight: 44)
+            }
+        } header: {
+            Text("สิทธิ์ของแอป (เฟส 3)")
+        } footer: {
+            Text("ตรวจจากของจริงทุกครั้งที่กด: uid ที่รัน, shell ที่ใช้, การอ่าน/เขียน /var/mobile, ฟังก์ชัน persona ของ TrollStore " +
+                 "และ entitlements ที่ฝังในไบนารี • ผู้ใช้ที่ยังไม่ได้รับสิทธิ์จะเห็นคำแนะนำให้ติดตั้งผ่าน TrollStore/palera1n")
+        }
+    }
+
+    /// สวิตช์ "ลองรันเป็น root" — เปลี่ยนค่าแล้วตรวจสิทธิ์ใหม่ทันที
+    private var rootShellBinding: Binding<Bool> {
+        Binding(get: { settings.preferRootShell },
+                set: { newValue in
+                    settings.preferRootShell = newValue
+                    refreshPrivileges()
+                })
+    }
+
+    private func refreshPrivileges() {
+        PrivilegeService.invalidateCache()
+        privilegeReport = PrivilegeService.probe(workspacePath: settings.workspacePath,
+                                                 preferRootShell: settings.preferRootShell)
+    }
+
     // MARK: - Section: เกี่ยวกับ
 
     private var aboutSection: some View {
@@ -437,6 +537,7 @@ struct SettingsView: View {
         }
         settings.refreshAPIKeyState()
         accessReport = SystemAccessChecker.check()
+        refreshPrivileges()
     }
 
     private func saveAPIKey() {

@@ -98,7 +98,8 @@ final class ChatViewModel: ObservableObject {
                                               isWiFiConnected: ConnectivityMonitor.shared.isWiFi,
                                               requireApproval: settings.requireApproval,
                                               maxDownloadBytes: settings.maxDownloadBytes,
-                                              contextLengthTokens: settings.contextLengthTokens)
+                                              contextLengthTokens: settings.contextLengthTokens,
+                                              preferRootShell: settings.preferRootShell)
 
         // history ที่ส่งให้ engine ต้องมี system prompt อยู่ข้างหน้าเสมอ
         let history = makeConversationPayload()
@@ -343,7 +344,10 @@ final class ChatViewModel: ObservableObject {
 
     /// สร้างบทสนทนาที่จะส่งให้โมเดล (system prompt + ประวัติที่กรองข้อความว่างออก)
     private func makeConversationPayload() -> [ChatMessage] {
-        var conversation: [ChatMessage] = [.system(SystemPrompt.build(tools: registry.definitions))]
+        let privilegeContext = PrivilegeService.cachedPromptContext(workspacePath: settings.workspacePath,
+                                                                    preferRootShell: settings.preferRootShell)
+        var conversation: [ChatMessage] = [.system(SystemPrompt.build(tools: registry.definitions,
+                                                                     privilegeContext: privilegeContext))]
         for message in messages {
             if message.role == .system { continue }
             if message.role == .assistant && message.isTextEmpty && !message.hasToolCalls { continue }

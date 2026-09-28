@@ -155,6 +155,8 @@ struct ToolExecutionContext {
     let maxDownloadBytes: Int64
     /// ผู้ใช้เพิ่งอนุมัติการเรียก tool นี้ไปแล้วหรือไม่ (ใช้กับ path ที่เป็นของระบบ)
     let isApproved: Bool
+    /// ให้ execute_shell ลองรันเป็น root ผ่าน persona ของ TrollStore (เฟส 3)
+    let runShellAsRoot: Bool
     /// รายงานความคืบหน้าให้ UI (เช่น "ดาวน์โหลด 42%") — ถูกเรียกจากเธรดใดก็ได้
     let reportProgress: (String) -> Void
 
@@ -164,6 +166,7 @@ struct ToolExecutionContext {
          isWiFiConnected: Bool,
          maxDownloadBytes: Int64,
          isApproved: Bool = false,
+         runShellAsRoot: Bool = false,
          reportProgress: @escaping (String) -> Void = { _ in }) {
         self.workspacePath = workspacePath
         self.allowInternet = allowInternet
@@ -171,6 +174,7 @@ struct ToolExecutionContext {
         self.isWiFiConnected = isWiFiConnected
         self.maxDownloadBytes = maxDownloadBytes
         self.isApproved = isApproved
+        self.runShellAsRoot = runShellAsRoot
         self.reportProgress = reportProgress
     }
 
@@ -182,6 +186,7 @@ struct ToolExecutionContext {
                              isWiFiConnected: isWiFiConnected,
                              maxDownloadBytes: maxDownloadBytes,
                              isApproved: value,
+                             runShellAsRoot: runShellAsRoot,
                              reportProgress: reportProgress)
     }
 }
@@ -243,6 +248,11 @@ enum ToolErrorMapper {
 
     /// แปลง error จาก FileManager/URLSession ให้เป็นข้อความที่โมเดลและผู้ใช้อ่านเข้าใจ
     static func describe(_ error: Error, path: String? = nil) -> (kind: ToolErrorKind, message: String) {
+        // ชั้นไฟล์ของเฟส 3 แปลข้อความไว้แล้ว — ใช้ได้เลย
+        if let fileError = error as? FileSystemError {
+            return (fileError.toolErrorKind, fileError.localizedDescription)
+        }
+
         let nsError = error as NSError
 
         if nsError.domain == NSCocoaErrorDomain {

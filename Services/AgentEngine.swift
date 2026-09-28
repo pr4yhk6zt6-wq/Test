@@ -38,6 +38,8 @@ struct AgentConfiguration {
     var temperature: Double = 0.3
     /// จำนวนรอบสูงสุดของ ReAct loop ต่อหนึ่งคำสั่ง
     var maxToolRounds: Int = AgentEngine.maximumToolRounds
+    /// ให้ execute_shell ลองสลับ persona เพื่อรันเป็น root (เฟส 3 — ทำงานเมื่อติดตั้งผ่าน TrollStore)
+    var preferRootShell: Bool = true
     var baseURLString: String = OpenRouterService.baseURLString
 }
 
@@ -512,6 +514,7 @@ final class AgentEngine {
                                               isWiFiConnected: configuration.isWiFiConnected,
                                               maxDownloadBytes: configuration.maxDownloadBytes,
                                               isApproved: approvalFlag,
+                                              runShellAsRoot: configuration.preferRootShell,
                                               reportProgress: { text in
                                                   continuation.yield(.status(text))
                                               })

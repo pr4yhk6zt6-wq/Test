@@ -261,6 +261,40 @@ def check_swift(root: Path) -> None:
         ok(f"สแกน {len(files)} ไฟล์: ไม่มี TODO / force unwrap / API ของ iOS 16+")
 
 
+THAI_COMBINING = "\u0e31\u0e34-\u0e3a\u0e47-\u0e4e"
+# อักษรละติน/ตัวเลขที่ตามด้วยวรรณยุกต์หรือสระบน-ล่างของไทย = พิมพ์ผิดแน่นอน (เกิดจากสลับ keyboard)
+MIXED_SCRIPT_RULE = rf"[A-Za-z0-9][{THAI_COMBINING}]"
+MIXED_SCRIPT_FILES = (".swift", ".md", ".sh", ".py", ".yml", ".yaml", ".entitlements", ".json", ".plist")
+
+
+def check_thai_text(root: Path) -> None:
+    """ตรวจคำไทยที่มีอักษรละตินปนอยู่ (บั๊กการพิมพ์ที่ตาเปล่ามองข้ามได้ง่ายมาก)"""
+    print("\n[7] ข้อความไทย (อักษรละตินปนคำ)")
+
+    hits = []
+    for path in sorted(root.rglob("*")):
+        if not path.is_file() or path.suffix not in MIXED_SCRIPT_FILES:
+            continue
+        rel = str(path.relative_to(root))
+        if any(part in rel for part in (".git/", ".build/", "build/", "verification/Sources/", "node_modules/")):
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (UnicodeDecodeError, OSError):
+            continue
+        for number, line in enumerate(text.splitlines(), 1):
+            if "mixed-script-allow" in line:
+                continue   # บรรทัดที่จงใจยกตัวอย่างข้อความผิด (เช่นในรายงานผล)
+            for match in re.finditer(MIXED_SCRIPT_RULE, line):
+                snippet = line[max(0, match.start() - 8):match.end() + 8]
+                hits.append(f"{rel}:{number} → …{snippet}…")
+
+    if hits:
+        problem(f"พบอักษรละตินปนคำไทย: {', '.join(hits[:5])}")
+    else:
+        ok("ไม่พบอักษรละตินปนคำไทยในไฟล์ข้อความทั้งหมด")
+
+
 # ---------------------------------------------------------------- main
 
 def main() -> int:
@@ -279,6 +313,7 @@ def main() -> int:
     check_icon(root)
     check_assets(root)
     check_swift(root)
+    check_thai_text(root)
 
     print("\n" + "=" * 62)
     if PROBLEMS:

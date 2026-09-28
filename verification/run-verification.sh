@@ -38,6 +38,14 @@ ORIGINALS=(
   "Services/Tools/HTMLTextExtractor.swift"
   "Services/Tools/NetworkPolicy.swift"
   "Services/Tools/ContextTrimmer.swift"
+  # เฟส 3 — สิทธิ์ระดับระบบ (ไม่มี UIKit จึงทดสอบได้ทุกแพลตฟอร์ม)
+  "Services/Tools/PrivilegePolicy.swift"
+  "Services/FileSystemService.swift"
+  "Services/EntitlementProbe.swift"
+  "Services/ShellService.swift"
+  "Services/PrivilegeService.swift"
+  # ShellTool ต้องทดสอบว่าผลลัพธ์รายงาน "รันในนามใคร" (เฟส 3)
+  "Services/Tools/ShellTool.swift"
 )
 
 echo "== คัดลอกไฟล์ต้นฉบับที่ต้องทดสอบ =="
@@ -67,7 +75,7 @@ swift test --scratch-path /tmp/swiftpm-build 2>&1 | tee /tmp/swift-test-output.l
 echo ""
 if grep -qE "[0-9]+ tests?, with 0 failures" /tmp/swift-test-output.log; then
   TOTAL="$(grep -oE "Executed [0-9]+ tests" /tmp/swift-test-output.log | tail -1 | grep -oE "[0-9]+")"
-  echo "✓ รันทดสอบแกนกลาง (เฟส 1 + 2) ผ่านทั้งหมด ${TOTAL:-?} เคส"
+  echo "✓ รันทดสอบแกนกลาง (เฟส 1 + 2 + 3) ผ่านทั้งหมด ${TOTAL:-?} เคส"
 else
   echo "⚠️ มีเคสที่ไม่ผ่าน:"
   grep -E "error:" /tmp/swift-test-output.log | sed 's/^/   /' | head -20

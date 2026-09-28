@@ -35,7 +35,7 @@ if git diff --cached --quiet; then
   echo "→ ไม่มีการเปลี่ยนแปลงที่ต้อง commit"
 else
   git -c user.email="agent@local" -c user.name="iOS Agent Sandbox" \
-      commit -q -m "Phase 1: Settings + OpenRouterService (streaming, tool_calls, retry, token usage)"
+      commit -q -m "Phase 3: root ผ่าน persona + FileSystemService + entitlements (unit 141 / E2E 92 ผ่านในแซนด์บล็อก)"
   echo "→ commit แล้ว"
 fi
 

@@ -294,9 +294,8 @@ struct DownloadFileTool: AgentTool {
 
         let destination = resolvedDestination(arguments: arguments, context: context)
         let overwrite = args.bool("overwrite", default: false)
-        let fileManager = FileManager.default
 
-        if fileManager.fileExists(atPath: destination), !overwrite, !context.isApproved {
+        if FileSystemService.exists(destination), !overwrite, !context.isApproved {
             return .failure(.blocked,
                             "ไฟล์ปลายทางมีอยู่แล้ว: \(PathGuard.displayPath(destination, workspace: context.workspacePath))\n" +
                             "ให้ผู้ใช้อนุมัติการเขียนทับ หรือส่ง overwrite=true")
@@ -366,23 +365,10 @@ struct DownloadFileTool: AgentTool {
             }
 
             // 3) ย้ายไฟล์จากที่ชั่วคราวไปยังปลายทางที่ผู้ใช้ต้องการ
-            let directory = (destination as NSString).deletingLastPathComponent
-            if !directory.isEmpty, !fileManager.fileExists(atPath: directory) {
-                try fileManager.createDirectory(atPath: directory, withIntermediateDirectories: true, attributes: nil)
-            }
-            if fileManager.fileExists(atPath: destination), overwrite {
-                try fileManager.removeItem(atPath: destination)
-            }
-            do {
-                try fileManager.moveItem(at: temporaryURL, to: URL(fileURLWithPath: destination))
-            } catch {
-                // ข้ามโวลุ่มไม่ได้ (เช่น /tmp → /var) → คัดลอกแล้วลบต้นทาง
-                try fileManager.copyItem(at: temporaryURL, to: URL(fileURLWithPath: destination))
-                try? fileManager.removeItem(at: temporaryURL)
-            }
+            //    FileSystemService.move จัดการเรื่องสร้างโฟลเดอร์/เขียนทับ/ข้ามโวลุ่มให้แล้ว
+            try FileSystemService.move(temporaryURL.path, to: destination, overwrite: overwrite)
 
-            let attributes = try? fileManager.attributesOfItem(atPath: destination)
-            let size = (attributes?[.size] as? NSNumber)?.int64Value ?? 0
+            let size = (try? FileSystemService.attributes(of: destination).sizeBytes) ?? 0
             let contentType = http.value(forHTTPHeaderField: "Content-Type") ?? "ไม่ระบุ"
 
             return .short("ดาวน์โหลดสำเร็จ: \(PathGuard.displayPath(destination, workspace: context.workspacePath))\n" +

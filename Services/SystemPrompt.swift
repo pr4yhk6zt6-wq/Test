@@ -15,7 +15,7 @@ import Foundation
 
 enum SystemPrompt {
 
-    static func build(tools: [ToolDefinition] = []) -> String {
+    static func build(tools: [ToolDefinition] = [], privilegeContext: String = "") -> String {
         var sections: [String] = []
 
         sections.append("""
@@ -31,6 +31,13 @@ enum SystemPrompt {
         • ค้นหาไฟล์ตามชื่อหรือรูปแบบ (glob)
         • เข้าถึงอินเทอร์เน็ตได้: เรียก HTTP request, ดาวน์โหลดไฟล์ลงเครื่อง, ค้นหาเว็บ และดึงเนื้อหาหน้าเว็บ
         """)
+
+        if !privilegeContext.isEmpty {
+            sections.append("""
+            สถานะสิทธิ์ของแอปบนเครื่องนี้ (ข้อมูลที่ตรวจได้จริงตอนนี้ — ใช้ตัดสินใจก่อนพยายามอ่านไฟล์ของระบบ):
+            \(privilegeContext)
+            """)
+        }
 
         if !tools.isEmpty {
             let inventory = tools.map { tool in

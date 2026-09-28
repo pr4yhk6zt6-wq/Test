@@ -72,7 +72,8 @@ struct ExecuteShellTool: AgentTool {
         do {
             let result = try await ShellService.shared.run(command: command,
                                                            timeout: TimeInterval(timeoutSeconds),
-                                                           workingDirectory: workingDirectory)
+                                                           workingDirectory: workingDirectory,
+                                                           preferRoot: context.runShellAsRoot)
 
             if result.wasCancelled {
                 return .failure(.cancelled, "คำสั่งถูกยกเลิกโดยผู้ใช้")
@@ -89,6 +90,11 @@ struct ExecuteShellTool: AgentTool {
             }
             if assessment.level != .normal {
                 header += "\nความเสี่ยงที่ตรวจพบ: \(assessment.summaryText)"
+            }
+            // เฟส 3: บอกให้ชัดว่ารันในนามใคร เพื่อให้ผู้ใช้ (และโมเดล) วางแผนถูก
+            header += "\nรันในนาม: \(result.launchMode.thaiName) • shell: \(result.shellPath)"
+            if let warning = result.privilegeWarning {
+                header += "\n⚠️ \(warning)"
             }
             sections.append(header)
 

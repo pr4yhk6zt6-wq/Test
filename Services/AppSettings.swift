@@ -27,6 +27,8 @@ enum SettingsKeys {
     static let contextLengthTokens = "settings.contextLengthTokens"
     /// โฟลเดอร์ทำงานของ Agent
     static let workspacePath = "settings.workspacePath"
+    /// รันคำสั่ง shell ในนาม root ถ้าทำได้ (เฟส 3)
+    static let preferRootShell = "settings.preferRootShell"
 }
 
 /// ค่าเริ่มต้นของตัวเลือกที่เพิ่มในเฟส 2
@@ -36,6 +38,8 @@ enum AgentDefaults {
     static let wifiOnly = false
     static let maxDownloadMegabytes = 200
     static let contextLengthTokens = 32_768
+    /// ลองรันคำสั่ง shell เป็น root ผ่าน persona (ได้ผลจริงเมื่อติดตั้งผ่าน TrollStore)
+    static let preferRootShell = true
 }
 
 final class AppSettings: ObservableObject {
@@ -86,6 +90,12 @@ final class AppSettings: ObservableObject {
         didSet { defaults.set(contextLengthTokens, forKey: SettingsKeys.contextLengthTokens) }
     }
 
+    /// ลองรันคำสั่ง shell ในนาม root ผ่าน persona ของ TrollStore (เฟส 3)
+    /// ถ้าสลับ persona ไม่สำเร็จ ระบบจะรันในนามผู้ใช้ปัจจุบันให้อัตโนมัติ
+    @Published var preferRootShell: Bool {
+        didSet { defaults.set(preferRootShell, forKey: SettingsKeys.preferRootShell) }
+    }
+
     /// โฟลเดอร์ทำงานเริ่มต้นของ Agent
     @Published var workspacePath: String {
         didSet { defaults.set(workspacePath, forKey: SettingsKeys.workspacePath) }
@@ -123,6 +133,9 @@ final class AppSettings: ObservableObject {
             ?? AgentDefaults.contextLengthTokens
         self.contextLengthTokens = min(max(storedContext, 4_096), 1_000_000)
         self.workspacePath = defaults.string(forKey: SettingsKeys.workspacePath) ?? PathGuard.defaultWorkspace
+        // เฟส 3 — ค่าเริ่มต้นเปิดไว้ แต่ถ้าสลับ persona ไม่ได้จะถอยไปรันแบบผู้ใช้ปัจจุบันเอง
+        self.preferRootShell = defaults.object(forKey: SettingsKeys.preferRootShell) as? Bool
+            ?? AgentDefaults.preferRootShell
 
         refreshAPIKeyState()
     }

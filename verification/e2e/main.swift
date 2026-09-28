@@ -453,6 +453,207 @@ expect("หยุดยิงคำขอหลังถูกยกเลิก
 expect("รายงานสถานะว่าถูกยกเลิก", cancelEngine.lastStopReason == .cancelled,
        String(describing: cancelEngine.lastStopReason))
 
+// MARK: - 13) ShellService (posix_spawn) ของเฟส 3
+
+print("\n[13] ShellService: รันคำสั่งจริงด้วย posix_spawn")
+
+func shellRun(_ command: String, timeout: TimeInterval, preferRoot: Bool) async -> ShellResult? {
+    do {
+        return try await ShellService.shared.run(command: command,
+                                                timeout: timeout,
+                                                workingDirectory: nil,
+                                                preferRoot: preferRoot)
+    } catch {
+        print("    (คำสั่งล้มเหลว: \(error))")
+        return nil
+    }
+}
+
+let phase3Shell = await shellRun("echo e2e-phase3-shell", timeout: 20, preferRoot: false)
+expect("posix_spawn รันคำสั่งได้และอ่าน stdout ได้", phase3Shell?.stdout.contains("e2e-phase3-shell") ?? false,
+       phase3Shell?.stdout ?? "(nil)")
+expect("exit code = 0", phase3Shell?.exitCode == 0, String(describing: phase3Shell?.exitCode))
+expect("รายงาน shell ที่ใช้จริง", (phase3Shell?.shellPath.isEmpty == false), phase3Shell?.shellPath ?? "(nil)")
+expect("โหมดปกติ = ผู้ใช้ปัจจุบัน", phase3Shell?.launchMode == .currentUser,
+       String(describing: phase3Shell?.launchMode))
+expect("มีเหตุผลของโหมดการรันเป็นภาษาไทย", phase3Shell?.launchReason.isEmpty == false,
+       phase3Shell?.launchReason ?? "(nil)")
+expect("โหมดปกติไม่ต้องมีคำเตือนเรื่องสิทธิ์", phase3Shell?.privilegeWarning == nil,
+       phase3Shell?.privilegeWarning ?? "")
+
+let rootRequested = await shellRun("echo e2e-root-fallback", timeout: 20, preferRoot: true)
+expect("ขอรันเป็น root แล้วคำสั่งต้องยังทำงานได้ (สำเร็จหรือถอยกลับอัตโนมัติ)",
+       rootRequested?.stdout.contains("e2e-root-fallback") ?? false, rootRequested?.stdout ?? "(nil)")
+if ShellService.personaSymbolsAvailable {
+    // มีฟังก์ชัน persona: ต้องได้ root จริง หรือถ้าล้มเหลวต้องมีคำเตือน
+    expect("ขอรันเป็น root: ได้ root จริง หรือถอยกลับพร้อมคำเตือน",
+           rootRequested?.launchMode == .rootPersona
+           || (rootRequested?.launchMode == .currentUser && rootRequested?.privilegeWarning != nil),
+           rootRequested?.privilegeWarning ?? "(สลับเป็น root สำเร็จ)")
+} else {
+    // ไม่มีฟังก์ชัน persona (macOS/Linux): ต้องถอยไปผู้ใช้ปัจจุบันพร้อมเหตุผล และไม่มีคำเตือน (เพราะยังไม่ได้ลอง)
+    expect("ระบบไม่มี persona → รันในนามผู้ใช้ปัจจุบันพร้อมบอกเหตุผล",
+           rootRequested?.launchMode == .currentUser
+           && (rootRequested?.launchReason.isEmpty == false)
+           && rootRequested?.privilegeWarning == nil,
+           rootRequested?.launchReason ?? "(nil)")
+}
+
+let stderrRun = await shellRun("echo ปัญหาจาก-stderr >&2; exit 4", timeout: 20, preferRoot: false)
+expect("แยก stderr ออกจาก stdout ได้", stderrRun?.stderr.contains("ปัญหาจาก-stderr") ?? false,
+       stderrRun?.stderr ?? "(nil)")
+expect("ส่งรหัสออก (exit code) กลับมาถูกต้อง", stderrRun?.exitCode == 4,
+       String(describing: stderrRun?.exitCode))
+
+let timeoutStart = Date()
+let timeoutRun = await shellRun("sleep 6", timeout: 1, preferRoot: false)
+let timeoutElapsed = Date().timeIntervalSince(timeoutStart)
+expect("คำสั่งที่ค้างต้องหมดเวลาและถูกรายงาน", timeoutRun?.timedOut == true,
+       String(describing: timeoutRun?.timedOut))
+expect("ฆ่าโปรเซสทันทีเมื่อหมดเวลา", timeoutElapsed < 5, String(format: "ใช้เวลา %.2f วินาที", timeoutElapsed))
+
+let cancelShellTask = Task { () -> Bool in
+    do {
+        let result = try await ShellService.shared.run(command: "sleep 6", timeout: 30, preferRoot: false)
+        return result.wasCancelled
+    } catch {
+        return true   // ถูกยกเลิกจนได้ error ก็ถือว่ายกเลิกสำเร็จ
+    }
+}
+try? await Task.sleep(nanoseconds: 400_000_000)
+cancelShellTask.cancel()
+let shellCancelled = await cancelShellTask.value
+expect("กดหยุดแล้วคำสั่ง shell ถูกฆ่าและรายงานว่าถูกยกเลิก", shellCancelled)
+
+// MARK: - 14) FileSystemService ของเฟส 3
+
+print("\n[14] FileSystemService: อ่าน/เขียน/ลิสต์ + ข้อความ error ภาษาไทย")
+
+let phase3Dir = NSTemporaryDirectory() + "e2e-phase3-\(UUID().uuidString)"
+var fileSystemChecks: [String: Bool] = [:]
+let notePath = phase3Dir + "/note.txt"
+let movedPath = phase3Dir + "/moved.txt"
+
+do {
+    try FileSystemService.createDirectory(phase3Dir)
+
+    let writeReport = try FileSystemService.write("บรรทัดแรก\nบรรทัดที่สอง\n", to: notePath)
+    fileSystemChecks["เขียนไฟล์ใหม่"] = writeReport.bytesWritten == Data("บรรทัดแรก\nบรรทัดที่สอง\n".utf8).count
+        && !writeReport.didOverwriteExisting
+
+    let prefix = try FileSystemService.readPrefix(notePath)
+    fileSystemChecks["อ่านส่วนต้น"] = prefix.text.contains("บรรทัดแรก") && !prefix.isBinary && !prefix.hasMore
+
+    let appended = try FileSystemService.write("บรรทัดที่สาม\n", to: notePath, append: true)
+    let afterAppend = (try? FileSystemService.readPrefix(notePath).text) ?? ""
+    fileSystemChecks["เขียนต่อท้าย"] = appended.didOverwriteExisting
+        && afterAppend.contains("บรรทัดที่สาม")
+        && appended.finalSizeBytes == Int64(Data(afterAppend.utf8).count)
+
+    let listing = try FileSystemService.list(phase3Dir)
+    fileSystemChecks["ลิสต์โฟลเดอร์"] = listing.entries.contains { $0.name == "note.txt" } && listing.totalCount == 1
+
+    let attributes = try FileSystemService.attributes(of: notePath)
+    fileSystemChecks["อ่านข้อมูลไฟล์"] = attributes.sizeBytes > 0 && !attributes.isDirectory
+        && attributes.permissionsText?.count == 9
+
+    let space = FileSystemService.volumeSpace(at: phase3Dir)
+    fileSystemChecks["อ่านพื้นที่ว่างของโวลุ่ม"] = (space?.total ?? 0) > 0
+
+    try FileSystemService.move(notePath, to: movedPath)
+    fileSystemChecks["ย้ายไฟล์"] = FileSystemService.exists(movedPath) && !FileSystemService.exists(notePath)
+
+    try FileSystemService.remove(movedPath)
+    fileSystemChecks["ลบไฟล์"] = !FileSystemService.exists(movedPath)
+} catch {
+    print("    (เกิดข้อผิดพลาดระหว่างทดสอบไฟล์: \(error))")
+}
+
+for key in ["เขียนไฟล์ใหม่", "อ่านส่วนต้น", "เขียนต่อท้าย", "ลิสต์โฟลเดอร์",
+            "อ่านข้อมูลไฟล์", "อ่านพื้นที่ว่างของโวลุ่ม", "ย้ายไฟล์", "ลบไฟล์"] {
+    expect("FileSystemService: \(key)", fileSystemChecks[key] ?? false)
+}
+
+var thaiErrorMessage = ""
+do {
+    _ = try FileSystemService.attributes(of: phase3Dir + "/ไม่มีไฟล์นี้")
+} catch {
+    thaiErrorMessage = error.localizedDescription
+}
+expect("error ภาษาไทยที่บอกสาเหตุจริง", thaiErrorMessage.contains("ไม่พบไฟล์หรือโฟลเดอร์"), thaiErrorMessage)
+
+// MARK: - 15) นโยบายสิทธิ์ + entitlements ของเฟส 3
+
+print("\n[15] นโยบายสิทธิ์ + entitlements")
+
+expect("มี entitlements 5 คีย์ตามข้อกำหนด", PrivilegePolicy.entitlements.count == 5,
+       PrivilegePolicy.entitlements.map { $0.key }.joined(separator: ", "))
+expect("4 คีย์ต้องเป็น true และ container-required เป็น false",
+       PrivilegePolicy.entitlements.filter { $0.expectedValue }.count == 4
+       && PrivilegePolicy.entitlements.first { $0.key.contains("container-required") }?.expectedValue == false)
+expect("ลำดับการหา shell เริ่มที่ /var/jb/bin/sh", PrivilegePolicy.shellSearchPaths.first == "/var/jb/bin/sh",
+       PrivilegePolicy.shellSearchPaths.joined(separator: " → "))
+expect("PATH ของโปรเซสลูกมีของ jailbreak ด้วย", PrivilegePolicy.shellPath.contains("/var/jb/usr/bin"),
+       PrivilegePolicy.shellPath)
+expect("พร้อมทุกอย่างแล้วเลือกโหมด root persona",
+       PrivilegePolicy.decideLaunchMode(preferRoot: true, canUsePersona: true, currentUserID: 501).mode == .rootPersona)
+expect("ถ้าไม่มี persona ต้องถอยไปผู้ใช้ปัจจุบัน",
+       PrivilegePolicy.decideLaunchMode(preferRoot: true, canUsePersona: false, currentUserID: 501).mode == .currentUser)
+expect("แอปรันเป็น root อยู่แล้วไม่ต้องสลับ persona",
+       PrivilegePolicy.decideLaunchMode(preferRoot: true, canUsePersona: true, currentUserID: 0).mode == .currentUser)
+
+let entitlementsPath = phase3Dir + "/phase3.entitlements"
+var entitlementsPlistOK = false
+do {
+    try FileSystemService.write(PrivilegePolicy.entitlementsPlistXML(comment: "E2E"), to: entitlementsPath)
+    let data = try FileSystemService.readAll(entitlementsPath, limitBytes: 64 * 1024)
+    if let dictionary = try PropertyListSerialization.propertyList(from: data, options: [], format: nil) as? [String: Any] {
+        entitlementsPlistOK = dictionary.count == 5
+            && dictionary["com.apple.private.security.no-sandbox"] as? Bool == true
+            && dictionary["com.apple.private.persona-mgmt"] as? Bool == true
+            && dictionary["com.apple.private.security.container-required"] as? Bool == false
+    }
+} catch {
+    print("    (สร้าง/อ่านไฟล์ entitlements ไม่ได้: \(error))")
+}
+expect("ไฟล์ .entitlements ที่แอปสร้าง อ่านกลับเป็น plist ได้ครบ 5 คีย์", entitlementsPlistOK)
+
+let plantedScan = EntitlementProbe.scan(path: entitlementsPath)
+expect("สแกน entitlements จากไฟล์ที่ฝังไว้เจอครบ 5 คีย์", plantedScan.hasAllFive, plantedScan.summaryText)
+
+if let binaryPath = Bundle.main.executablePath {
+    let selfScan = EntitlementProbe.scan(path: binaryPath)
+    expect("สแกนไบนารีของตัวเองได้โดยไม่โหลดทั้งไฟล์", selfScan.readErrorText == nil,
+           selfScan.readErrorText ?? "อ่านได้ \(selfScan.scannedBytes) ไบต์ จาก \(selfScan.fileSizeBytes)")
+    expect("ไบนารีที่ไม่ได้เซ็น entitlements ต้องรายงานว่าไม่พบ (กันผลบวกลวง)",
+           !selfScan.hasAllFive, selfScan.summaryText)
+}
+
+// MARK: - 16) PrivilegeService ของเฟส 3
+
+print("\n[16] PrivilegeService: รายงานสิทธิ์ที่ผู้ใช้เห็นในตั้งค่า")
+
+let privilegeReport = PrivilegeService.probe(workspacePath: phase3Dir, preferRootShell: true)
+expect("รายงานสิทธิ์มีรายการตรวจครบ 8 ข้อ", privilegeReport.checklist.count == 8,
+       "ได้ \(privilegeReport.checklist.count) ข้อ")
+expect("สรุปสถานะอ่านเข้าใจได้", privilegeReport.summaryText.contains("/var/mobile"),
+       privilegeReport.summaryText)
+expect("มีคำแนะนำให้ผู้ใช้เสมอ", !privilegeReport.pendingAdvice.isEmpty)
+expect("ข้อความสำหรับ System Prompt บอกสิทธิ์ของแอป",
+       privilegeReport.promptContext.contains("สิทธิ์ของแอป"), privilegeReport.promptContext)
+expect("โฟลเดอร์ที่เขียนได้ถูกรายงานว่าพร้อมใช้", privilegeReport.workspaceWritable)
+
+let entitlementsFileReport = try? PrivilegeService.writeEntitlementsFile(to: phase3Dir)
+expect("เขียนไฟล์ entitlements ลงโฟลเดอร์ทำงานได้", entitlementsFileReport != nil,
+       entitlementsFileReport?.path ?? "(ไม่สำเร็จ)")
+
+PrivilegeService.invalidateCache()
+let cachedFirst = PrivilegeService.cachedReport(workspacePath: phase3Dir, preferRootShell: true)
+let cachedSecond = PrivilegeService.cachedReport(workspacePath: phase3Dir, preferRootShell: true)
+expect("แคชผลตรวจสิทธิ์ทำงาน (ไม่สแกนไบนารีซ้ำทุกข้อความ)", cachedFirst.checkedAt == cachedSecond.checkedAt)
+
+try? FileManager.default.removeItem(atPath: phase3Dir)
+
 // MARK: - 8) ตรวจว่าไม่ได้ใช้ API ของ iOS 16+ ในเส้นทางที่ทดสอบ
 
 print("\n[8] สรุปผล")

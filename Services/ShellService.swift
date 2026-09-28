@@ -12,6 +12,12 @@
 //  - ยกเลิกได้ทันทีเมื่อผู้ใช้กดหยุด (withTaskCancellationHandler → kill)
 //  - จำกัดปริมาณที่เก็บเข้าหน่วยความจำ (RAM 2GB): เก็บสูงสุด 256KB ต่อ stream
 //
+//  เฟส 3 — รันเป็น root ผ่าน persona ของ TrollStore:
+//  - posix_spawnattr_set_persona_np / _uid_np / _gid_np ถูกเรียกผ่าน dlsym
+//    (ไม่ผูกกับ header ของ SDK จึงคอมไพล์ได้ทุกเวอร์ชันและถอยกลับได้ปลอดภัย)
+//  - ถ้าสลับ persona ไม่สำเร็จ → ลองใหม่แบบผู้ใช้ปัจจุบัน แล้วรายงานเหตุผลจริงให้ผู้ใช้เห็น
+//  - ผลลัพธ์ของทุกคำสั่งบอกเสมอว่า "รันในนามใคร" (uid เท่าไร ผ่านกลไกไหน)
+//
 //  Foundation + Darwin POSIX เท่านั้น → ไม่แตะ UIKit
 //
 
@@ -41,6 +47,16 @@ struct ShellResult: Equatable {
     let stderrBytes: Int
     /// true = ข้อมูลถูกตัดเพราะเกินปริมาณที่เก็บได้
     let outputTruncated: Bool
+
+    // MARK: ข้อมูลการรัน (เฟส 3)
+    /// shell ที่ใช้จริง
+    let shellPath: String
+    /// รันในนามผู้ใช้ปัจจุบันหรือ root (persona)
+    let launchMode: ShellLaunchMode
+    /// เหตุผลที่เลือกโหมดนี้ (ภาษาไทย)
+    let launchReason: String
+    /// ข้อความเตือนเมื่อลอง root แล้วไม่สำเร็จ (nil = ไม่มีปัญหา)
+    let privilegeWarning: String?
 }
 
 // MARK: - ข้อผิดพลาดของ shell
@@ -69,24 +85,37 @@ final class ShellService: @unchecked Sendable {
 
     static let shared = ShellService()
 
-    /// shell ที่จะลองตามลำดับ — ตัวแรกที่มีจริงจะถูกใช้
-    static let candidateShellPaths = [
-        "/var/jb/bin/sh",       // rootless jailbreak (palera1n/Dopamine)
-        "/var/jb/usr/bin/sh",
-        "/bin/sh",              // ทุก iOS
-        "/usr/bin/sh"
-    ]
-
-    /// PATH ที่ใส่ให้โปรเซสลูก (รวมที่ของ jailbreak ไว้ด้วย)
-    static let defaultPath = "/var/jb/usr/bin:/var/jb/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin"
+    /// shell ที่จะลองตามลำดับ — ตัวแรกที่มีจริงจะถูกใช้ (นิยามอยู่ใน PrivilegePolicy)
+    static var candidateShellPaths: [String] { PrivilegePolicy.shellSearchPaths }
 
     /// เก็บข้อมูลได้สูงสุดต่อหนึ่ง stream (ไบต์) — ที่เหลืออ่านทิ้ง
     private static let captureLimit = 256 * 1024
 
     private let lock = NSLock()
     private var currentPid: pid_t?
+    /// ผู้ใช้กดหยุดระหว่างที่คำสั่งกำลังทำงาน (ใช้แทน Task.isCancelled ซึ่งไม่ทำงานในคิว Dispatch)
+    private var cancellationRequested = false
 
     private init() { }
+
+    /// อ่าน/ตั้งธงการยกเลิกอย่างปลอดภัยระหว่างเธรด
+    private var isCancellationRequested: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return cancellationRequested
+    }
+
+    private func markCancellationRequested() {
+        lock.lock()
+        cancellationRequested = true
+        lock.unlock()
+    }
+
+    private func resetCancellationFlag() {
+        lock.lock()
+        cancellationRequested = false
+        lock.unlock()
+    }
 
     // MARK: หา shell
 
@@ -109,13 +138,21 @@ final class ShellService: @unchecked Sendable {
     /// รันคำสั่งแบบ async พร้อม timeout และการยกเลิก
     func run(command: String,
              timeout: TimeInterval = NetworkTimeouts.shellSeconds,
-             workingDirectory: String? = nil) async throws -> ShellResult {
+             workingDirectory: String? = nil,
+             preferRoot: Bool = false) async throws -> ShellResult {
         let trimmed = command.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { throw ShellError.emptyCommand }
-        guard let shellPath = resolveShellPath() else { throw ShellError.shellNotFound(ShellService.candidateShellPaths) }
+        guard let shellPath = resolveShellPath() else { throw ShellError.shellNotFound(PrivilegePolicy.shellSearchPaths) }
 
         let effective = min(max(timeout, 1), NetworkTimeouts.maximumShellSeconds)
         let finalCommand = ShellService.commandWithWorkingDirectory(trimmed, directory: workingDirectory)
+
+        // ตัดสินใจว่าจะพยายามรันเป็น root หรือไม่ (เหตุผลอยู่ใน PrivilegePolicy เพื่อให้ทดสอบได้)
+        let decision = PrivilegePolicy.decideLaunchMode(preferRoot: preferRoot,
+                                                       canUsePersona: ShellService.personaSymbolsAvailable,
+                                                       currentUserID: ShellService.currentUserID)
+
+        resetCancellationFlag()
 
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
@@ -123,7 +160,8 @@ final class ShellService: @unchecked Sendable {
                     do {
                         let result = try self.runBlocking(shellPath: shellPath,
                                                           command: finalCommand,
-                                                          timeout: effective)
+                                                          timeout: effective,
+                                                          decision: decision)
                         continuation.resume(returning: result)
                     } catch {
                         continuation.resume(throwing: error)
@@ -135,9 +173,11 @@ final class ShellService: @unchecked Sendable {
         }
     }
 
-    /// ฆ่าโปรเซสที่กำลังทำงานอยู่ (เรียกเมื่อผู้ใช้กดหยุด)
+    /// ขอยกเลิกคำสั่งที่กำลังทำงานอยู่ (เรียกเมื่อผู้ใช้กดหยุด)
+    /// ตั้งธงไว้ก่อนเสมอ เพื่อให้กรณีกดหยุดก่อนโปรเซสเกิด ยังถูกจับได้ตอน spawn
     func terminateCurrentProcess() {
         lock.lock()
+        cancellationRequested = true
         let pid = currentPid
         lock.unlock()
         guard let pid = pid, pid > 0 else { return }
@@ -146,7 +186,10 @@ final class ShellService: @unchecked Sendable {
 
     // MARK: - การทำงานจริง (บล็อก)
 
-    private func runBlocking(shellPath: String, command: String, timeout: TimeInterval) throws -> ShellResult {
+    private func runBlocking(shellPath: String,
+                             command: String,
+                             timeout: TimeInterval,
+                             decision: LaunchModeDecision) throws -> ShellResult {
         var stdoutPipe: [Int32] = [0, 0]
         var stderrPipe: [Int32] = [0, 0]
         guard pipe(&stdoutPipe) == 0 else {
@@ -173,14 +216,14 @@ final class ShellService: @unchecked Sendable {
         posix_spawn_file_actions_addclose(&fileActions, stderrPipe[1])
 
         let argv = ["/bin/sh", "-c", command]
-        let environment = [
-            "PATH=\(ShellService.defaultPath)",
-            "HOME=/var/mobile",
-            "TMPDIR=\(NSTemporaryDirectory())",
-            "LANG=C.UTF-8",
-            "TERM=dumb",
-            "LD_LIBRARY_PATH=/var/jb/usr/lib"
-        ]
+        let runAsRoot: Bool
+        if case .rootPersona = decision.mode {
+            runAsRoot = true
+        } else {
+            runAsRoot = false
+        }
+        let environment = PrivilegePolicy.environment(uid: runAsRoot ? 0 : ShellService.currentUserID,
+                                                      temporaryDirectory: NSTemporaryDirectory())
 
         var pid: pid_t = 0
         var argvPointers: [UnsafeMutablePointer<CChar>?] = argv.map { strdup($0) }
@@ -188,14 +231,42 @@ final class ShellService: @unchecked Sendable {
         var envPointers: [UnsafeMutablePointer<CChar>?] = environment.map { strdup($0) }
         envPointers.append(nil)
 
-        let spawnStatus: Int32 = argvPointers.withUnsafeBufferPointer { argvBuffer -> Int32 in
-            envPointers.withUnsafeBufferPointer { envBuffer -> Int32 in
-                // baseAddress เป็น nil ได้ในทางทฤษฎีเท่านั้น (อาเรย์มี nil ต่อท้ายเสมอ)
-                // แต่ตรวจไว้ก่อนเพื่อไม่ต้องใช้ force unwrap
-                guard let argvBase = argvBuffer.baseAddress, let envBase = envBuffer.baseAddress else {
-                    return Int32(EINVAL)
+        var launchMode = decision.mode
+        var privilegeWarning: String?
+
+        func spawn(withPersona: Bool) -> Int32 {
+            ShellService.makeSpawnAttributes(usePersona: withPersona).withAttributes { attributes in
+                argvPointers.withUnsafeBufferPointer { argvBuffer -> Int32 in
+                    envPointers.withUnsafeBufferPointer { envBuffer -> Int32 in
+                        // baseAddress เป็น nil ได้ในทางทฤษฎีเท่านั้น (อาเรย์มี nil ต่อท้ายเสมอ)
+                        // แต่ตรวจไว้ก่อนเพื่อไม่ต้องใช้ force unwrap
+                        guard let argvBase = argvBuffer.baseAddress, let envBase = envBuffer.baseAddress else {
+                            return Int32(EINVAL)
+                        }
+                        return posix_spawn(&pid, shellPath, &fileActions, attributes, argvBase, envBase)
+                    }
                 }
-                return posix_spawn(&pid, shellPath, &fileActions, nil, argvBase, envBase)
+            }
+        }
+
+        var spawnStatus = spawn(withPersona: runAsRoot)
+
+        // มีคนกดหยุดระหว่างเตรียมคำสั่ง → ฆ่าทันทีที่โปรเซสเกิด (กันโปรเซสค้าง)
+        if isCancellationRequested, spawnStatus == 0, pid > 0 {
+            kill(pid, SIGKILL)
+        }
+
+        if spawnStatus != 0, runAsRoot {
+            // สลับ persona ไม่สำเร็จ → ถอยกลับไปรันแบบผู้ใช้ปัจจุบัน และบอกผู้ใช้ตามจริง
+            let failureDetail = String(cString: strerror(spawnStatus))
+            let fallbackStatus = spawn(withPersona: false)
+            if fallbackStatus == 0 {
+                launchMode = .currentUser
+                privilegeWarning = "รันในนาม root ไม่สำเร็จ (\(failureDetail), errno \(spawnStatus)) — " +
+                    "รันในนามผู้ใช้ปัจจุบันแทน คำสั่งที่ต้องเป็น root อาจทำไม่ได้"
+                spawnStatus = 0
+            } else {
+                spawnStatus = fallbackStatus
             }
         }
 
@@ -259,8 +330,8 @@ final class ShellService: @unchecked Sendable {
                 status = finalStatus
                 break
             }
-            // ตรวจว่าถูกยกเลิกหรือยัง (cancel → handler ข้างนอกฆ่าโปรเซสให้แล้ว)
-            if Task.isCancelled {
+            // ตรวจว่าถูกยกเลิกหรือยัง (cancel → handler ข้างนอกตั้งธงและฆ่าโปรเซสให้แล้ว)
+            if isCancellationRequested {
                 kill(pid, SIGKILL)
                 var finalStatus: Int32 = 0
                 waitpid(pid, &finalStatus, 0)
@@ -278,7 +349,7 @@ final class ShellService: @unchecked Sendable {
         lock.unlock()
 
         let duration = Date().timeIntervalSince(startedAt)
-        let wasCancelled = Task.isCancelled
+        let wasCancelled = isCancellationRequested
         let exitCode = ShellService.exitCode(fromStatus: status)
         let snapshot = collector.snapshot()
 
@@ -293,10 +364,116 @@ final class ShellService: @unchecked Sendable {
                            duration: duration,
                            stdoutBytes: snapshot.stdoutBytes,
                            stderrBytes: snapshot.stderrBytes,
-                           outputTruncated: snapshot.truncated)
+                           outputTruncated: snapshot.truncated,
+                           shellPath: shellPath,
+                           launchMode: launchMode,
+                           launchReason: decision.reason,
+                           privilegeWarning: privilegeWarning)
     }
 
     // MARK: - ตัวช่วย
+
+    /// uid ของโปรเซสนี้ (501 = mobile, 0 = root)
+    static var currentUserID: Int32 {
+        Int32(getuid())
+    }
+
+    /// ตรวจว่ามีฟังก์ชัน persona ของ XNU อยู่ในระบบหรือไม่
+    /// (เรียกผ่าน dlsym เพื่อไม่ต้องพึ่ง header ของ SDK — ถ้าไม่มีก็แค่ไม่ใช้ความสามารถนี้)
+    static let personaSymbolsAvailable: Bool = {
+        #if canImport(Darwin)
+        let names = ["posix_spawnattr_set_persona_np", "posix_spawnattr_set_persona_uid_np", "posix_spawnattr_set_persona_gid_np"]
+        for name in names where dlsym(UnsafeMutableRawPointer(bitPattern: -2), name) == nil {
+            // -2 = RTLD_DEFAULT (ค้นในโปรเซสเองทั้งหมด)
+            return false
+        }
+        return true
+        #else
+        // บน Linux/macOS ที่รัน unit test ไม่มี XNU persona — ใช้เส้นทางผู้ใช้ปัจจุบันเท่านั้น
+        return false
+        #endif
+    }()
+
+    /// ตัวห่อ posix_spawnattr_t ที่ตั้งค่า persona ให้ (ถ้ารองรับ)
+    struct SpawnAttributes {
+
+        #if canImport(Darwin)
+        private var attributes: posix_spawnattr_t?
+        #else
+        private var attributes = posix_spawnattr_t()
+        #endif
+        private let initialized: Bool
+
+        init(usePersona: Bool) {
+            #if canImport(Darwin)
+            var value: posix_spawnattr_t?
+            let status = posix_spawnattr_init(&value)
+            attributes = value
+            initialized = status == 0
+
+            guard initialized, usePersona else { return }
+
+            // ปิดการสืบทอดสัญญาณเริ่มต้น เพื่อให้คำสั่งที่ถูก kill ไม่ลากโปรเซสแม่ไปด้วย
+            #if canImport(Darwin)
+            var flags: Int16 = 0
+            flags |= POSIX_SPAWN_SETSIGDEF
+            posix_spawnattr_setflags(&value, flags)
+            #endif
+
+            // ตั้ง persona เป็นผู้ใช้ที่ต้องการ (TrollStore ใช้ persona 99 + override)
+            guard let symbol = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "posix_spawnattr_set_persona_np") else {
+                return
+            }
+            typealias SetPersonaFunction = @convention(c) (UnsafeMutablePointer<posix_spawnattr_t>?, UInt32, UInt32) -> Int32
+            let setPersona = unsafeBitCast(symbol, to: SetPersonaFunction.self)
+            _ = setPersona(&value, PrivilegePolicy.rootPersonaID, PrivilegePolicy.personaFlagsOverride)
+
+            // ตั้ง uid/gid ที่ต้องการ (0 = root)
+            if let uidSymbol = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "posix_spawnattr_set_persona_uid_np") {
+                typealias SetIDFunction = @convention(c) (UnsafeMutablePointer<posix_spawnattr_t>?, UInt32) -> Int32
+                let setUID = unsafeBitCast(uidSymbol, to: SetIDFunction.self)
+                _ = setUID(&value, 0)
+            }
+            if let gidSymbol = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "posix_spawnattr_set_persona_gid_np") {
+                typealias SetIDFunction = @convention(c) (UnsafeMutablePointer<posix_spawnattr_t>?, UInt32) -> Int32
+                let setGID = unsafeBitCast(gidSymbol, to: SetIDFunction.self)
+                _ = setGID(&value, 0)
+            }
+            #else
+            _ = usePersona
+            initialized = true
+            #endif
+        }
+
+        /// เรียกใช้ posix_spawnattr_t ที่เตรียมไว้
+        ///
+        /// - บน Darwin: ส่ง pointer ของสำเนาเข้า posix_spawn แล้วทำลาย attribute หลังใช้เสร็จ
+        ///   (ทดสอบ/รันบน macOS จะได้พฤติกรรมเดียวกับบน iOS)
+        /// - บน Linux: struct ถูกใช้ผ่าน pointer ของสำเนาเช่นกัน เพื่อให้เมธอดไม่ต้องเป็น mutating
+        func withAttributes<T>(_ body: (UnsafeMutablePointer<posix_spawnattr_t>?) -> T) -> T {
+            #if canImport(Darwin)
+            var local = attributes
+            let result = withUnsafeMutablePointer(to: &local) { pointer -> T in
+                body(pointer)
+            }
+            if initialized, var value = attributes {
+                posix_spawnattr_destroy(&value)
+            }
+            attributes = nil
+            return result
+            #else
+            var local = attributes
+            return withUnsafeMutablePointer(to: &local) { pointer -> T in
+                body(pointer)
+            }
+            #endif
+        }
+    }
+
+    /// เตรียม spawn attributes (แยกออกมาเพื่อให้เทสต์และอ่านได้ง่าย)
+    static func makeSpawnAttributes(usePersona: Bool) -> SpawnAttributes {
+        SpawnAttributes(usePersona: usePersona)
+    }
 
     /// แปลง wait status เป็น exit code แบบที่คนทั่วไปเข้าใจ
     static func exitCode(fromStatus status: Int32) -> Int32 {
