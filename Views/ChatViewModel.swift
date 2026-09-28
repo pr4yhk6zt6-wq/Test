@@ -55,6 +55,10 @@ final class ChatViewModel: ObservableObject {
     private let roomStore = ChatRoomStore()
     private let registry = ToolRegistry.makeDefault()
     private var runTask: Task<Void, Never>?
+    /// คิวข้อความที่ไหลเข้ามา (เฟส 6) — รวมแล้วอัปเดต UI เป็นช่วง ๆ ลดการวาดซ้ำบนเครื่อง RAM 2GB
+    private var pendingStreamDelta: String = ""
+    private var streamFlushTask: Task<Void, Never>?
+    private let streamFlushIntervalNanoseconds: UInt64 = 80_000_000   // 80 มิลลิวินาที
     private var approvalContinuation: CheckedContinuation<ApprovalDecision, Never>?
     private var saveTask: Task<Void, Never>?
 
@@ -488,6 +492,34 @@ final class ChatViewModel: ObservableObject {
         continuation.resume(returning: decision)
     }
 
+    /// รวมข้อความที่ไหลเข้ามาแล้วอัปเดตหน้าจอเป็นช่วงสั้น ๆ (ไม่วาดทุก chunk)
+    private func enqueueStreamDelta(_ delta: String, id: UUID?) {
+        pendingStreamDelta += delta
+        guard streamFlushTask == nil, let targetID = id else { return }
+
+        streamFlushTask = Task { [weak self] in
+            guard let self = self else { return }
+            try? await Task.sleep(nanoseconds: self.streamFlushIntervalNanoseconds)
+            guard !Task.isCancelled else { return }
+            let buffered = self.pendingStreamDelta
+            self.pendingStreamDelta = ""
+            self.streamFlushTask = nil
+            if !buffered.isEmpty {
+                self.append(text: buffered, to: targetID)
+            }
+        }
+    }
+
+    /// อัปเดตข้อความที่ค้างในคิวทันที (ใช้ตอนผู้ใช้กดหยุด เพื่อไม่ให้ข้อความที่เห็นหายไป)
+    private func flushPendingStreamDelta() {
+        streamFlushTask?.cancel()
+        streamFlushTask = nil
+        let buffered = pendingStreamDelta
+        pendingStreamDelta = ""
+        guard !buffered.isEmpty, let id = streamingAssistantID else { return }
+        append(text: buffered, to: id)
+    }
+
     // MARK: - ประมวลผล event จาก engine
 
     private var currentEngine: AgentEngine?
@@ -505,9 +537,13 @@ final class ChatViewModel: ObservableObject {
         case .assistantDelta(_, let delta):
             guard !delta.isEmpty else { break }   // delta ว่างไม่ควรสร้างบับเบิล
             streamingText += delta
-            append(text: delta, to: streamingAssistantID)
+            enqueueStreamDelta(delta, id: streamingAssistantID)
 
         case .assistantFinished(let id, let message):
+            // ทิ้ง delta ที่ค้างในคิว — ข้อความจริงจาก engine จะถูกเขียนทับให้ตรงกันอยู่แล้ว
+            streamFlushTask?.cancel()
+            streamFlushTask = nil
+            pendingStreamDelta = ""
             streamingAssistantID = nil
             streamingText = ""
             if let message = message, !message.isTextEmpty {
