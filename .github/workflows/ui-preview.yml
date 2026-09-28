@@ -65,6 +65,7 @@ jobs:
             -destination "platform=iOS Simulator,name=$DEVICE" \
             -derivedDataPath /tmp/dd \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
+            ENABLE_DEBUG_DYLIB=NO \
             build | tail -40
 
       - name: ถ่ายภาพหน้าจอทุกหน้าจอ (Light + Dark)
@@ -81,6 +82,10 @@ jobs:
 
           APP="$(find /tmp/dd/Build/Products -maxdepth 3 -name 'iOSAgentSandbox.app' | head -1)"
           echo "APP=$APP"
+          echo "--- ไฟล์ใน .app ---"
+          ls -la "$APP" | head -20 || true
+          echo "--- ชนิดไฟล์ executable ---"
+          file "$APP/iOSAgentSandbox" || true
           xcrun simctl install "$UDID" "$APP"
 
           for appearance in light dark; do
