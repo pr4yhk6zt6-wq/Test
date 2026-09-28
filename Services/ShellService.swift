@@ -234,22 +234,55 @@ final class ShellService: @unchecked Sendable {
         var launchMode = decision.mode
         var privilegeWarning: String?
 
-        func spawn(withPersona: Bool) -> Int32 {
-            ShellService.makeSpawnAttributes(usePersona: withPersona).withAttributes { attributes in
-                argvPointers.withUnsafeBufferPointer { argvBuffer -> Int32 in
-                    envPointers.withUnsafeBufferPointer { envBuffer -> Int32 in
-                        // baseAddress เป็น nil ได้ในทางทฤษฎีเท่านั้น (อาเรย์มี nil ต่อท้ายเสมอ)
-                        // แต่ตรวจไว้ก่อนเพื่อไม่ต้องใช้ force unwrap
-                        guard let argvBase = argvBuffer.baseAddress, let envBase = envBuffer.baseAddress else {
-                            return Int32(EINVAL)
-                        }
-                        return posix_spawn(&pid, shellPath, &fileActions, attributes, argvBase, envBase)
+        // ชนิดของ posix_spawnattr_t ต่างกันคนละแบบ:
+        //   Darwin → opaque pointer (ต้องประกาศเป็น Optional แล้วให้ init สร้างให้)
+        //   Linux  → struct ของ glibc ที่สร้างด้วย () ได้
+        // เขียนแบบมีเงื่อนไขไว้ที่เดียว แล้วใช้ต่อได้เหมือนกันทั้งสองฝั่ง
+        #if canImport(Darwin)
+        var attributes: posix_spawnattr_t?
+        #else
+        var attributes = posix_spawnattr_t()
+        #endif
+
+        #if canImport(Darwin)
+        var attributesInitialized = posix_spawnattr_init(&attributes) == 0
+        #else
+        _ = posix_spawnattr_init(&attributes)
+        let attributesInitialized = true
+        #endif
+
+        if runAsRoot {
+            ShellService.configurePersonaAttributes(&attributes)
+        }
+
+        /// เรียก posix_spawn หนึ่งครั้งด้วย attributes ปัจจุบัน
+        func spawnProcess() -> Int32 {
+            argvPointers.withUnsafeBufferPointer { argvBuffer -> Int32 in
+                envPointers.withUnsafeBufferPointer { envBuffer -> Int32 in
+                    // baseAddress เป็น nil ได้ในทางทฤษฎีเท่านั้น (อาเรย์มี nil ต่อท้ายเสมอ)
+                    // แต่ตรวจไว้ก่อนเพื่อไม่ต้องใช้ force unwrap
+                    guard let argvBase = argvBuffer.baseAddress, let envBase = envBuffer.baseAddress else {
+                        return Int32(EINVAL)
                     }
+                    return posix_spawn(&pid, shellPath, &fileActions, &attributes, argvBase, envBase)
                 }
             }
         }
 
-        var spawnStatus = spawn(withPersona: runAsRoot)
+        /// ทิ้ง attributes เดิม แล้วสร้างใหม่แบบไม่ตั้ง persona (ใช้ตอนถอยกลับ)
+        func resetAttributesWithoutPersona() {
+            #if canImport(Darwin)
+            if attributesInitialized {
+                posix_spawnattr_destroy(&attributes)
+            }
+            attributesInitialized = posix_spawnattr_init(&attributes) == 0
+            #else
+            attributes = posix_spawnattr_t()
+            #endif
+            _ = attributesInitialized
+        }
+
+        var spawnStatus = spawnProcess()
 
         // มีคนกดหยุดระหว่างเตรียมคำสั่ง → ฆ่าทันทีที่โปรเซสเกิด (กันโปรเซสค้าง)
         if isCancellationRequested, spawnStatus == 0, pid > 0 {
@@ -259,7 +292,8 @@ final class ShellService: @unchecked Sendable {
         if spawnStatus != 0, runAsRoot {
             // สลับ persona ไม่สำเร็จ → ถอยกลับไปรันแบบผู้ใช้ปัจจุบัน และบอกผู้ใช้ตามจริง
             let failureDetail = String(cString: strerror(spawnStatus))
-            let fallbackStatus = spawn(withPersona: false)
+            resetAttributesWithoutPersona()
+            let fallbackStatus = spawnProcess()
             if fallbackStatus == 0 {
                 launchMode = .currentUser
                 privilegeWarning = "รันในนาม root ไม่สำเร็จ (\(failureDetail), errno \(spawnStatus)) — " +
@@ -277,6 +311,11 @@ final class ShellService: @unchecked Sendable {
             free(pointer)
         }
 
+        #if canImport(Darwin)
+        if attributesInitialized {
+            posix_spawnattr_destroy(&attributes)
+        }
+        #endif
         posix_spawn_file_actions_destroy(&fileActions)
 
         // ปิดฝั่งเขียนในโปรเซสแม่ ไม่งั้น read() จะไม่มีวันได้ EOF
@@ -394,86 +433,39 @@ final class ShellService: @unchecked Sendable {
         #endif
     }()
 
-    /// ตัวห่อ posix_spawnattr_t ที่ตั้งค่า persona ให้ (ถ้ารองรับ)
-    struct SpawnAttributes {
+    #if canImport(Darwin)
+    /// ตั้งค่า persona/uid/gid (รันเป็น root ผ่าน TrollStore) ให้ attributes — เรียกผ่าน dlsym
+    /// จึงคอมไพล์ได้ทุกเวอร์ชันของ SDK และถอยกลับได้ปลอดภัยถ้าเครื่องไม่มีฟังก์ชันนี้
+    static func configurePersonaAttributes(_ pointer: UnsafeMutablePointer<posix_spawnattr_t?>) {
+        // ตั้งสัญญาณเริ่มต้นของโปรเซสลูกให้เป็นค่ามาตรฐาน
+        posix_spawnattr_setflags(pointer, Int16(POSIX_SPAWN_SETSIGDEF))
 
-        #if canImport(Darwin)
-        private var attributes: posix_spawnattr_t?
-        #else
-        private var attributes = posix_spawnattr_t()
-        #endif
-        private let initialized: Bool
-
-        init(usePersona: Bool) {
-            #if canImport(Darwin)
-            var value: posix_spawnattr_t?
-            let status = posix_spawnattr_init(&value)
-            attributes = value
-            initialized = status == 0
-
-            guard initialized, usePersona else { return }
-
-            // ปิดการสืบทอดสัญญาณเริ่มต้น เพื่อให้คำสั่งที่ถูก kill ไม่ลากโปรเซสแม่ไปด้วย
-            #if canImport(Darwin)
-            var flags: Int16 = 0
-            flags |= POSIX_SPAWN_SETSIGDEF
-            posix_spawnattr_setflags(&value, flags)
-            #endif
-
-            // ตั้ง persona เป็นผู้ใช้ที่ต้องการ (TrollStore ใช้ persona 99 + override)
-            guard let symbol = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "posix_spawnattr_set_persona_np") else {
-                return
-            }
-            typealias SetPersonaFunction = @convention(c) (UnsafeMutablePointer<posix_spawnattr_t>?, UInt32, UInt32) -> Int32
-            let setPersona = unsafeBitCast(symbol, to: SetPersonaFunction.self)
-            _ = setPersona(&value, PrivilegePolicy.rootPersonaID, PrivilegePolicy.personaFlagsOverride)
-
-            // ตั้ง uid/gid ที่ต้องการ (0 = root)
-            if let uidSymbol = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "posix_spawnattr_set_persona_uid_np") {
-                typealias SetIDFunction = @convention(c) (UnsafeMutablePointer<posix_spawnattr_t>?, UInt32) -> Int32
-                let setUID = unsafeBitCast(uidSymbol, to: SetIDFunction.self)
-                _ = setUID(&value, 0)
-            }
-            if let gidSymbol = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "posix_spawnattr_set_persona_gid_np") {
-                typealias SetIDFunction = @convention(c) (UnsafeMutablePointer<posix_spawnattr_t>?, UInt32) -> Int32
-                let setGID = unsafeBitCast(gidSymbol, to: SetIDFunction.self)
-                _ = setGID(&value, 0)
-            }
-            #else
-            _ = usePersona
-            initialized = true
-            #endif
+        guard let symbol = dlsym(UnsafeMutableRawPointer(bitPattern: -2),
+                                 "posix_spawnattr_set_persona_np") else {
+            return
         }
+        typealias SetPersonaFunction = @convention(c) (UnsafeMutablePointer<posix_spawnattr_t?>, UInt32, UInt32) -> Int32
+        let setPersona = unsafeBitCast(symbol, to: SetPersonaFunction.self)
+        _ = setPersona(pointer, PrivilegePolicy.rootPersonaID, PrivilegePolicy.personaFlagsOverride)
 
-        /// เรียกใช้ posix_spawnattr_t ที่เตรียมไว้
-        ///
-        /// - บน Darwin: ส่ง pointer ของสำเนาเข้า posix_spawn แล้วทำลาย attribute หลังใช้เสร็จ
-        ///   (ทดสอบ/รันบน macOS จะได้พฤติกรรมเดียวกับบน iOS)
-        /// - บน Linux: struct ถูกใช้ผ่าน pointer ของสำเนาเช่นกัน เพื่อให้เมธอดไม่ต้องเป็น mutating
-        func withAttributes<T>(_ body: (UnsafeMutablePointer<posix_spawnattr_t>?) -> T) -> T {
-            #if canImport(Darwin)
-            var local = attributes
-            let result = withUnsafeMutablePointer(to: &local) { pointer -> T in
-                body(pointer)
-            }
-            if initialized, var value = attributes {
-                posix_spawnattr_destroy(&value)
-            }
-            attributes = nil
-            return result
-            #else
-            var local = attributes
-            return withUnsafeMutablePointer(to: &local) { pointer -> T in
-                body(pointer)
-            }
-            #endif
+        typealias SetIdentifierFunction = @convention(c) (UnsafeMutablePointer<posix_spawnattr_t?>, UInt32) -> Int32
+
+        if let uidSymbol = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "posix_spawnattr_set_persona_uid_np") {
+            let setUserID = unsafeBitCast(uidSymbol, to: SetIdentifierFunction.self)
+            _ = setUserID(pointer, 0)   // uid 0 = root
+        }
+        if let gidSymbol = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "posix_spawnattr_set_persona_gid_np") {
+            let setGroupID = unsafeBitCast(gidSymbol, to: SetIdentifierFunction.self)
+            _ = setGroupID(pointer, 0)  // gid 0 = root
         }
     }
-
-    /// เตรียม spawn attributes (แยกออกมาเพื่อให้เทสต์และอ่านได้ง่าย)
-    static func makeSpawnAttributes(usePersona: Bool) -> SpawnAttributes {
-        SpawnAttributes(usePersona: usePersona)
+    #else
+    /// บน Linux/macOS ที่รัน unit test ไม่มี persona ของ XNU — ไม่มีอะไรต้องตั้ง
+    /// (ฟังก์ชันนี้มีไว้ให้โค้ดที่เรียกใช้คอมไพล์ผ่านทั้งสองแพลตฟอร์ม)
+    static func configurePersonaAttributes(_ pointer: UnsafeMutablePointer<posix_spawnattr_t>) {
+        _ = pointer
     }
+    #endif
 
     /// แปลง wait status เป็น exit code แบบที่คนทั่วไปเข้าใจ
     static func exitCode(fromStatus status: Int32) -> Int32 {
