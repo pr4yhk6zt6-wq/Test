@@ -746,7 +746,7 @@ function addAttachment() {
   if (!existing) {
     const div = document.createElement('div');
     div.className = 'attachment-preview';
-    div.innerHTML = '<span class="chip-file">📄 trip-plan.pdf <span aria-label="ลบ" onclick="this.parentElement.remove()" style="cursor:pointer;color:var(--text-muted);">×</span></span>';
+    div.innerHTML = '<span class="chip-file">FILE trip-plan.pdf <span aria-label="ลบ" onclick="this.parentElement.remove()" style="cursor:pointer;color:var(--text-muted);">×</span></span>';
     wrap.insertBefore(div, wrap.querySelector('.input-bar'));
   }
 }
