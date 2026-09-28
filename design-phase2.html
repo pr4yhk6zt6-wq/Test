@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>AgentAI — Phase 2: Cards + Controls + Safety</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=Noto+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --font-main: 'IBM Plex Sans Thai', 'Noto Sans Thai', -apple-system, sans-serif;
+  --radius-card: 18px;
+  --radius-pill: 28px;
+  --shadow-card: 0 2px 10px rgba(0,0,0,0.05);
+  --shadow-sheet: 0 8px 30px rgba(0,0,0,0.12);
+  --spacing-8: 8px;
+  --spacing-12: 12px;
+  --spacing-16: 16px;
+  --spacing-24: 24px;
+
+  /* Professional warm palette — NOT AI-template purple/blue */
+  --bg: #F5F3F0;
+  --surface: #FFFFFF;
+  --surface-2: #EDEAE6;
+  --text-primary: #1C1916;
+  --text-secondary: #6B6058;
+  --text-muted: #9A9088;
+  --accent: #B07A2A;        /* Warm amber — NOT AI blue */
+  --accent-soft: #F2E6CE;
+  --accent-deep: #8A5E1E;
+  --success: #2D5A3F;
+  --success-soft: #E2EBE5;
+  --warning: #9A6B1E;
+  --warning-soft: #F5EDD8;
+  --error: #8B2E2E;
+  --error-soft: #F4E4E4;
+  --border: #E2DDD8;
+  --overlay: rgba(28,25,22,0.30);
+  --glass: rgba(255,255,255,0.90);
+}
+
+[data-theme="dark"] {
+  --bg: #161310;
+  --surface: #1E1C18;
+  --surface-2: #2A2721;
+  --text-primary: #F0EDE8;
+  --text-secondary: #A89F94;
+  --text-muted: #6B5E56;
+  --accent: #D49A4A;
+  --accent-soft: rgba(212,154,74,0.12);
+  --accent-deep: #A87D2E;
+  --success: #4A8F6A;
+  --success-soft: rgba(74,143,106,0.12);
+  --warning: #C48A3A;
+  --warning-soft: rgba(196,138,58,0.12);
+  --error: #C06A6A;
+  --error-soft: rgba(192,106,106,0.12);
+  --border: #2A2721;
+  --overlay: rgba(240,237,232,0.30);
+  --glass: rgba(30,28,24,0.92);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+body { font-family: var(--font-main); background: #3D342E; color: var(--text-primary); margin: 0; padding: 0; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; }
+
+.phone-frame { position: relative; width: 390px; height: 844px; background: var(--bg); border-radius: 44px; box-shadow: 0 24px 60px rgba(0,0,0,0.35), 0 8px 20px rgba(0,0,0,0.15), inset 0 0 0 1px rgba(255,255,255,0.06); overflow: hidden; display: flex; flex-direction: column; }
+.phone-frame::before { content:''; position:absolute; top:0; left:50%; transform:translateX(-50%); width:160px; height:28px; background:var(--surface); border-bottom-left-radius:20px; border-bottom-right-radius:20px; z-index:100; pointer-events:none; box-shadow:inset 0 -1px 0 var(--border); }
+.phone-frame::after { content:''; position:absolute; top:10px; left:50%; transform:translateX(-50%); width:60px; height:4px; background:#2A2A2A; border-radius:2px; z-index:101; }
+
+.app-header { position:sticky; top:0; z-index:50; padding:60px var(--spacing-16) 12px; background:linear-gradient(180deg, var(--glass) 50%, rgba(255,255,255,0) 100%); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:var(--spacing-12); }
+.phone-frame .app-header { padding-top: 60px; }
+
+.header-left { display:flex; align-items:center; gap:10px; min-width:0; }
+.header-avatar { width:36px; height:36px; border-radius:50%; background:linear-gradient(135deg, var(--accent-deep), var(--accent)); display:flex; align-items:center; justify-content:center; font-weight:700; color:#fff; font-size:14px; flex-shrink:0; letter-spacing:0.02em; }
+.header-info { min-width:0; }
+.header-title { font-size:16px; font-weight:600; color:var(--text-primary); line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.header-sub { font-size:12px; color:var(--text-secondary); line-height:1.2; }
+
+.header-right { display:flex; gap:8px; align-items:center; flex-shrink:0; }
+.status-pill { display:inline-flex; align-items:center; gap:6px; padding:5px 12px; border-radius:20px; font-size:11px; font-weight:600; letter-spacing:0.01em; white-space:nowrap; }
+.status-working { background:var(--accent-soft); color:var(--accent-deep); }
+
+.chat-scroll { flex:1; overflow-y:auto; overflow-x:hidden; padding:var(--spacing-16); scroll-behavior:smooth; -ms-overflow-style:none; scrollbar-width:none; }
+.chat-scroll::-webkit-scrollbar { display:none; }
+
+/* === CARD VARIANTS (No emoji — SVG icons + Thai labels) === */
+.card-row { margin-bottom: var(--spacing-16); }
+
+/* Thinking */
+.card-thinking { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-card); padding: 16px; }
+.card-thinking .card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.card-thinking .card-icon { width: 28px; height: 28px; border-radius: 50%; background: var(--surface); border: 1.5px solid var(--border); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.card-thinking .card-icon svg { width: 14px; height: 14px; stroke: var(--text-muted); stroke-width: 2; fill: none; }
+.card-thinking .card-title { font-size: 13px; font-weight: 600; color: var(--text-secondary); font-style: italic; }
+.card-thinking.collapsed .card-body { display: none; }
+.card-thinking .card-body { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+
+/* Web Search */
+.card-search { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); padding: 14px; box-shadow: var(--shadow-card); }
+.card-search .card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.card-search .card-icon { width: 30px; height: 30px; border-radius: 10px; background: var(--accent-soft); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.card-search .card-icon svg { width: 16px; height: 16px; stroke: var(--accent-deep); stroke-width: 2; fill: none; }
+.card-search .card-title { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.card-search .search-chips { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.card-search .search-chips::-webkit-scrollbar { display: none; }
+.search-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 16px; background: var(--surface-2); border: 1px solid var(--border); font-size: 12px; color: var(--text-secondary); white-space: nowrap; flex-shrink: 0; }
+.search-chip .chip-fav { width: 16px; height: 16px; border-radius: 4px; background: var(--surface); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 700; color: var(--text-muted); flex-shrink: 0; }
+
+/* Browse / Computer Use */
+.card-browse { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); overflow: hidden; box-shadow: var(--shadow-card); }
+.card-browse .browse-thumb { position: relative; width: 100%; height: 160px; background: linear-gradient(135deg, #3D342E, #5A4F45); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.card-browse .browse-thumb img { width: 100%; height: 100%; object-fit: cover; opacity: 0.85; }
+.card-browse .browse-overlay-point { position: absolute; width: 24px; height: 24px; border-radius: 50%; border: 3px solid var(--accent); background: rgba(176,122,42,0.15); animation: pulse-ring 2s infinite; }
+@keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 rgba(176,122,42,0.4); } 70% { box-shadow: 0 0 0 12px rgba(176,122,42,0); } 100% { box-shadow: 0 0 0 0 rgba(176,122,42,0); } }
+.card-browse .blur-sensitive { filter: blur(8px); pointer-events: none; }
+.card-browse .card-footer { padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; }
+.card-browse .card-footer .label { font-size: 11px; color: var(--text-muted); }
+
+/* File Card */
+.card-file { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); padding: 14px; display: flex; gap: 12px; align-items: flex-start; box-shadow: var(--shadow-card); }
+.card-file .file-icon-box { width: 40px; height: 40px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.card-file .file-icon-box svg { width: 20px; height: 20px; stroke: var(--text-muted); stroke-width: 1.8; fill: none; }
+.card-file .file-body { flex: 1; min-width: 0; }
+.card-file .file-name { font-size: 14px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card-file .file-meta { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.card-file .file-actions { display: flex; gap: 6px; margin-top: 8px; }
+.card-file .file-actions button { padding: 4px 10px; border-radius: 10px; font-size: 11px; font-weight: 600; border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary); cursor: pointer; font-family: var(--font-main); transition: all 0.15s; }
+.card-file .file-actions button:hover { border-color: var(--accent); color: var(--accent-deep); background: var(--accent-soft); }
+
+/* Code Run Card */
+.card-code { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-card); padding: 14px; }
+.card-code .code-summary { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+.card-code .code-block { display: none; margin-top: 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px; font-family: ui-monospace, SFMono-Regular, monospace; font-size: 12px; color: var(--text-secondary); line-height: 1.5; overflow-x: auto; white-space: pre-wrap; }
+.card-code .code-block.open { display: block; }
+.card-code .toggle-btn { margin-top: 8px; padding: 6px 14px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary); font-size: 12px; font-weight: 600; cursor: pointer; font-family: var(--font-main); transition: all 0.15s; }
+.card-code .toggle-btn:hover { border-color: var(--accent); color: var(--accent-deep); }
+
+/* Connector / App Card */
+.card-connector { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); padding: 14px; display: flex; align-items: center; gap: 12px; box-shadow: var(--shadow-card); }
+.card-connector .connector-logo { width: 36px; height: 36px; border-radius: 10px; background: var(--accent-soft); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.card-connector .connector-logo svg { width: 18px; height: 18px; stroke: var(--accent-deep); stroke-width: 2; fill: none; }
+.card-connector .connector-body { flex: 1; min-width: 0; }
+.card-connector .connector-name { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.card-connector .connector-action { font-size: 12px; color: var(--text-secondary); }
+
+/* Sub-agent / Parallel Card */
+.card-subagent { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); padding: 14px; box-shadow: var(--shadow-card); }
+.card-subagent .subagent-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.card-subagent .subagent-header-left { display: flex; align-items: center; gap: 8px; }
+.card-subagent .subagent-title { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.card-subagent .subagent-progress { height: 6px; background: var(--surface-2); border-radius: 3px; overflow: hidden; margin-top: 8px; }
+.card-subagent .subagent-progress-bar { height: 100%; width: 70%; background: linear-gradient(90deg, var(--accent), var(--accent-deep)); border-radius: 3px; }
+
+/* To-do / Plan Card */
+.card-todo { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); padding: 14px; box-shadow: var(--shadow-card); }
+.card-todo .todo-item { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.card-todo .todo-item:last-child { border-bottom: none; }
+.card-todo .todo-check { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+.card-todo .todo-check.done { border-color: var(--success); background: var(--success-soft); }
+.card-todo .todo-check svg { width: 10px; height: 10px; stroke: var(--success); stroke-width: 2.5; fill: none; display: none; }
+.card-todo .todo-check.done svg { display: block; }
+.card-todo .todo-text { font-size: 13px; color: var(--text-primary); line-height: 1.4; }
+.card-todo .todo-text.done { color: var(--text-muted); text-decoration: line-through; }
+
+/* === CONTROLS === */
+.control-section { margin-bottom: var(--spacing-24); }
+.section-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: var(--spacing-12); font-weight: 700; }
+
+/* Permission Request */
+.permission-sheet { background: var(--surface); border: 1.5px solid var(--warning); border-radius: 24px; padding: 20px; box-shadow: var(--shadow-card); }
+.permission-sheet .permission-header { font-size: 16px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
+.permission-sheet .permission-sub { font-size: 13px; color: var(--text-secondary); margin-bottom: 16px; line-height: 1.5; }
+.permission-sheet .permission-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.permission-sheet .permission-row:last-child { border-bottom: none; }
+.permission-row .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.permission-row .dot.low { background: var(--success); }
+.permission-row .dot.med { background: var(--warning); }
+.permission-row .dot.high { background: var(--error); }
+.permission-row .label { font-weight: 600; color: var(--text-primary); min-width: 80px; }
+.permission-row .desc { color: var(--text-secondary); }
+.permission-actions { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+.permission-actions button { flex: 1; min-width: 100px; padding: 10px 14px; border-radius: 14px; font-size: 12px; font-weight: 600; border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary); cursor: pointer; font-family: var(--font-main); transition: all 0.15s; }
+.permission-actions button:hover { border-color: var(--accent); color: var(--accent-deep); background: var(--accent-soft); }
+.permission-actions .btn-allow { background: var(--accent); color: #fff; border-color: var(--accent); }
+.permission-actions .btn-allow:hover { background: var(--accent-deep); border-color: var(--accent-deep); }
+.permission-actions .btn-deny { background: var(--error-soft); color: var(--error); border-color: var(--error-soft); }
+.permission-actions .btn-deny:hover { background: var(--error); color: #fff; border-color: var(--error); }
+
+/* Undo Banner */
+.undo-banner { background: linear-gradient(135deg, var(--success-soft), var(--surface)); border: 1.5px solid var(--success); border-radius: 16px; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.undo-banner .undo-text { font-size: 13px; color: var(--text-secondary); }
+.undo-banner .undo-text strong { color: var(--success); }
+.undo-banner .undo-btn { padding: 6px 14px; border-radius: 12px; border: 1px solid var(--success); background: var(--surface); color: var(--success); font-size: 12px; font-weight: 600; cursor: pointer; font-family: var(--font-main); transition: all 0.15s; white-space: nowrap; }
+.undo-banner .undo-btn:hover { background: var(--success); color: #fff; }
+
+/* Security Alert */
+.security-alert { background: var(--error-soft); border: 1.5px solid var(--error); border-radius: 16px; padding: 16px; }
+.security-alert .alert-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.security-alert .alert-icon { width: 28px; height: 28px; border-radius: 50%; background: var(--surface); border: 1.5px solid var(--error); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.security-alert .alert-icon svg { width: 14px; height: 14px; stroke: var(--error); stroke-width: 2.5; fill: none; }
+.security-alert .alert-title { font-size: 14px; font-weight: 700; color: var(--error); }
+.security-alert .alert-body { font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 12px; }
+.security-alert .alert-actions { display: flex; gap: 8px; }
+.security-alert .alert-actions button { flex: 1; padding: 8px; border-radius: 12px; font-size: 12px; font-weight: 600; border: 1.5px solid var(--error); cursor: pointer; font-family: var(--font-main); transition: all 0.15s; }
+.alert-actions .btn-continue { background: var(--surface); color: var(--text-primary); }
+.alert-actions .btn-continue:hover { background: var(--surface-2); }
+.alert-actions .btn-stop { background: var(--error); color: #fff; border-color: var(--error); }
+.alert-actions .btn-stop:hover { background: var(--error-deep, #6B1E1E); }
+
+/* Error States */
+.error-state-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); padding: 16px; }
+.error-state-card .error-header { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.error-state-card .error-icon { width: 28px; height: 28px; border-radius: 50%; background: var(--error-soft); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.error-state-card .error-icon svg { width: 16px; height: 16px; stroke: var(--error); stroke-width: 2; fill: none; }
+.error-state-card .error-title { font-size: 14px; font-weight: 600; color: var(--error); }
+.error-state-card .error-desc { font-size: 12px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 10px; }
+.error-state-card .error-btn { padding: 6px 14px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary); font-size: 12px; font-weight: 600; cursor: pointer; font-family: var(--font-main); transition: all 0.15s; }
+.error-state-card .error-btn:hover { border-color: var(--accent); color: var(--accent-deep); background: var(--accent-soft); }
+
+/* Takeover Banner */
+.takeover-banner { background: linear-gradient(135deg, var(--warning-soft), var(--surface)); border: 1.5px solid var(--warning); border-radius: 16px; padding: 16px; }
+.takeover-banner .takeover-title { font-size: 15px; font-weight: 700; color: var(--warning); margin-bottom: 4px; }
+.takeover-banner .takeover-body { font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+
+/* Input bar (modified for Phase 2 controls) */
+.input-bar-wrap { padding: 10px 16px 32px; background: linear-gradient(0deg, var(--glass) 60%, rgba(255,255,255,0) 100%); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-top: 1px solid var(--border); }
+.input-bar { display: flex; align-items: flex-end; gap: 10px; padding: 10px 14px; background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius-pill); box-shadow: var(--shadow-card); min-height: 52px; }
+.input-bar textarea { flex: 1; border: none; background: transparent; resize: none; font-family: var(--font-main); font-size: 15px; color: var(--text-primary); line-height: 1.5; max-height: 120px; outline: none; padding: 4px 2px; }
+.input-bar textarea::placeholder { color: var(--text-muted); }
+.input-bar button.icon-btn { width: 40px; height: 40px; border-radius: 50%; border: none; background: transparent; color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; flex-shrink: 0; }
+.input-bar button.icon-btn:hover { background: var(--surface-2); color: var(--accent-deep); }
+.input-bar button.send-btn { width: 44px; height: 44px; border-radius: 50%; border: none; background: var(--accent); color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(176,122,42,0.25); transition: all 0.15s; flex-shrink: 0; }
+.input-bar button.send-btn:hover { background: var(--accent-deep); transform: translateY(-1px); box-shadow: 0 6px 16px rgba(176,122,42,0.3); }
+.input-bar button.send-btn:active { transform: translateY(0); }
+
+/* Stop button state in input bar */
+.input-bar button.stop-btn { background: var(--error); color: #fff; box-shadow: 0 4px 12px rgba(139,46,46,0.25); }
+.input-bar button.stop-btn:hover { background: var(--error); filter: brightness(0.9); }
+
+/* Floating controls */
+.controls-bar { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 500; display: flex; gap: 10px; background: rgba(30,28,24,0.90); backdrop-filter: blur(12px); padding: 8px 14px; border-radius: 24px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+.controls-bar button { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.10); color: #F2F0EC; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: var(--font-main); transition: all 0.15s; }
+.controls-bar button:hover { background: rgba(255,255,255,0.18); border-color: rgba(255,255,255,0.25); }
+.controls-bar button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+</style>
+</head>
+<body>
+
+<div class="controls-bar" role="toolbar" aria-label="ตัวเลือกการดูต้นแบบ">
+  <button onclick="setTheme('light')" id="btn-light" class="active">Light</button>
+  <button onclick="setTheme('dark')" id="btn-dark">Dark</button>
+  <button onclick="toggleFrame()" id="btn-size">iOS 390</button>
+</div>
+
+<div class="phone-frame" id="phone" role="region" aria-label="ต้นแบบเฟส 2: การ์ด การควบคุม และความปลอดภัย" data-theme="light">
+  <header class="app-header" role="banner">
+    <div class="header-left">
+      <div class="header-avatar" aria-label="ไอคอน Agent">AI</div>
+      <div class="header-info">
+        <div class="header-title">วางแผนทริปเชียงใหม่ 3 วัน</div>
+        <div class="header-sub">Agent กำลังทำงาน · 8 ขั้นตอน</div>
+      </div>
+    </div>
+    <div class="header-right" aria-label="สถานะ Agent">
+      <span class="status-pill status-working" aria-live="polite">
+        <span style="width:6px;height:6px;border-radius:50%;background:var(--accent-deep);display:inline-block;animation:pulse 1.5s infinite;"></span>
+        กำลังทำ
+      </span>
+    </div>
+  </header>
+
+  <main class="chat-scroll" id="chat-scroll" role="main" aria-label="พื้นที่ข้อความและการ์ด">
+
+    <!-- === CARD VARIANTS (No emoji) === -->
+    <section class="control-section" aria-label="การ์ดใน Timeline">
+      <div class="section-label">การ์ดใน Timeline</div>
+
+      <!-- Thinking -->
+      <article class="card-row" aria-label="การ์ดกำลังคิด">
+        <div class="card-thinking" onclick="this.classList.toggle('collapsed')" role="button" tabindex="0" aria-expanded="true" aria-label="พับหรือขยายการ์ดกำลังคิด">
+          <div class="card-header">
+            <div class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg></div>
+            <div class="card-title">กำลังคิดเกี่ยวกับแผนการเดินทาง</div>
+          </div>
+          <div class="card-body">Agent กำลังประมวลผลข้อมูลจากหลายแหล่ง เพื่อเลือกเส้นทางที่เหมาะสมที่สุดกับงบประมาณและความสนใจของคุณ</div>
+        </div>
+      </article>
+
+      <!-- Web Search -->
+      <article class="card-row" aria-label="การ์ดค้นหาเว็บ">
+        <div class="card-search">
+          <div class="card-header">
+            <div class="card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div>
+            <div class="card-title">ค้นหาเว็บ — แหล่งข้อมูลที่น่าเชื่อถือ</div>
+          </div>
+          <div class="search-chips" aria-label="แหล่งข้อมูล">
+            <span class="search-chip"><span class="chip-fav">1</span> booking.com</span>
+            <span class="search-chip"><span class="chip-fav">2</span> tripadvisor.co.th</span>
+            <span class="search-chip"><span class="chip-fav">3</span> airbnb.co.th</span>
+          </div>
+        </div>
+      </article>
+
+      <!-- Browse / Computer Use -->
+      <article class="card-row" aria-label="การ์ดดูหน้าจอ">
+        <div class="card-browse">
+          <div class="browse-thumb" aria-label="ภาพหน้าจอที่ Agent เห็น">
+            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='390' height='160'%3E%3Crect width='390' height='160' fill='%233D342E'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%23A89F94' font-family='IBM Plex Sans Thai' font-size='14'%3Eตัวอย่างหน้าจอที่ Agent กำลังดู%3C/text%3E%3C/svg%3E" alt="ภาพหน้าจอจำลอง" loading="lazy">
+            <span class="browse-overlay-point" style="top: 35%; left: 42%;" aria-label="จุดที่ Agent คลิก"></span>
+            <span class="browse-overlay-point" style="top: 60%; left: 68%;" aria-label="จุดที่ Agent คลิก"></span>
+          </div>
+          <div class="card-footer">
+            <span class="label">ข้อมูลอ่อนไหวถูกปิดบังโดยอัตโนมัติ</span>
+            <span class="label">ขยายเต็มจอได้</span>
+          </div>
+        </div>
+      </article>
+
+      <!-- File -->
+      <article class="card-row" aria-label="การ์ดไฟล์">
+        <div class="card-file">
+          <div class="file-icon-box" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+          <div class="file-body">
+            <div class="file-name">แผนการเดินทาง.pdf</div>
+            <div class="file-meta">2.4 MB · สร้างเมื่อ 14:35</div>
+            <div class="file-actions">
+              <button onclick="alert('เปิดไฟล์')">เปิด</button>
+              <button onclick="alert('บันทึก')">บันทึก</button>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- Code Run -->
+      <article class="card-row" aria-label="การ์ดรันโค้ด">
+        <div class="card-code">
+          <div class="code-summary">สรุป: คำนวณค่าใช้จ่ายรวม 14,850 บาท (ไม่เกินงบ 15,000 บาท)</div>
+          <button class="toggle-btn" onclick="this.nextElementSibling.classList.toggle('open'); this.textContent = this.nextElementSibling.classList.contains('open') ? 'ซ่อนโค้ด' : 'ดูโค้ดและผลลัพธ์';">ดูโค้ดและผลลัพธ์</button>
+          <pre class="code-block"><code>function calculateBudget() {
+  return 14850; // THB
+}</code></pre>
+        </div>
+      </article>
+
+      <!-- Connector -->
+      <article class="card-row" aria-label="การ์ดแอปเชื่อมต่อ">
+        <div class="card-connector">
+          <div class="connector-logo" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><line x1="9" y1="9" x2="15" y2="15"/><line x1="15" y1="9" x2="9" y2="15"/></svg></div>
+          <div class="connector-body">
+            <div class="connector-name">Google Calendar</div>
+            <div class="connector-action">กำลังเพิ่มกิจกรรมลงปฏิทิน</div>
+          </div>
+        </div>
+      </article>
+
+      <!-- Sub-agent / Parallel -->
+      <article class="card-row" aria-label="การ์ดงานคู่ขนาน">
+        <div class="card-subagent">
+          <div class="subagent-header">
+            <div class="subagent-header-left">
+              <span style="font-size:18px;">&#9679;</span>
+              <div class="subagent-title">งานคู่ขนาน: ค้นหาที่พัก + ค้นหากิจกรรม</div>
+            </div>
+          </div>
+          <div class="subagent-progress" aria-label="ความคืบหน้า 70%">
+            <div class="subagent-progress-bar"></div>
+          </div>
+        </div>
+      </article>
+
+      <!-- To-do -->
+      <article class="card-row" aria-label="การ์ดแผนงาน">
+        <div class="card-todo">
+          <div class="todo-item">
+            <span class="todo-check done" aria-label="เสร็จแล้ว"><svg viewBox="0 0 24 24"><polyline points="4 12 9 17 20 7"/></svg></span>
+            <span class="todo-text done">ค้นหาข้อมูลพื้นฐาน</span>
+          </div>
+          <div class="todo-item">
+            <span class="todo-check done" aria-label="เสร็จแล้ว"><svg viewBox="0 0 24 24"><polyline points="4 12 9 17 20 7"/></svg></span>
+            <span class="todo-text done">ค้นหาเว็บ — แหล่งข้อมูล</span>
+          </div>
+          <div class="todo-item">
+            <span class="todo-check" aria-label="ยังไม่เสร็จ"><svg viewBox="0 0 24 24"><polyline points="4 12 9 17 20 7"/></svg></span>
+            <span class="todo-text">เลือกที่พักที่เหมาะสม</span>
+          </div>
+          <div class="todo-item">
+            <span class="todo-check" aria-label="ยังไม่เสร็จ"><svg viewBox="0 0 24 24"><polyline points="4 12 9 17 20 7"/></svg></span>
+            <span class="todo-text">ตรวจสอบงบประมาณ</span>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <!-- === CONTROLS === -->
+    <section class="control-section" aria-label="การควบคุม">
+      <div class="section-label">การอนุมัติและการควบคุม</div>
+
+      <!-- Permission Request -->
+      <article class="card-row" aria-label="ขอสิทธิ์">
+        <div class="permission-sheet" role="dialog" aria-label="คำขอสิทธิ์จาก Agent">
+          <div class="permission-header">Agent ต้องการอนุญาตก่อนทำงานต่อ</div>
+          <div class="permission-sub">จะส่งอีเมลจองโรงแรมผ่านแอปอีเมลของคุณ — ผลที่ตามมา: อีเมลจะถูกส่งจากบัญชีของคุณโดยอัตโนมัติ</div>
+          <div class="permission-row">
+            <span class="dot low" aria-hidden="true"></span>
+            <span class="label">เสี่ยงต่ำ</span>
+            <span class="desc">อ่านข้อมูลการเดินทาง</span>
+          </div>
+          <div class="permission-row">
+            <span class="dot high" aria-hidden="true"></span>
+            <span class="label">เสี่ยงสูง</span>
+            <span class="desc">ส่งอีเมลจากบัญชีของคุณ</span>
+          </div>
+          <div class="permission-actions">
+            <button onclick="alert('อนุญาตครั้งนี้')">อนุญาตครั้งนี้</button>
+            <button onclick="alert('อนุญาตเสมอ')">อนุญาตเสมอ</button>
+            <button onclick="alert('ปฏิเสธ')">ปฏิเสธ</button>
+            <button onclick="alert('แก้ไขก่อน')">แก้ไขก่อน</button>
+          </div>
+        </div>
+      </article>
+
+      <!-- Undo Banner -->
+      <article class="card-row" aria-label="ย้อนกลับได้">
+        <div class="undo-banner" aria-live="polite">
+          <div class="undo-text"><strong>ทำเสร็จแล้ว</strong> — ย้อนกลับได้ภายใน 30 วินาที หากมีข้อผิดพลาด</div>
+          <button class="undo-btn" onclick="alert('ย้อนกลับการเปลี่ยนแปลงล่าสุด')">ย้อนกลับ</button>
+        </div>
+      </article>
+
+      <!-- Takeover Banner -->
+      <article class="card-row" aria-label="การรับช่วงต่อ">
+        <div class="takeover-banner">
+          <div class="takeover-title">Agent ต้องการความช่วยเหลือจากคุณ</div>
+          <div class="takeover-body">เว็บไซต์จองโรงแรมต้องยืนยันตัวตนก่อนดำเนินการต่อ — คุณทำเองได้ และ Agent จะไม่เห็นรหัสผ่านของคุณ</div>
+        </div>
+      </article>
+    </section>
+
+    <!-- === SAFETY === -->
+    <section class="control-section" aria-label="ความปลอดภัยและสถานะผิดปกติ">
+      <div class="section-label">ความปลอดภัยและสถานะผิดปกติ</div>
+
+      <!-- Security Alert -->
+      <article class="card-row" aria-label="การเตือนความปลอดภัย">
+        <div class="security-alert" role="alert" aria-live="assertive">
+          <div class="alert-header">
+            <div class="alert-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+            <div class="alert-title">พบคำสั่งแปลกจากเว็บนี้</div>
+          </div>
+          <div class="alert-body">เว็บนี้พยายามสั่งให้ทำสิ่งอื่นที่คุณไม่ได้ขอ — เราไม่ทำตามและกำลังดำเนินงานต่อ</div>
+          <div class="alert-actions">
+            <button class="btn-continue" onclick="alert('ดำเนินงานต่อ')">ดำเนินงานต่อ</button>
+            <button class="btn-stop" onclick="alert('หยุด')">หยุด</button>
+          </div>
+        </div>
+      </article>
+
+      <!-- Error States Grid -->
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <article aria-label="สถานะล้มเหลว">
+          <div class="error-state-card">
+            <div class="error-header">
+              <div class="error-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><polyline points="4 6 10 12 4 18"/><line x1="14" y1="6" x2="20" y2="12"/><line x1="14" y1="18" x2="20" y2="12"/></svg></div>
+              <div class="error-title">ล้มเหลว</div>
+            </div>
+            <div class="error-desc">ไม่สามารถค้นหาข้อมูลได้ — ลองใหม่อีกครั้งหรือข้ามขั้นตอนนี้</div>
+            <button class="error-btn" onclick="alert('ลองใหม่')">ลองใหม่</button>
+          </div>
+        </article>
+        <article aria-label="สถานะออฟไลน์">
+          <div class="error-state-card">
+            <div class="error-header">
+              <div class="error-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/></svg></div>
+              <div class="error-title">ขาดการเชื่อมต่อ</div>
+            </div>
+            <div class="error-desc">เน็ตขาดระหว่างทำงาน — งานยังรันอยู่ในเครื่อง รอเชื่อมต่อใหม่</div>
+            <button class="error-btn" onclick="alert('รอเชื่อมต่อ')">รอเชื่อมต่อ</button>
+          </div>
+        </article>
+        <article aria-label="สถานะโควตาใกล้หมด">
+          <div class="error-state-card">
+            <div class="error-header">
+              <div class="error-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></div>
+              <div class="error-title">โควตาใกล้หมด</div>
+            </div>
+            <div class="error-desc">ใช้โควตาใกล้หมดแล้ว — ประมาณเวลาที่เหลือ 5 นาที</div>
+            <button class="error-btn" onclick="alert('ลดการใช้')">ลดการใช้</button>
+          </div>
+        </article>
+        <article aria-label="สถานะไฟล์อัปโหลดล้มเหลว">
+          <div class="error-state-card">
+            <div class="error-header">
+              <div class="error-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+              <div class="error-title">ไฟล์ล้มเหลว</div>
+            </div>
+            <div class="error-desc">อัปโหลดไฟล์ไม่สำเร็จ — ลองใหม่หรือเลือกไฟล์อื่น</div>
+            <button class="error-btn" onclick="alert('ลองใหม่')">ลองใหม่</button>
+          </div>
+        </article>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- Input Bar -->
+  <footer class="input-bar-wrap" role="region" aria-label="ช่องพิมพ์ข้อความ">
+    <form class="input-bar" onsubmit="sendMessage(event)" aria-label="ฟอร์มส่งข้อความ">
+      <button type="button" class="icon-btn" onclick="addAttachment()" aria-label="เพิ่มไฟล์" title="เพิ่มไฟล์"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></button>
+      <textarea id="msg-input" rows="1" placeholder="พิมพ์ข้อความหรือคำสั่ง..." aria-label="ช่องพิมพ์ข้อความ" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();document.getElementById('form-btn').click();}" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px';"></textarea>
+      <button type="button" class="icon-btn" onclick="toggleMic()" aria-label="ไมโครโฟน" title="ไมโครโฟน"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button>
+      <button type="submit" class="send-btn" id="form-btn" aria-label="ส่งข้อความ" title="ส่ง"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
+    </form>
+  </footer>
+
+</div>
+
+<script>
+function setTheme(t) {
+  document.getElementById('phone').setAttribute('data-theme', t);
+  document.getElementById('btn-light').classList.toggle('active', t === 'light');
+  document.getElementById('btn-dark').classList.toggle('active', t === 'dark');
+}
+function toggleFrame() {
+  // No-op: Phase 2 uses fixed frame for clarity
+  const btn = document.getElementById('btn-size');
+  btn.textContent = 'iOS 390 (Fixed)';
+}
+function sendMessage(e) {
+  e.preventDefault();
+  const input = document.getElementById('msg-input');
+  const text = input.value.trim();
+  if (!text) return;
+  const group = document.createElement('section');
+  group.className = 'message-group';
+  group.innerHTML = '<div style="display:flex;justify-content:flex-end;"><div class="user-bubble" style="align-self:flex-end;max-width:82%;background:var(--accent);color:#fff;padding:14px 18px;border-radius:20px 20px 6px 20px;font-size:15px;line-height:1.6;box-shadow:0 4px 12px rgba(176,122,42,0.18);word-break:break-word;">' + text.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div></div>';
+  document.getElementById('chat-scroll').appendChild(group);
+  input.value = '';
+  input.style.height = 'auto';
+  scrollToBottom();
+}
+function addAttachment() {
+  const wrap = document.querySelector('.input-bar-wrap');
+  const existing = wrap.querySelector('.attachment-preview');
+  if (!existing) {
+    const div = document.createElement('div');
+    div.className = 'attachment-preview';
+    div.innerHTML = '<span class="chip-file"><span style="font-size:11px;color:var(--text-muted);margin-right:4px;">FILE</span> trip-plan.pdf <span onclick="this.parentElement.remove()" style="cursor:pointer;color:var(--text-muted);">×</span></span>';
+    wrap.insertBefore(div, wrap.querySelector('.input-bar'));
+  }
+}
+function toggleMic() {
+  const btn = document.querySelector('.icon-btn[aria-label="ไมโครโฟน"]');
+  btn.style.color = btn.style.color === 'var(--accent-deep)' ? '' : 'var(--accent-deep)';
+}
+function scrollToBottom() {
+  const scroll = document.getElementById('chat-scroll');
+  scroll.scrollTo({ top: scroll.scrollHeight, behavior: 'smooth' });
+}
+</script>
+
+</body>
+</html>
