@@ -48,6 +48,12 @@ ORIGINALS=(
   "Services/Tools/ShellTool.swift"
   # เฟส 4 — การจัดการคีย์ (ต้นเหตุบั๊ก 401 ที่ผู้ใช้เจอบนเครื่อง)
   "Services/APIKeySanitizer.swift"
+  # เฟส 5 — ไฟล์แนบ หลายห้องสนทนา และการส่งออก (Foundation ล้วน)
+  "Models/Attachment.swift"
+  "Services/AttachmentStore.swift"
+  "Services/AttachmentMessageBuilder.swift"
+  "Services/VisionSupport.swift"
+  "Services/ChatRoomStore.swift"
 )
 
 echo "== คัดลอกไฟล์ต้นฉบับที่ต้องทดสอบ =="

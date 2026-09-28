@@ -44,6 +44,21 @@ struct ChatMessage: Identifiable, Codable, Equatable {
     /// true = tool นี้ทำงานไม่สำเร็จ
     var toolIsError: Bool?
 
+    // MARK: ไฟล์แนบ (เฟส 5)
+
+    /// ไฟล์แนบของผู้ใช้ที่แนบมากับข้อความนี้ (ข้อมูลเล็ก — บันทึกลงประวัติได้)
+    var attachments: [Attachment]?
+    /// รูปที่ย่อและแปลง base64 แล้ว เพื่อส่งเป็น image_url ให้โมเดลที่รับรูป
+    /// ไม่ถูกบันทึกลงไฟล์ประวัติ (กันไฟล์บวมและกันหน่วยความจำเกินบนเครื่อง RAM 2GB)
+    var visionImageDataURLs: [String]?
+
+    /// ฟิลด์ที่บันทึกลงประวัติ (ตัด `visionImageDataURLs` ออกโดยเจตนา)
+    enum CodingKeys: String, CodingKey {
+        case id, role, text, toolCalls, toolCallID, name, createdAt
+        case toolArguments, toolThaiLabel, toolDuration, toolIsError
+        case attachments
+    }
+
     init(id: UUID = UUID(),
          role: ChatRole,
          text: String,
@@ -54,7 +69,9 @@ struct ChatMessage: Identifiable, Codable, Equatable {
          toolArguments: String? = nil,
          toolThaiLabel: String? = nil,
          toolDuration: TimeInterval? = nil,
-         toolIsError: Bool? = nil) {
+         toolIsError: Bool? = nil,
+         attachments: [Attachment]? = nil,
+         visionImageDataURLs: [String]? = nil) {
         self.id = id
         self.role = role
         self.text = text
@@ -66,6 +83,8 @@ struct ChatMessage: Identifiable, Codable, Equatable {
         self.toolThaiLabel = toolThaiLabel
         self.toolDuration = toolDuration
         self.toolIsError = toolIsError
+        self.attachments = attachments
+        self.visionImageDataURLs = visionImageDataURLs
     }
 
     // MARK: ตัวสร้างสำเร็จรูป
@@ -76,6 +95,17 @@ struct ChatMessage: Identifiable, Codable, Equatable {
 
     static func user(_ text: String) -> ChatMessage {
         ChatMessage(role: .user, text: text)
+    }
+
+    /// ข้อความผู้ใช้ที่มีไฟล์แนบ (เฟส 5)
+    /// - Parameter visionImageDataURLs: รูปที่ย่อ+base64 แล้ว (เฉพาะเมื่อโมเดลรับรูป)
+    static func user(_ text: String,
+                     attachments: [Attachment],
+                     visionImageDataURLs: [String] = []) -> ChatMessage {
+        ChatMessage(role: .user,
+                    text: text,
+                    attachments: attachments.isEmpty ? nil : attachments,
+                    visionImageDataURLs: visionImageDataURLs.isEmpty ? nil : visionImageDataURLs)
     }
 
     static func assistant(_ text: String, toolCalls: [ToolCall]? = nil) -> ChatMessage {
@@ -112,6 +142,11 @@ struct ChatMessage: Identifiable, Codable, Equatable {
 
     // MARK: ตัวช่วย
 
+    /// true = ข้อความนี้มีไฟล์แนบ
+    var hasAttachments: Bool {
+        !(attachments ?? []).isEmpty
+    }
+
     var isTextEmpty: Bool {
         text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
@@ -130,6 +165,14 @@ struct ChatMessage: Identifiable, Codable, Equatable {
         } else if role == .tool && isTextEmpty {
             // ผู้ให้บริการบางราย (โดยเฉพาะโมเดลฟรี) ปฏิเสธข้อความผลลัพธ์ของ tool ที่ว่างเปล่า
             content = .string("(ไม่มีผลลัพธ์)")
+        } else if role == .user, let attachments = attachments, !attachments.isEmpty {
+            // ไฟล์แนบ: ถ้ามีรูปและโมเดลรับรูป → ส่งเป็น array ของ parts (text + image_url)
+            // ถ้าไม่มีรูป (หรือโมเดลไม่รับ) → ส่งข้อความ + รายการพาธ + เนื้อหาไฟล์ข้อความเล็ก
+            let dataURLs = visionImageDataURLs ?? []
+            content = AttachmentMessageBuilder.content(text: text,
+                                                       attachments: attachments,
+                                                       imageDataURLs: dataURLs,
+                                                       includeImages: !dataURLs.isEmpty)
         } else {
             content = .string(text)
         }

@@ -797,6 +797,81 @@ expect("ข้อความผลลัพธ์ของ tool ไม่มี
        toolRoundBody?["tool_messages_have_empty_content"] as? Bool == false,
        "พบ content ว่างในข้อความ role=tool")
 
+// MARK: - 20) ไฟล์แนบ (เฟส 5)
+
+print("\n[21] ไฟล์แนบ: ส่งรูปเป็น image_url เมื่อโมเดลรับรูป / ส่งพาธเมื่อไม่รับ")
+
+func bodySummaries(forPathFragment fragment: String) -> [[String: Any]] {
+    guard let data = FileManager.default.contents(atPath: "/tmp/mock_openrouter_body.json"),
+          let entries = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+        return []
+    }
+    return entries.filter { (($0["path"] as? String) ?? "").contains(fragment) }
+}
+
+let uploadRoot = NSTemporaryDirectory() + "e2e-uploads-\\(UUID().uuidString)"
+let uploadStore = AttachmentStore(rootPath: uploadRoot)
+var attachmentChecks: [String: Bool] = [:]
+do {
+    let textAttachment = try uploadStore.importData(Data("hello-from-e2e".utf8), originalName: "note.txt")
+    attachmentChecks["text_kind"] = (textAttachment.kind == .text)
+    attachmentChecks["text_inlined"] = textAttachment.isInlineText
+    attachmentChecks["text_content"] = (textAttachment.inlineText == "hello-from-e2e")
+
+    let sourcePath = uploadRoot + "/pic.jpg"
+    try Data(repeating: 0x41, count: 3_000).write(to: URL(fileURLWithPath: sourcePath))
+    let imageAttachment = try uploadStore.importFile(at: URL(fileURLWithPath: sourcePath))
+    attachmentChecks["image_kind"] = (imageAttachment.kind == .image)
+    attachmentChecks["image_copied"] = FileManager.default.fileExists(atPath: imageAttachment.path)
+
+    expect("ไฟล์ข้อความเล็กถูกฝังเนื้อหาให้อัตโนมัติ", attachmentChecks["text_inlined"] == true,
+           String(describing: attachmentChecks))
+    expect("ไฟล์ .jpg ถูกจำแนกเป็นรูปภาพและคัดลอกเข้าโฟลเดอร์ทำงาน", attachmentChecks["image_kind"] == true
+           && attachmentChecks["image_copied"] == true, String(describing: attachmentChecks))
+
+    let visionMessage = ChatMessage.user("รูปนี้คืออะไร",
+                                         attachments: [imageAttachment],
+                                         visionImageDataURLs: [AttachmentMessageBuilder.dataURL(mimeType: "image/jpeg",
+                                                                                              base64: "QUJD")])
+    let plainMessage = ChatMessage.user("ช่วยเปิดไฟล์นี้ให้หน่อย",
+                                        attachments: [textAttachment, imageAttachment],
+                                        visionImageDataURLs: [])
+
+    _ = try await OpenRouterService.completeChat(modelID: "openai/gpt-4o",
+                                                messages: [ChatMessage.system("sys").payload(), visionMessage.payload()],
+                                                apiKey: apiKey,
+                                                baseURLString: base + "/attach")
+    _ = try await OpenRouterService.completeChat(modelID: "deepseek/deepseek-v3",
+                                                messages: [ChatMessage.system("sys").payload(), plainMessage.payload()],
+                                                apiKey: apiKey,
+                                                baseURLString: base + "/attach")
+} catch {
+    expect("ส่งข้อความที่มีไฟล์แนบได้โดยไม่เกิดข้อผิดพลาด", false, "\(error)")
+}
+
+let attachmentBodies = bodySummaries(forPathFragment: "/attach/chat/completions")
+expect("มีคำขอที่มีไฟล์แนบถูกส่งจริง 2 ครั้ง", attachmentBodies.count == 2,
+       "จำนวน: \(attachmentBodies.count)")
+if attachmentBodies.count == 2 {
+    expect("โหมดรับรูป: content เป็น parts (text + image_url)",
+           attachmentBodies[0]["user_content_type"] as? String == "array",
+           String(describing: attachmentBodies[0]["user_content_type"]))
+    expect("โหมดรับรูป: มี image_url 1 ส่วน", attachmentBodies[0]["image_part_count"] as? Int == 1,
+           String(describing: attachmentBodies[0]["image_part_count"]))
+    expect("โหมดไม่รับรูป: content เป็นข้อความล้วน",
+           attachmentBodies[1]["user_content_type"] as? String == "string",
+           String(describing: attachmentBodies[1]["user_content_type"]))
+    expect("โหมดไม่รับรูป: ข้อความมีบล็อกรายการไฟล์แนบพร้อมพาธให้ Agent เปิดเอง",
+           attachmentBodies[1]["user_text_has_attachment_block"] as? Bool == true,
+           "ไม่พบบล็อกไฟล์แนบในข้อความ")
+    expect("โหมดไม่รับรูป: บอกรายชื่อไฟล์เดิมให้โมเดลรู้",
+           attachmentBodies[1]["user_text_lists_original_name"] as? Bool == true,
+           "ไม่พบชื่อไฟล์เดิม note.txt")
+}
+expect("โมเดล gpt-4o ถูกจัดว่ารับรูปได้", VisionSupport.markerDecision(modelID: "openai/gpt-4o"))
+expect("โมเดลโค้ดอย่าง north-mini-code ถูกจัดว่าไม่รับรูป",
+       !VisionSupport.markerDecision(modelID: "cohere/north-mini-code:free"))
+
 // MARK: - 8) ตรวจว่าไม่ได้ใช้ API ของ iOS 16+ ในเส้นทางที่ทดสอบ
 
 print("\n[8] สรุปผล")

@@ -42,6 +42,11 @@ struct SettingsView: View {
     @ObservedObject private var connectivity = ConnectivityMonitor.shared
 
     // แจ้งเตือน
+    @AppStorage(SettingsKeys.appearance) private var appearanceRawValue: String = AppAppearance.system.rawValue
+    @AppStorage(SettingsKeys.chatFontScale) private var chatFontScale: Double = 1.0
+    @AppStorage(SettingsKeys.hasCompletedOnboarding) private var hasCompletedOnboarding: Bool = false
+    @State private var showsOnboarding: Bool = false
+
     @State private var alertTitle: String = ""
     @State private var alertMessage: String = ""
     @State private var showAlert: Bool = false
@@ -53,6 +58,8 @@ struct SettingsView: View {
             agentSection
             connectionSection
             usageSection
+            attachmentSection
+            appearanceSection
             accessSection
             privilegeSection
             aboutSection
@@ -70,6 +77,12 @@ struct SettingsView: View {
                 // เลือกโมเดลแล้ว รันทดสอบการเชื่อมต่อให้อัตโนมัติ
                 runConnectionTest()
             }
+        }
+        .sheet(isPresented: $showsOnboarding) {
+            OnboardingView(onFinish: {
+                hasCompletedOnboarding = true
+                showsOnboarding = false
+            })
         }
         .sheet(isPresented: $showEntitlementSheet) {
             EntitlementExplanationView(scan: privilegeReport?.entitlements,
@@ -376,6 +389,97 @@ struct SettingsView: View {
 
     // MARK: - Section: สิทธิ์การเข้าถึง
 
+    // MARK: - Section: ไฟล์แนบ (เฟส 5)
+
+    private var attachmentSection: some View {
+        Section {
+            Picker(selection: $settings.visionOverrideRaw) {
+                ForEach(VisionOverride.allCases, id: \.rawValue) { option in
+                    Text(option.thaiName).tag(option.rawValue)
+                }
+            } label: {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("ส่งรูปให้โมเดล")
+                    Text(VisionSupport.explanation(modelID: settings.modelID,
+                                                   override: settings.visionOverride))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .frame(minHeight: 44)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("โฟลเดอร์ไฟล์แนบ")
+                    .font(.footnote)
+                Text(settings.uploadsPath)
+                    .font(.system(.caption2, design: .monospaced))
+                    .foregroundColor(.secondary)
+                    .lineLimit(2)
+                Text("ไฟล์ที่แนบจะถูกคัดลอกเข้าโฟลเดอร์นี้ เพื่อให้ Agent เปิดอ่านเองได้ด้วย tool")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            NavigationLink {
+                SystemStatusView()
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: ConnectivityMonitor.shared.symbolName)
+                        .foregroundColor(ConnectivityMonitor.shared.isConnected ? .green : .red)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("สถานะระบบ (เครือข่าย/สิทธิ์)")
+                        Text(ConnectivityMonitor.shared.statusText)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .frame(minHeight: 44)
+            }
+        } header: {
+            Text("ไฟล์แนบและระบบ")
+        } footer: {
+            Text("ไฟล์ข้อความเล็กกว่า 20 KB ถูกฝังเนื้อหาไปกับข้อความ • รูปถูกย่อให้ด้านยาวไม่เกิน 1024 px (JPEG 0.7) ก่อนส่ง")
+        }
+    }
+
+    // MARK: - Section: รูปลักษณ์ (เฟส 5)
+
+    private var appearanceSection: some View {
+        Section {
+            Picker("ธีม", selection: $appearanceRawValue) {
+                ForEach(AppAppearance.allCases) { appearance in
+                    Text(appearance.title).tag(appearance.rawValue)
+                }
+            }
+            .pickerStyle(SegmentedPickerStyle())
+            .frame(minHeight: 44)
+
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text("ขนาดตัวอักษรในแชท")
+                    Spacer()
+                    Text(String(format: "%.0f%%", chatFontScale * 100))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                Slider(value: $chatFontScale, in: 0.85...1.45, step: 0.05)
+                    .accessibilityLabel("ขนาดตัวอักษรในแชท")
+            }
+            .frame(minHeight: 44)
+
+            Button {
+                showsOnboarding = true
+            } label: {
+                Label("ดูคำแนะนำการใช้งานอีกครั้ง", systemImage: "questionmark.circle")
+                    .frame(minHeight: 44)
+            }
+        } header: {
+            Text("รูปลักษณ์และการใช้งาน")
+        }
+    }
+
     private var accessSection: some View {
         Section {
             HStack {
@@ -538,15 +642,16 @@ struct SettingsView: View {
             HStack {
                 Text("เฟสที่ทำเสร็จ")
                 Spacer()
-                Text("2 – AgentEngine + tools")
+                Text("1 – 5 (ไฟล์แนบ + หลายห้องสนทนา)")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
         } header: {
             Text("เกี่ยวกับแอป")
         } footer: {
-            Text("Phase 2: ReAct loop + tools 9 ตัว (อ่าน/เขียนไฟล์, ดูโฟลเดอร์, ค้นหาไฟล์, รันคำสั่ง shell, HTTP, ดาวน์โหลด, ค้นหาเว็บ, ดึงหน้าเว็บ) " +
-                 "พร้อมโหมดอนุมัติ เพดานเวลา 30 วินาที ผลลัพธ์จำกัด 10,000 ตัวอักษร และการตัด context อัตโนมัติ")
+            Text("Agent ทำงานจริงบนเครื่อง: tools 9 ตัว (อ่าน/เขียนไฟล์, ดูโฟลเดอร์, ค้นหาไฟล์, รันคำสั่ง shell, HTTP, ดาวน์โหลด, ค้นหาเว็บ, ดึงหน้าเว็บ) " +
+                 "โหมดอนุมัติทีละครั้ง เพดานเวลา 30 วินาที ผลลัพธ์จำกัด 10,000 ตัวอักษร และการตัด context อัตโนมัติ • " +
+                 "เฟส 5 เพิ่มไฟล์แนบ (รูป/ไฟล์/กล้อง/คลิปบอร์ด), หลายห้องสนทนา, ส่งออก .md/.json, แก้ไฟล์ในแอป และคำแนะนำการใช้งาน")
         }
     }
 

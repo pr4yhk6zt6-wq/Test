@@ -107,6 +107,12 @@ FILES=(
   "Services/PrivilegeService.swift"
   # เฟส 4 — ทำความสะอาดคีย์ก่อนส่ง (และใช้ทดสอบหัวข้อ Authorization จริง)
   "Services/APIKeySanitizer.swift"
+  # เฟส 5 — ไฟล์แนบ (ต้องทดสอบว่าเนื้อหาที่ส่งเป็น parts + image_url จริง)
+  "Models/Attachment.swift"
+  "Services/AttachmentStore.swift"
+  "Services/AttachmentMessageBuilder.swift"
+  "Services/VisionSupport.swift"
+  "Services/ChatRoomStore.swift"
 )
 for rel in "${FILES[@]}"; do
   cp "$PROJECT_ROOT/$rel" "$WORK/$(basename "$rel")"

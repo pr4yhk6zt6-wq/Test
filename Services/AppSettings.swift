@@ -29,6 +29,8 @@ enum SettingsKeys {
     static let workspacePath = "settings.workspacePath"
     /// รันคำสั่ง shell ในนาม root ถ้าทำได้ (เฟส 3)
     static let preferRootShell = "settings.preferRootShell"
+    /// การส่งรูปให้โมเดล: automatic / always / never (เฟส 5)
+    static let visionOverride = "settings.visionOverride"
 }
 
 /// ค่าเริ่มต้นของตัวเลือกที่เพิ่มในเฟส 2
@@ -106,6 +108,25 @@ final class AppSettings: ObservableObject {
         NetworkPolicy.maxDownloadBytes(megabytes: maxDownloadMegabytes)
     }
 
+    /// โฟลเดอร์เก็บไฟล์แนบของผู้ใช้ (อยู่ในโฟลเดอร์ทำงาน → Agent เปิดอ่านเองได้)
+    var uploadsPath: String {
+        (workspacePath as NSString).appendingPathComponent("uploads")
+    }
+
+    /// ตัวเลือกการส่งรูปให้โมเดล (เฟส 5)
+    @Published var visionOverrideRaw: String {
+        didSet { defaults.set(visionOverrideRaw, forKey: SettingsKeys.visionOverride) }
+    }
+
+    var visionOverride: VisionOverride {
+        VisionOverride(rawValue: visionOverrideRaw) ?? .automatic
+    }
+
+    /// โมเดลที่เลือกอยู่ในขณะนี้รับรูปภาพหรือไม่
+    var currentModelSupportsImages: Bool {
+        VisionSupport.supportsImages(modelID: modelID, override: visionOverride)
+    }
+
     @Published private(set) var apiKeyState: APIKeyState = .missing
 
     /// ข้อความ error ล่าสุดจาก Keychain (ถ้ามี)
@@ -136,6 +157,9 @@ final class AppSettings: ObservableObject {
         // เฟส 3 — ค่าเริ่มต้นเปิดไว้ แต่ถ้าสลับ persona ไม่ได้จะถอยไปรันแบบผู้ใช้ปัจจุบันเอง
         self.preferRootShell = defaults.object(forKey: SettingsKeys.preferRootShell) as? Bool
             ?? AgentDefaults.preferRootShell
+        // เฟส 5 — การส่งรูปให้โมเดล (ค่าเริ่มต้น: ให้แอปเดาจากชื่อโมเดล)
+        self.visionOverrideRaw = defaults.string(forKey: SettingsKeys.visionOverride)
+            ?? VisionOverride.automatic.rawValue
 
         refreshAPIKeyState()
     }

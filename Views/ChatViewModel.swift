@@ -33,8 +33,18 @@ final class ChatViewModel: ObservableObject {
     /// ข้อความ error จากการบันทึกประวัติ (ถ้ามี)
     @Published private(set) var historyWarning: String?
 
+    /// ไฟล์แนบที่รอส่งพร้อมข้อความถัดไป (เฟส 5)
+    @Published private(set) var pendingAttachments: [Attachment] = []
+    /// ห้องสนทนาทั้งหมด (เฟส 5)
+    @Published private(set) var rooms: [ChatRoom] = []
+    /// ห้องที่กำลังเปิดอยู่
+    @Published private(set) var currentRoomID: UUID?
+    /// true = กำลังเตรียมไฟล์แนบ (ย่อรูป) ก่อนเริ่มงาน
+    @Published private(set) var isPreparingAttachments: Bool = false
+
     let backgroundKeeper = BackgroundTaskKeeper()
     private let historyStore = ChatHistoryStore()
+    private let roomStore = ChatRoomStore()
     private let registry = ToolRegistry.makeDefault()
     private var runTask: Task<Void, Never>?
     private var approvalContinuation: CheckedContinuation<ApprovalDecision, Never>?
@@ -44,30 +54,121 @@ final class ChatViewModel: ObservableObject {
     private let maxRenderedCharacters = 60_000
 
     init() {
-        let stored = historyStore.load()
-        if !stored.isEmpty {
-            messages = stored
-            lastNotice = "โหลดประวัติการสนทนาที่บันทึกไว้ \(stored.count) ข้อความ"
+        // เฟส 5: ใช้หลายห้องสนทนา — ถ้ามีประวัติแบบเดิม (ไฟล์เดียว) ให้ย้ายเข้าห้อง "แชทเดิม" อัตโนมัติ
+        var loadedRooms = roomStore.loadRooms()
+        if loadedRooms.isEmpty {
+            let legacy = historyStore.load()
+            if let migration = try? roomStore.migrateLegacyHistoryIfNeeded(legacyMessages: legacy) {
+                loadedRooms = migration.rooms
+            }
+        }
+        if loadedRooms.isEmpty, let created = try? roomStore.createRoom(name: "แชทแรก", existingCount: 0) {
+            loadedRooms = [created]
+        }
+
+        rooms = loadedRooms
+        currentRoomID = loadedRooms.first?.id
+        if let roomID = currentRoomID {
+            messages = roomStore.loadMessages(roomID: roomID)
+        }
+        if !messages.isEmpty {
+            lastNotice = "โหลดประวัติการสนทนาที่บันทึกไว้ \(messages.count) ข้อความ (ห้อง \(loadedRooms.first?.name ?? "แชทแรก"))"
         }
         historyWarning = historyStore.lastErrorText
+    }
+
+    // MARK: - ไฟล์แนบ (เฟส 5)
+
+    /// เพดานจำนวนไฟล์แนบต่อข้อความ (กันข้อความใหญ่เกินและ RAM)
+    private let maximumAttachmentsPerMessage = 8
+
+    private var attachmentStore: AttachmentStore {
+        AttachmentStore(rootPath: AppSettings.shared.uploadsPath)
+    }
+
+    /// เพิ่มไฟล์แนบที่คัดลอกเข้าโฟลเดอร์ทำงานแล้ว
+    func addAttachments(_ newAttachments: [Attachment]) {
+        var merged = pendingAttachments
+        for attachment in newAttachments where !merged.contains(where: { $0.path == attachment.path }) {
+            merged.append(attachment)
+        }
+        if merged.count > maximumAttachmentsPerMessage {
+            merged = Array(merged.prefix(maximumAttachmentsPerMessage))
+            lastNotice = "แนบได้สูงสุด \(maximumAttachmentsPerMessage) ไฟล์ต่อข้อความ — ส่วนเกินถูกตัดออก"
+        }
+        pendingAttachments = merged
+        if !newAttachments.isEmpty {
+            lastNotice = "แนบแล้ว \(newAttachments.count) ไฟล์ (เก็บไว้ใน \(AppSettings.shared.uploadsPath))"
+        }
+    }
+
+    /// เอาไฟล์แนบออกจากรายการที่รอส่ง (ไฟล์ยังอยู่ในโฟลเดอร์ทำงาน ให้ Agent เปิดใช้ได้)
+    func removeAttachment(_ attachment: Attachment) {
+        pendingAttachments.removeAll { $0.id == attachment.id }
+    }
+
+    func clearAttachments() {
+        pendingAttachments.removeAll()
     }
 
     // MARK: - ส่งข้อความ
 
     func send(_ rawText: String) {
         let text = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return }
+        let attachments = pendingAttachments
+        guard !text.isEmpty || !attachments.isEmpty else { return }
         guard !isBusy else {
             lastNotice = "กำลังทำงานอยู่ — กดปุ่มหยุดก่อนส่งข้อความใหม่"
             return
         }
         guard let credentials = resolveCredentials() else { return }
 
-        // กันบับเบิลผู้ใช้ซ้ำ (เห็นได้ในภาพหน้าจอที่ผู้ใช้ส่งมา): ถ้าเป็นข้อความเดิมกับ
-        // ข้อความผู้ใช้ล่าสุดที่ยังไม่ได้รับคำตอบ และเพิ่งเกิดข้อผิดพลาด (เช่น 400)
-        // ให้ถือว่าเป็นการ "ส่งซ้ำ" → ใช้บับเบิลเดิมและส่งให้โมเดลใหม่ ไม่สร้างบับเบิลซ้ำ
+        // ถ้ามีรูปแนบ ต้องย่อ + แปลง base64 ก่อน (ทำเบื้องหลังเพื่อไม่ให้ UI ค้าง)
+        if attachments.contains(where: { $0.isImage }) {
+            isBusy = true
+            isPreparingAttachments = true
+            statusText = "กำลังเตรียมรูปที่จะส่ง…"
+            let includeImages = AppSettings.shared.currentModelSupportsImages
+            Task { [weak self] in
+                let dataURLs = await ChatViewModel.visionDataURLs(for: attachments, includeImages: includeImages)
+                guard let self = self else { return }
+                self.isBusy = false
+                self.isPreparingAttachments = false
+                self.statusText = ""
+                self.performSend(text: text, attachments: attachments, visionDataURLs: dataURLs, credentials: credentials)
+            }
+            return
+        }
+
+        performSend(text: text, attachments: attachments, visionDataURLs: [], credentials: credentials)
+    }
+
+    /// เตรียมรูปสำหรับส่งเป็น image_url (ย่อในคิวเบื้องหลัง — ไม่บล็อก UI)
+    private static func visionDataURLs(for attachments: [Attachment], includeImages: Bool) async -> [String] {
+        guard includeImages else { return [] }
+        let images = attachments.filter { $0.isImage }
+        guard !images.isEmpty else { return [] }
+        return await Task.detached(priority: .userInitiated) { () -> [String] in
+            var urls: [String] = []
+            for image in images {
+                if let result = try? ImageDownscaler.downscale(fileAt: image.path) {
+                    urls.append(result.dataURL)
+                }
+            }
+            return urls
+        }.value
+    }
+
+    /// สร้างข้อความผู้ใช้และเริ่มงาน (ใช้ทั้งกรณีมีและไม่มีไฟล์แนบ)
+    private func performSend(text: String,
+                             attachments: [Attachment],
+                             visionDataURLs: [String],
+                             credentials: RunCredentials) {
+        // กันบับเบิลผู้ใช้ซ้ำ (บั๊กที่เห็นในภาพหน้าจอผู้ใช้): ถ้าเป็นข้อความเดิมกับข้อความผู้ใช้ล่าสุด
+        // ที่ยังไม่ได้รับคำตอบ และเพิ่งเกิดข้อผิดพลาด (เช่น 400) → ใช้บับเบิลเดิม ไม่สร้างใหม่
         let isRepeatOfUnansweredMessage: Bool = {
-            guard errorMessage != nil, let last = messages.last, last.role == .user else { return false }
+            guard attachments.isEmpty, errorMessage != nil,
+                  let last = messages.last, last.role == .user else { return false }
             return last.text.trimmingCharacters(in: .whitespacesAndNewlines) == text
         }()
 
@@ -75,16 +176,25 @@ final class ChatViewModel: ObservableObject {
         lastNotice = nil
         usedRounds = 0
 
+        if attachments.contains(where: { $0.isImage }), visionDataURLs.isEmpty {
+            lastNotice = AttachmentMessageBuilder.noVisionWarning(modelID: credentials.modelID,
+                                                                  imageCount: attachments.filter { $0.isImage }.count)
+        }
+
         let userMessage: ChatMessage
         if isRepeatOfUnansweredMessage, let last = messages.last {
             userMessage = last
             lastNotice = "ส่งข้อความเดิมซ้ำ — ใช้บับเบิลเดิมและให้โมเดลตอบใหม่"
         } else {
-            userMessage = ChatMessage.user(text)
+            let body = text.isEmpty ? "ช่วยดูไฟล์แนบให้หน่อย" : text
+            userMessage = ChatMessage.user(body,
+                                           attachments: attachments,
+                                           visionImageDataURLs: visionDataURLs)
             messages.append(userMessage)
             persistSoon()
         }
 
+        pendingAttachments.removeAll()
         startRun(userMessage: userMessage, credentials: credentials)
     }
 
@@ -222,19 +332,125 @@ final class ChatViewModel: ObservableObject {
     func clearConversation() {
         stop()
         messages.removeAll()
+        pendingAttachments.removeAll()
         errorMessage = nil
-        lastNotice = nil
+        lastNotice = "ล้างข้อความในห้องนี้แล้ว (ไฟล์แนบยังอยู่ในโฟลเดอร์ทำงาน)"
         usedRounds = 0
-        do {
-            try historyStore.clear()
-            historyWarning = nil
-        } catch {
-            historyWarning = "ลบไฟล์ประวัติไม่สำเร็จ: \(error.localizedDescription)"
-        }
+        persistNow()
     }
 
     func dismissNotice() {
         lastNotice = nil
+    }
+
+    /// แสดงข้อความแจ้งเตือนสั้น ๆ (ใช้จาก View เช่นเมื่อแนบไฟล์ไม่สำเร็จ)
+    func showNotice(_ text: String) {
+        lastNotice = text
+    }
+
+    // MARK: - ห้องสนทนา (เฟส 5)
+
+    /// สร้างห้องใหม่แล้วสลับไปห้องนั้นทันที
+    func createRoom(named name: String) {
+        do {
+            let room = try roomStore.createRoom(name: name, existingCount: rooms.count)
+            rooms.insert(room, at: 0)
+            try roomStore.saveRooms(rooms)
+            selectRoom(room)
+        } catch {
+            historyWarning = "สร้างห้องใหม่ไม่สำเร็จ: \(error.localizedDescription)"
+        }
+    }
+
+    func renameRoom(_ room: ChatRoom, to newName: String) {
+        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let index = rooms.firstIndex(where: { $0.id == room.id }) else { return }
+        rooms[index].name = trimmed
+        rooms[index].updatedAt = Date()
+        saveRooms()
+    }
+
+    func deleteRoom(_ room: ChatRoom) {
+        roomStore.deleteRoomFiles(roomID: room.id)
+        rooms.removeAll { $0.id == room.id }
+        saveRooms()
+
+        guard currentRoomID == room.id else { return }
+        if let first = rooms.first {
+            currentRoomID = nil
+            selectRoom(first)
+        } else {
+            currentRoomID = nil
+            messages.removeAll()
+            if let created = try? roomStore.createRoom(name: "แชทแรก", existingCount: 0) {
+                rooms = [created]
+                saveRooms()
+                selectRoom(created)
+            }
+        }
+    }
+
+    /// สลับไปห้องอื่น (บันทึกห้องปัจจุบันก่อน)
+    func selectRoom(_ room: ChatRoom) {
+        guard !isBusy else {
+            lastNotice = "กำลังทำงานอยู่ — กดปุ่มหยุดก่อนเปลี่ยนห้อง"
+            return
+        }
+        persistNow()
+        currentRoomID = room.id
+        messages = roomStore.loadMessages(roomID: room.id)
+        errorMessage = nil
+        lastNotice = messages.isEmpty ? "เปิดห้อง \(room.name) แล้ว" : "เปิดห้อง \(room.name) — \(messages.count) ข้อความ"
+    }
+
+    private func saveRooms() {
+        do {
+            try roomStore.saveRooms(rooms)
+        } catch {
+            historyWarning = "บันทึกสารบัญห้องไม่สำเร็จ: \(error.localizedDescription)"
+        }
+    }
+
+    // MARK: - ส่งออกการสนทนา (เฟส 5)
+
+    var currentRoomName: String {
+        rooms.first { $0.id == currentRoomID }?.name ?? "แชท"
+    }
+
+    /// เนื้อหา Markdown ของห้องปัจจุบัน
+    func exportMarkdownText() -> String {
+        ChatRoomStore.markdownExport(roomName: currentRoomName, messages: messages)
+    }
+
+    /// เขียนไฟล์ .md ลงโฟลเดอร์ชั่วคราวเพื่อแชร์ผ่าน Share Sheet
+    func exportMarkdownURL() -> URL? {
+        let name = ChatRoomStore.safeExportName(currentRoomName)
+        return writeTemporaryFile(named: "\(name).md", content: Data(exportMarkdownText().utf8))
+    }
+
+    /// เขียนไฟล์ .json ลงโฟลเดอร์ชั่วคราวเพื่อแชร์
+    func exportJSONURL() -> URL? {
+        let name = ChatRoomStore.safeExportName(currentRoomName)
+        do {
+            let data = try ChatRoomStore.jsonExport(roomName: currentRoomName, messages: messages)
+            return writeTemporaryFile(named: "\(name).json", content: data)
+        } catch {
+            historyWarning = "สร้างไฟล์ JSON ไม่สำเร็จ: \(error.localizedDescription)"
+            return nil
+        }
+    }
+
+    private func writeTemporaryFile(named name: String, content: Data) -> URL? {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("exports", isDirectory: true)
+        do {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            let url = directory.appendingPathComponent(name)
+            try content.write(to: url, options: .atomic)
+            return url
+        } catch {
+            historyWarning = "เขียนไฟล์ส่งออกไม่สำเร็จ: \(error.localizedDescription)"
+            return nil
+        }
     }
 
     // MARK: - การอนุมัติ
@@ -446,35 +662,46 @@ final class ChatViewModel: ObservableObject {
     private func persistSoon() {
         saveTask?.cancel()
         let snapshot = messages
+        let roomID = currentRoomID
         saveTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 600_000_000)
             guard !Task.isCancelled else { return }
-            guard let self = self else { return }
-            do {
-                try self.historyStore.save(snapshot)
-            } catch {
-                self.historyWarning = "บันทึกประวัติไม่สำเร็จ: \(error.localizedDescription)"
-            }
+            guard let self = self, let roomID = roomID else { return }
+            self.save(snapshot: snapshot, roomID: roomID)
         }
     }
 
-    /// บันทึกทันที (ใช้เมื่อแอปจะถูกพักการทำงาน)
+    /// บันทึกทันที (ใช้ตอนสลับห้อง/แอปถูกพัก เพื่อไม่ให้ข้อความหาย)
     func persistNow() {
         saveTask?.cancel()
-        saveTask = nil
+        guard let roomID = currentRoomID else { return }
+        save(snapshot: messages, roomID: roomID)
+    }
+
+    private func save(snapshot: [ChatMessage], roomID: UUID) {
         do {
-            try historyStore.save(messages)
-            historyWarning = nil
+            try roomStore.saveMessages(snapshot, roomID: roomID)
+            if let index = rooms.firstIndex(where: { $0.id == roomID }) {
+                rooms[index].messageCount = snapshot.count
+                rooms[index].preview = ChatRoomStore.previewText(of: snapshot)
+                rooms[index].updatedAt = Date()
+                try roomStore.saveRooms(rooms)
+            }
         } catch {
             historyWarning = "บันทึกประวัติไม่สำเร็จ: \(error.localizedDescription)"
         }
     }
 
+    // MARK: - ข้อมูลสำหรับหน้าตั้งค่า
+
+    /// โฟลเดอร์ที่เก็บประวัติทุกห้อง (เฟส 5)
     var historyFilePath: String {
-        historyStore.fileURL.path
+        roomStore.directoryPath
     }
 
+    /// สรุปจำนวนห้องและข้อความทั้งหมด (ใช้แสดงในหน้าตั้งค่า)
     var historyFileSizeText: String {
-        NetworkPolicy.formatBytes(historyStore.fileSizeBytes)
+        let messageTotal = rooms.reduce(0) { $0 + $1.messageCount }
+        return "\(rooms.count) ห้อง • \(messageTotal) ข้อความ"
     }
 }

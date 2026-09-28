@@ -21,11 +21,13 @@ AI Agent สำหรับ iPhone 7 (iOS 15.8.x) ที่เข้าถึง
 | **3** | ShellService (`posix_spawn`) + FileSystemService + entitlements/ldid | ✅ เสร็จ (ยืนยันบนเครื่องผู้ใช้ + entitlements ครบ 5 คีย์ในไบนารี) |
 | **4** | ChatView/FileBrowserView/AgentLogView ฉบับเต็ม + background task + แก้บั๊กที่ผู้ใช้รายงาน 2 จุด | ✅ เสร็จ (ผู้ใช้ติดตั้งแล้ว) |
 | **4.1** | แก้ 401 (คีย์เก่าบดบังคีย์ใหม่ + ทำความสะอาดคีย์ + แสดงคีย์ที่ใช้อยู่) | ✅ เสร็จ (ผู้ใช้ยืนยันว่าเชื่อมต่อได้) |
-| **4.2** | แก้ `400 [400] – Provider returned error` + ปุ่ม «ลองส่งอีกครั้ง» + กันบับเบิลผู้ใช้ซ้ำ | ✅ เสร็จในบิลด์นี้ |
-| 5 | แนบไฟล์/รูป, Markdown + code block, หลายห้องสนทนา, UX ครบ | ⏳ รอเริ่ม |
+| **4.2** | แก้ `400 [400] – Provider returned error` + ปุ่ม «ลองส่งอีกครั้ง» + กันบับเบิลผู้ใช้ซ้ำ | ✅ ส่งมอบแล้ว (ผู้ใช้ยืนยันว่าใช้งานได้) |
+| **5** | แนบไฟล์/รูป (กล้อง/คลิปบอร์ด), หลายห้องสนทนา, ส่งออก .md/.json, จัดการ+แก้ไฟล์ในแอป, ธีม/ขนาดตัวอักษร, Onboarding, สถานะระบบ | ✅ เสร็จในบิลด์นี้ (unit 205/205 • E2E 121/121) |
 
 > ทุกแท็บทำงานจริงแล้ว: แชท (Agent + อนุมัติทีละครั้ง) • ไฟล์ (เริ่มที่ `/var/mobile`) • บันทึกการเรียก tool • ตั้งค่า
-> บิลด์นี้แก้บั๊กที่เจอบนเครื่องจริงต่อจากรอบก่อน: **400 “Provider returned error” จากโมเดลฟรี** (ลองใหม่ให้อัตโนมัติ + บังคับผู้ให้บริการที่รองรับ tools + บอกสาเหตุจริงจากผู้ให้บริการ) พร้อมปุ่ม “ลองส่งอีกครั้ง”
+> **บิลด์นี้คือเฟส 5** — แนบไฟล์/รูปได้จริง (Files/Photos/กล้อง/คลิปบอร์ด) พร้อมชิปไฟล์แนบและรูปย่อ,
+> หลายห้องสนทนา (สร้าง/เปลี่ยนชื่อ/ลบ/ค้นหา), ส่งออกบทสนทนาเป็น `.md`/`.json`, จัดการไฟล์ครบ (นำเข้า/เปลี่ยนชื่อ/คัดลอก/ย้าย/ลบ/แชร์/ส่งให้ Agent),
+> ดู PDF ในแอป, แก้ไฟล์ข้อความในแอป (พร้อมนับบรรทัด/ค้นหา), ธีม + ขนาดตัวอักษรในแชท, Onboarding 3 หน้า และหน้าสถานะระบบ (เครือข่าย/สิทธิ์)
 
 ---
 
@@ -34,42 +36,48 @@ AI Agent สำหรับ iPhone 7 (iOS 15.8.x) ที่เข้าถึง
 ```
 iOSAgentSandbox/
 ├── App/
-│   └── iOSAgentSandboxApp.swift          # จุดเริ่มต้นแอป + ตรวจสิทธิ์ตอนเปิด
+│   └── iOSAgentSandboxApp.swift          # จุดเริ่มต้นแอป + ตรวจสิทธิ์ตอนเปิด + โหลดห้องสนทนา
 ├── Models/
 │   ├── JSONValue.swift                   # JSON แบบ type-safe (arguments ของ tool, JSON Schema)
-│   ├── ChatModels.swift                  # ChatMessage, ToolCall, ToolDefinition, TokenUsage
-│   └── OpenRouterModels.swift            # SSE chunk, error body, รายการโมเดล, ChatStreamEvent
+│   ├── ChatModels.swift                  # ChatMessage (+ ไฟล์แนบ/รูปที่ส่งให้โมเดล), ToolCall, ToolDefinition, TokenUsage
+│   ├── OpenRouterModels.swift            # SSE chunk, error body, รายการโมเดล, ChatStreamEvent, ChatRequestBody
+│   └── Attachment.swift                  # ไฟล์แนบ: ชนิด (รูป/ข้อความ/ไบนารี), ขนาด, ขนาดการแสดงผล
 ├── Services/
-│   ├── KeychainHelper.swift              # เก็บ API Key (พร้อม fallback กรณีไม่มี entitlement)
-│   ├── AppSettings.swift                 # Model ID + สถานะการเก็บคีย์ + คีย์ค่าเริ่มต้นของเฟสถัดไป
 │   ├── OpenRouterService.swift           # ★ streaming SSE + tool_calls delta + retry + usage
-│   ├── TokenUsageTracker.swift           # รวมโทเคนต่อเซสชัน
-│   ├── BackgroundTaskKeeper.swift        # UIApplication.beginBackgroundTask
-│   ├── SystemAccessChecker.swift         # ตรวจสิทธิ์ /var/mobile ฯลฯ (root/non-root)
-│   └── SystemPrompt.swift                # System Prompt (ภาษา, สิทธิ์เข้าถึง, กัน prompt injection)
+│   ├── OpenRouterCore.swift              # RetryPolicy, error mapping, accumulator
+│   ├── AgentEngine.swift                 # ★ ReAct loop (≤20 รอบ) + ขออนุมัติ + ยกเลิก + ตัด context
+│   ├── AgentLogStore.swift               # บันทึกทุกการเรียก tool (300 รายการล่าสุด)
+│   ├── SystemPrompt.swift                # System Prompt (ภาษา, สิทธิ์ทั้งเครื่อง, กัน prompt injection)
+│   ├── ShellService.swift                # posix_spawn (+ persona สำหรับ TrollStore)
+│   ├── FileSystemService.swift           # ชั้นไฟล์กลางที่ทุกส่วนใช้ร่วมกัน (อ่าน/เขียน/ลบ/ย้าย/คัดลอก)
+│   ├── AttachmentStore.swift             # ★ คัดลอกไฟล์แนบเข้า uploads/ + ตั้งชื่อ + อ่านข้อความเล็ก
+│   ├── AttachmentMessageBuilder.swift    # ★ ประกอบข้อความ: เนื้อหาฝัง / image_url / รายการพาธ
+│   ├── ImageDownscaler.swift             # ★ ย่อรูป 1024 px + JPEG 0.7 (ไม่โหลดไฟล์ทั้งไฟล์เข้า RAM)
+│   ├── VisionSupport.swift               # ★ ตรวจว่าโมเดลรับรูปไหม (อัตโนมัติ/บังคับ/ปิด)
+│   ├── ChatRoomStore.swift               # ★ หลายห้องสนทนา: index.json + messages-<uuid>.json + ย้ายประวัติเดิม
+│   ├── AppRouter.swift                   # ★ นำทางข้ามแท็บ (ส่งงานให้ Agent จากหน้าดูไฟล์)
+│   ├── AppSettings.swift, KeychainHelper.swift, APIKeySanitizer.swift
+│   ├── TokenUsageTracker.swift, BackgroundTaskKeeper.swift
+│   ├── SystemAccessChecker.swift, PrivilegeService.swift, EntitlementProbe.swift, ConnectivityMonitor.swift
+│   └── Tools/                            # ToolCore, ToolRegistry, FileTools, ShellTool, HttpTools,
+│                                         # PathGuard, RiskyCommandDetector, ToolOutputLimiter, ContextTrimmer, ...
 ├── Views/
-│   ├── ChatView.swift + ChatViewModel.swift
-│   ├── SettingsView.swift, ModelPickerView.swift
-│   ├── MessageBubbleView.swift, MessageContentView.swift, MarkdownRenderer.swift
-│   ├── MultilineInputField.swift         # ช่องพิมพ์หลายบรรทัดแบบ iOS 15 (ห่อ UITextView)
-│   ├── ShareSheet.swift                  # UIActivityViewController
-│   ├── RootTabView.swift, PlaceholderViews.swift
-├── Resources/
-│   ├── Info.plist
-│   └── Assets.xcassets/AppIcon.appiconset
-├── Entitlements/
-│   └── iOSAgentSandbox.entitlements       # platform-application, no-container, no-sandbox, persona-mgmt, container-required
-├── verification/                           # ชุดทดสอบที่รันได้โดยไม่ต้องมี Xcode
-│   ├── Package.swift, run-verification.sh  # unit test ของแกนกลาง (33 เคส)
-│   └── e2e/                                # เซิร์ฟเวอร์ OpenRouter จำลอง + harness (26 ข้อ)
-├── Scripts/
-│   ├── check-ios15-compat.sh              # สแกนห้ามใช้ API ของ iOS 16+
-│   ├── audit-swift-symbols.py             # ตรวจโครงสร้าง/สัญลักษณ์ที่อ้างอิงผิด
-│   ├── build-local.sh                     # build บน Mac (xcodegen + xcodebuild + ldid)
-│   ├── push-to-github.sh                  # อัปโปรเจกต์ขึ้น GitHub ในคำสั่งเดียว
-│   └── sign-and-package.sh                # ldid -S + แพ็ค .ipa
-├── project.yml                            # สเปก XcodeGen → สร้าง iOSAgentSandbox.xcodeproj
-└── .github/workflows/build.yml            # CI: build ไม่ลงนาม → ldid → .ipa → artifact
+│   ├── ChatView.swift + ChatViewModel.swift   # ★ + ปุ่มแนบไฟล์, ชิปไฟล์แนบ, ห้องสนทนา, ส่งออก, คำสั่งด่วน
+│   ├── SettingsView.swift, ModelPickerView.swift, SystemStatusView.swift, EntitlementExplanationView.swift
+│   ├── MessageBubbleView.swift, MessageContentView.swift, MarkdownRenderer.swift, ToolActivityView.swift
+│   ├── AttachmentChipView.swift, AttachmentPickerSheet.swift, QuickPromptsView.swift, ChatRoomsView.swift
+│   ├── OnboardingView.swift, FileBrowserView.swift, FilePreviewView.swift, FileEditorView.swift
+│   ├── PDFPreviewView.swift, AgentLogView.swift, ApprovalSheetView.swift, ShareSheet.swift
+│   ├── Pickers/                          # PHPicker / UIDocumentPicker / UIImagePicker (ห่อ UIKit บน iOS 15)
+│   └── RootTabView.swift, MultilineInputField.swift
+├── Resources/ (Info.plist + AppIcon) • Entitlements/ (5 คีย์)
+├── verification/                          # ชุดทดสอบที่รันได้โดยไม่ต้องมี Xcode
+│   ├── Package.swift, run-verification.sh # ★ unit test 205 เคส (แกนกลางทั้งหมด)
+│   └── e2e/                               # ★ เซิร์ฟเวอร์ OpenRouter จำลอง + harness 121 ข้อ
+├── Scripts/ (preflight.py, audit-swift-symbols.py, check-ios15-compat.sh,
+│            build-local.sh, sign-and-package.sh, ci/publish-with-token.sh, hash.sh)
+├── project.yml (XcodeGen → .xcodeproj, iOS 15.0)
+└── .github/workflows/build.yml             # CI: ตรวจสอบ → unit/E2E → build ไม่ลงนาม → ldid → .ipa
 ```
 
 ---
@@ -207,7 +215,40 @@ bash Scripts/check-ios15-compat.sh .         # ห้ามใช้ API ขอ�
 
 ถ้ายังเจอถี่ ๆ กับโมเดลหนึ่งโดยเฉพาะ → ลองเปลี่ยนเป็นโมเดลที่นิยมกว่า (ตัด `:free` ออก) ในแท็บตั้งค่า
 
-## ข้อจำกัดที่ยังเหลือ (จะปิดในเฟสถัดไป)
+## สิ่งที่เพิ่มในเฟส 5 (บิลด์นี้)
 
-* ยังไม่มี Onboarding, แนบไฟล์/รูป, หลายห้องสนทนา, ธีม/ขนาดตัวอักษร, การแก้ไฟล์ในแอป — เฟส 5
+**1) แนบไฟล์/รูป**
+* ปุ่ม **+** ในช่องพิมพ์ → เลือกจาก **Photos**, **ไฟล์ (Files)**, **กล้อง**, หรือ **คลิปบอร์ด** (สูงสุด 8 ไฟล์ต่อครั้ง, เพดาน 200 MB ต่อไฟล์)
+* ไฟล์ถูก **คัดลอก** เข้า `/var/mobile/AgentWorkspace/uploads/` (ชื่อ `yyyyMMdd-HHmmss-ชื่อเดิม`) ไม่ย้ายไฟล์ต้นทางทิ้ง
+* ไฟล์ข้อความ/โค้ดเล็กกว่า 20 KB → เนื้อหาถูกฝังไปกับข้อความให้โมเดลอ่านทันที; ไฟล์ใหญ่/ไบนารี → ส่งเฉพาะพาธให้ Agent เปิดเองด้วย `read_file`
+* รูป → ย่อด้านยาวไม่เกิน 1024 px + JPEG 0.7 แล้วส่งเป็น `image_url` **เฉพาะโมเดลที่รับรูป** (ดูสวิตช์ “ส่งรูปให้โมเดล” ในแท็บตั้งค่า: อัตโนมัติ / รับรูปแน่นอน / ไม่รับรูป)
+
+**2) หลายห้องสนทนา + ส่งออก**
+* เมนู ⋯ → **ห้องสนทนา**: สร้าง/เปลี่ยนชื่อ/ลบ/ค้นหา และปัดเพื่อลบ — ประวัติเดิมถูกย้ายเข้าห้อง “แชทเดิม” อัตโนมัติ
+* เมนู ⋯ → **ส่งออกเป็น Markdown (.md)** หรือ **JSON (.json)** แล้วแชร์ผ่าน Share Sheet ได้ทันที
+
+**3) แท็บไฟล์**
+* **นำเข้าไฟล์** เข้าโฟลเดอร์ที่เปิดอยู่, **สร้างโฟลเดอร์/ไฟล์ใหม่**, **เปลี่ยนชื่อ**, **คัดลอก/ย้าย**, **ลบ**, **แชร์**
+* แตะค้างที่ไฟล์ → “ส่งให้ Agent” (เปิดแท็บแชทพร้อมแนบไฟล์และคำสั่งให้อัตโนมัติ)
+* ดู **PDF** ในแอปด้วย PDFKit • ไฟล์ข้อความแก้ไขได้ในแอป (นับบรรทัด/ค้นหา/บันทึก) • ไฟล์ไบนารีดูแบบ hex
+
+**4) ความสะดวก**
+* **Onboarding 3 หน้า** ตอนเปิดครั้งแรก (วางคีย์ → เลือกโมเดล → ตั้งค่าการอนุมัติ) เปิดดูใหม่ได้จากแท็บตั้งค่า
+* **ธีม** (ตามระบบ/สว่าง/มืด) + **ขนาดตัวอักษรในแชท** 85–145%
+* หน้าสถานะระบบ: เครือข่าย (Wi-Fi/มือถือ/ประหยัด), สิทธิ์การเข้าถึงไฟล์, entitlements และสิ่งที่ต้องแก้
+
+## วิธีทดสอบสั้น ๆ (เฟส 5)
+
+1. **แนบรูป**: เปิดแท็บแชท → กด **+** → Photos → เลือกรูป → พิมพ์ “รูปนี้คืออะไร” → ส่ง → ต้องเห็นชิปไฟล์แนบ + รูปย่อเหนือข้อความ และ Agent ตอบถึงเนื้อหารูป (ถ้าโมเดลไม่รับรูป จะแจ้งและให้พาธแทน)
+2. **แนบไฟล์จาก Files**: กด **+** → ไฟล์ → เลือกไฟล์ `.txt` เล็ก ๆ → ส่ง → Agent ต้องอ่านเนื้อหาได้ทันทีโดยไม่ต้องเปิดไฟล์เอง
+3. **คลิปบอร์ด/กล้อง**: คัดลอกข้อความไว้ก่อน → **+** → คลิปบอร์ด (ข้อความถูกใส่ในช่องพิมพ์) • **+** → กล้อง → ถ่ายรูป → ส่ง
+4. **หลายห้องสนทนา**: เมนู ⋯ → ห้องสนทนา → สร้างห้องใหม่ → สลับไปมา แล้วปิด/เปิดแอป → ข้อความต้องอยู่ครบแยกตามห้อง
+5. **ส่งออก**: เมนู ⋯ → ส่งออกเป็น Markdown → Share Sheet เปิดขึ้น → บันทึกเป็นไฟล์ / ส่งเข้าแอปอื่นได้
+6. **แก้ไฟล์ในแอป**: แท็บไฟล์ → เข้าโฟลเดอร์ AgentWorkspace → แตะไฟล์ข้อความ → ⋯ → แก้ไขในแอป → แก้แล้วกดบันทึก → อ่านใหม่ต้องเห็นเนื้อหาใหม่
+7. **ส่งให้ Agent**: ในแท็บไฟล์ แตะค้างที่ไฟล์ → ส่งให้ Agent → ต้องเด้งไปแท็บแชทพร้อมไฟล์แนบและคำสั่ง
+8. **ตั้งค่า**: ธีมมืด/สว่าง + เลื่อนขนาดตัวอักษรในแชท → ข้อความในแชทต้องขยายตาม • กด “ดูคำแนะนำการใช้งานอีกครั้ง” → Onboarding เปิด
+
+## ข้อจำกัดที่ยังเหลือ
+
 * การรันเป็น root ต้องติดตั้งผ่าน TrollStore (หรือรันแบบ rootful ด้วย palera1n) เท่านั้น — ถ้าติดตั้งด้วย Sideloadly จะได้แค่สิทธิ์ผู้ใช้ปัจจุบัน
+* การอ่าน/เขียนนอก `/var/mobile` (เช่น `/System`, `/private/var`) ต้องมีสิทธิ์จาก entitlements ที่ให้มาแล้วเท่านั้น; ถ้าระบบไฟล์อ่านไม่ได้ แอปจะบอกเหตุผลเป็นภาษาไทย

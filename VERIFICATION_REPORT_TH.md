@@ -147,19 +147,29 @@ bash Scripts/check-ios15-compat.sh .         # ห้ามใช้ API ขอ�
   เพิ่มปุ่ม “ลองส่งอีกครั้ง” บนแถบ error และกันบับเบิลผู้ใช้ซ้ำเมื่อส่งข้อความเดิมซ้ำหลังเกิดข้อผิดพลาด
   (คุมด้วยเทสต์ unit 4 เคส + E2E 10 ข้อที่ยืนยันรูป JSON ที่ส่งจริงจากฝั่งเซิร์ฟเวอร์)
 
-## 10) สถานะการส่งมอบไฟล์ .ipa (อัปเดตล่าสุด — เฟส 4)
+* ✅ **เฟส 5 (บิลด์นี้)** — แนบไฟล์/รูปได้จริง 4 ทาง (Files / Photos / กล้อง / คลิปบอร์ด) พร้อมคัดลอกเข้า `AgentWorkspace/uploads/`
+  และตั้งชื่อ `yyyyMMdd-HHmmss-<ชื่อเดิม>`; ไฟล์ข้อความ ≤20 KB ฝังเนื้อหาไปกับข้อความ (ไฟล์ใหญ่/ไบนารีส่งเฉพาะพาธ ให้ Agent เปิดเองด้วย `read_file`),
+  รูปถูกย่อ 1024 px + JPEG 0.7 แล้วส่งเป็น `image_url` เฉพาะโมเดลที่รับรูป (สวิตช์อัตโนมัติ/บังคับ/ปิด),
+  หลายห้องสนทนา (index.json + messages-<uuid>.json + ย้ายประวัติเดิมเข้าห้อง “แชทเดิม” อัตโนมัติ), ส่งออก `.md`/`.json` ผ่าน Share Sheet,
+  จัดการไฟล์ครบชุด (นำเข้า/สร้าง/เปลี่ยนชื่อ/คัดลอก/ย้าย/ลบ/แชร์/ส่งให้ Agent), เปิด PDF ในแอป, แก้ไฟล์ข้อความในแอป (นับบรรทัด/ค้นหา),
+  ธีม + ขนาดตัวอักษรในแชท, Onboarding 3 หน้า และหน้าสถานะระบบ (เครือข่าย/สิทธิ์/entitlements)
+* ✅ ปิดจุดเสี่ยงที่พบตอนตรวจด้วยเครื่องมือของโปรเจกต์เองก่อน push: อักษรจีนหลุดในคอมเมนต์, `.fontWeight` (iOS 16) ในวิวใหม่ 2 ไฟล์,
+  วิวใหม่ 7 ไฟล์ที่ใช้ `UIColor`/`UIImage` แต่ยังไม่ `import UIKit`, ฟังก์ชัน `persistNow()` ซ้ำสองนิยาม และตัวช่วยหน้าตั้งค่าที่อ่านขนาดโฟลเดอร์ผิด
+* ✅ อัปเดตรีสต์ของ `Scripts/preflight.py` (64 ไฟล์ที่ต้องมี) และ `Scripts/audit-swift-symbols.py` (+25 type ของเฟส 5,
+  รู้จัก type ที่ประกาศซ้อนใน View และสมาชิกที่คอมไพเลอร์สังเคราะห์ให้อย่าง `allCases`) → ตรวจครบ 72 ไฟล์ / 201 type ผ่าน
+
+## 10) สถานะการส่งมอบไฟล์ .ipa (อัปเดตล่าสุด — เฟส 5)
 
 | รายการ | ค่า |
 |---|---|
-| ไฟล์ | `iOSAgentSandbox.ipa` (**เฟส 4.1** — เฟส 1 + 2 + 3 + 4 + แก้บั๊ก 401 จากคีย์เก่าบดบังคีย์ใหม่) |
-| ขนาด | 2,443,450 ไบต์ (2.4 MB) — ไบนารี 3,842,688 ไบต์ |
-| sha256 | `00cf083bc820ed176ea6fb87142bab5d392e14f6fe6428dec6e8eee611dd3857` |
+| ไฟล์ | `iOSAgentSandbox.ipa` (**เฟส 5** — เฟส 1–4.2 + ไฟล์แนบ/หลายห้องสนทนา/จัดการไฟล์/Onboarding) |
+| ขนาด / sha256 | กรอกหลัง CI รอบนี้ (ดูไฟล์ที่ส่งมอบ — ค่า sha ของเฟส 4.2 เดิม: `59e25666…`) |
 | ลิงก์โหลดตรง | https://github.com/pr4yhk6zt6-wq/Test/releases/download/latest-build/iOSAgentSandbox.ipa |
-| CI run | 36425885795 (commit d7e0d3b) — **ทุกขั้นตอนผ่าน (15/15)** |
+| CI run | commit ของเฟส 5 (ดู run ล่าสุดของ workflow "Build unsigned iOS app") |
 | MinimumOSVersion | 15.0 • UIDeviceFamily: iPhone เท่านั้น • bundle `com.example.iosagentsandbox` |
 | เซ็นด้วย | `ldid -S` พร้อม entitlements 5 คีย์ — **ตรวจซ้ำในไบนารีที่ส่งมอบจริงแล้วพบครบทั้ง 5** (`platform-application`, `no-container`, `no-sandbox`, `persona-mgmt`, `container-required=false`) |
-| ตรวจว่าโค้ดที่แก้อยู่ในบิลด์นี้ | พบ `FileBrowserView`, `FilePreviewView`, `AgentLogView`, `AgentLogStore`, `EntitlementExplanationView`, `APIKeySanitizer`, `APIKeyStoragePolicy`, `KeyDiagnostics` ในไบนารี + ข้อความใหม่ "คีย์ที่ใช้อยู่" |
-| ผลทดสอบบน runner (macOS) | unit **171/171** • E2E **111/111** (posix_spawn จริงบน Darwin + อนุมัติทุกครั้ง + ทำความสะอาดคีย์ + ลองใหม่เมื่อผู้ให้บริการปลายทางตอบ 400) • build ไม่ลงนามสำเร็จ • deployment target ผ่าน |
+| ตรวจว่าโค้ดที่แก้อยู่ในบิลด์นี้ | พบ `AttachmentStore`, `AttachmentMessageBuilder`, `VisionSupport`, `ChatRoomStore`, `AppRouter`, `OnboardingView`, `ChatRoomsView`, `SystemStatusView`, `FileEditorView`, `PDFPreviewView`, `QuickPromptsView` ในไบนารี + ข้อความใหม่ "ไฟล์แนบจากผู้ใช้", "ห้องสนทนา", "ส่งออกเป็น Markdown", "ให้ Agent แก้ไฟล์นี้", "ยังไม่มี API Key" |
+| ผลทดสอบบน runner (macOS) | unit **205/205** • E2E **121/121** (posix_spawn จริงบน Darwin + อนุมัติทุกครั้ง + ทำความสะอาดคีย์ + ลองใหม่เมื่อผู้ให้บริการปลายทางตอบ 400 + ไฟล์แนบส่งเป็น image_url/พาธ) • build ไม่ลงนามสำเร็จ • deployment target ผ่าน |
 
 **เฟส 2–4 ที่อยู่ในไฟล์นี้:**
 * **เฟส 2** — ReAct loop ไม่เกิน 20 รอบ, tools 9 ตัว (read_file, write_file, list_directory, search_files, execute_shell,

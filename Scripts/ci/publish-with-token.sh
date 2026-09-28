@@ -114,7 +114,7 @@ if [ "$MODE" = "push" ]; then
     info "ไม่มีการเปลี่ยนแปลง — ใช้ commit เดิม"
   else
     git -c user.email="agent@local" -c user.name="Arena Agent" \
-        commit -q -m "iOS Agent Sandbox: เฟส 4.2 (แก้ 400 Provider returned error ของโมเดลฟรี + ปุ่มลองส่งอีกครั้ง)"
+        commit -q -m "iOS Agent Sandbox: เฟส 5 (ไฟล์แนบ/รูป + หลายห้องสนทนา + ส่งออก .md/.json + จัดการและแก้ไฟล์ในแอป + Onboarding/ธีม/สถานะระบบ)"
     info "commit แล้ว: $(git rev-parse --short HEAD)"
   fi
 

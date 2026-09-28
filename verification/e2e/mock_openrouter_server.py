@@ -71,6 +71,8 @@ def record_body(path: str, body) -> None:
     tools = body.get("tools") if isinstance(body, dict) else None
     provider = body.get("provider") if isinstance(body, dict) else None
     tool_messages = [m for m in messages if isinstance(m, dict) and m.get("role") == "tool"]
+    user_contents = [m.get("content") for m in messages if isinstance(m, dict) and m.get("role") == "user"]
+    last_user_content = user_contents[-1] if user_contents else None
     summary = {
         "path": path,
         "has_tools": isinstance(tools, list) and len(tools) > 0,
@@ -80,6 +82,15 @@ def record_body(path: str, body) -> None:
         "tool_message_count": len(tool_messages),
         "tool_messages_have_name_field": any("name" in m for m in tool_messages),
         "tool_messages_have_empty_content": any(not str(m.get("content") or "").strip() for m in tool_messages),
+        "user_content_type": ("array" if isinstance(last_user_content, list)
+                              else ("string" if isinstance(last_user_content, str) else "other")),
+        "image_part_count": (sum(1 for part in last_user_content
+                                 if isinstance(part, dict) and part.get("type") == "image_url")
+                             if isinstance(last_user_content, list) else 0),
+        "user_text_has_attachment_block": (isinstance(last_user_content, str)
+                                           and "[ไฟล์แนบจากผู้ใช้]" in last_user_content),
+        "user_text_lists_original_name": (isinstance(last_user_content, str)
+                                          and "note.txt" in last_user_content),
     }
     with BODY_LOCK:
         try:
@@ -367,6 +378,11 @@ class Handler(BaseHTTPRequestHandler):
                                              call_id="call_read_1")
             return
 
+        if "/attach/" in path:
+            bump("/attach")
+            self._stream_text_reply(body)
+            return
+
         if "/loop-forever/" in path:
             # ขอเรียก tool ทุกรอบ — ใช้ทดสอบเพดาน 20 รอบของ ReAct loop
             bump("/loop-forever")
@@ -457,6 +473,9 @@ def main():
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8099
     with open(COUNTS_PATH, "w") as handle:
         json.dump({}, handle)
+    # ล้างไฟล์บันทึกคำขอของรอบก่อน เพื่อให้การตรวจรูป payload ไม่ปนกับรอบเก่า
+    with open(BODY_PATH, "w") as handle:
+        json.dump([], handle)
     server = FastThreadingHTTPServer(("127.0.0.1", port), Handler)
     print(f"mock OpenRouter listening on {port}", flush=True)
     server.serve_forever()

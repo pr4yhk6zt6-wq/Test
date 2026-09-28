@@ -25,15 +25,26 @@ struct FilePreviewView: View {
     @State private var attributes: FileAttributes?
     @State private var shareText: ShareableText?
     @State private var notice: String?
+    @State private var editor: FilePreviewView.PathBox?
+    @State private var shareFile: ShareableURL?
+    @State private var showAgentSheet: Bool = false
 
     /// ขนาดสูงสุดที่อ่านมาแสดง (ไบต์) — พอสำหรับดูตัวอย่างบนจอเล็ก
     private static let previewReadBytes = 96 * 1024
+
+    /// กล่องห่อพาธให้ใช้กับ .sheet(item:)
+    struct PathBox: Identifiable {
+        let path: String
+        var id: String { path }
+        init(_ path: String) { self.path = path }
+    }
 
     private enum PreviewPayload: Equatable {
         case loading
         case text(body: String, bytesRead: Int, totalBytes: Int64, hasMore: Bool)
         case image(data: Data)
         case hex(body: String, totalBytes: Int64)
+        case pdf
         case failure(String)
     }
 
@@ -57,6 +68,25 @@ struct FilePreviewView: View {
                             copyPath()
                         } label: {
                             Label("คัดลอก path", systemImage: "doc.on.doc")
+                        }
+
+                        Button {
+                            editor = FilePreviewView.PathBox(path)
+                        } label: {
+                            Label("แก้ไขในแอป", systemImage: "square.and.pencil")
+                        }
+
+                        Button {
+                            AppRouter.shared.sendToAgent("ช่วยตรวจและแก้ไขไฟล์นี้ให้ผม: \(path)", attachmentPath: path)
+                            notice = "ส่งให้ Agent แล้ว — เปิดแท็บแชทเพื่อดู"
+                        } label: {
+                            Label("ให้ Agent แก้ไฟล์นี้", systemImage: "sparkles")
+                        }
+
+                        Button {
+                            shareFile = ShareableURL(url: URL(fileURLWithPath: path))
+                        } label: {
+                            Label("แชร์ไฟล์", systemImage: "square.and.arrow.up")
                         }
 
                         if let text = copyableText {
@@ -86,6 +116,18 @@ struct FilePreviewView: View {
         .navigationViewStyle(.stack)
         .sheet(item: $shareText) { item in
             ShareSheet(items: [item.text])
+        }
+        .sheet(item: $shareFile) { item in
+            ShareSheet(items: [item.url])
+        }
+        .sheet(item: $editor) { box in
+            NavigationView {
+                FileEditorView(path: box.path) {
+                    notice = "บันทึกไฟล์แล้ว"
+                    Task { await load() }
+                }
+            }
+            .navigationViewStyle(.stack)
         }
         .alert("เรียบร้อย", isPresented: isShowingNotice) {
             Button("ตกลง", role: .cancel) { notice = nil }
@@ -175,6 +217,17 @@ struct FilePreviewView: View {
                 Text(hasMore
                      ? "แสดง \(NetworkPolicy.formatBytes(Int64(bytesRead))) แรกจากทั้งหมด \(NetworkPolicy.formatBytes(totalBytes)) — ไฟล์ใหญ่กว่านี้จะไม่ถูกโหลดทั้งหมดเพื่อประหยัดหน่วยความจำ"
                      : "อ่านครบทั้งไฟล์ (\(NetworkPolicy.formatBytes(totalBytes)))")
+            }
+
+        case .pdf:
+            Section {
+                PDFPreviewView(path: path)
+                    .frame(height: 420)
+                    .cornerRadius(8)
+            } header: {
+                Text("เอกสาร PDF")
+            } footer: {
+                Text("แสดงด้วย PDFKit — ปัดเลื่อนได้ตามปกติ")
             }
 
         case .image(let data):
@@ -283,6 +336,10 @@ struct FilePreviewView: View {
         let result = await Task.detached(priority: .userInitiated) { () -> (PreviewPayload, FileAttributes?) in
             let attributes = try? FileSystemService.attributes(of: targetPath)
 
+            if FilePreviewLoader.isPDF(targetPath) {
+                return (.pdf, attributes)
+            }
+
             if FilePreviewLoader.isImage(targetPath),
                let thumbnail = FilePreviewLoader.makeThumbnailData(path: targetPath) {
                 return (.image(data: thumbnail), attributes)
@@ -315,8 +372,15 @@ enum FilePreviewLoader {
 
     static let imageExtensions: Set<String> = ["png", "jpg", "jpeg", "gif", "heic", "heif", "webp", "bmp", "tiff", "tif"]
 
+    static let pdfExtensions: Set<String> = ["pdf"]
+
     static func isImage(_ path: String) -> Bool {
         imageExtensions.contains((path as NSString).pathExtension.lowercased())
+    }
+
+    /// true = ไฟล์ PDF (แสดงด้วย PDFKit)
+    static func isPDF(_ path: String) -> Bool {
+        pdfExtensions.contains((path as NSString).pathExtension.lowercased())
     }
 
     /// สร้างข้อมูลรูปย่อ (JPEG) ด้วย ImageIO — ไม่ถอดรหัสทั้งรูปสำหรับไฟล์ใหญ่

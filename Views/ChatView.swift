@@ -14,6 +14,12 @@ import SwiftUI
 import UIKit
 #endif
 
+/// ไฟล์ที่รอแชร์ผ่าน Share Sheet (เฟส 5)
+struct ShareableURL: Identifiable {
+    let id = UUID()
+    let url: URL
+}
+
 struct ChatView: View {
 
     @StateObject private var viewModel = ChatViewModel()
@@ -22,8 +28,13 @@ struct ChatView: View {
 
     @AppStorage(SettingsKeys.chatFontScale) private var chatFontScale: Double = 1.0
 
+    @ObservedObject private var router = AppRouter.shared
+
     @State private var inputText: String = ""
     @State private var showClearConfirmation: Bool = false
+    @State private var showAttachmentPicker: Bool = false
+    @State private var showRooms: Bool = false
+    @State private var exportFile: ShareableURL?
     @State private var shareText: ShareableText?
     @State private var accessReport: SystemAccessReport?
     @State private var showAccessNotice: Bool = false
@@ -41,13 +52,30 @@ struct ChatView: View {
             messagesArea
             Divider()
             usageBar
-            composerBar
+            composerArea
         }
         .navigationTitle("AI Agent")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Menu {
+                    Button {
+                        showRooms = true
+                    } label: {
+                        Label("ห้องสนทนา", systemImage: "bubble.left.and.bubble.right")
+                    }
+                    Button {
+                        if let url = viewModel.exportMarkdownURL() { exportFile = ShareableURL(url: url) }
+                    } label: {
+                        Label("ส่งออกเป็น Markdown (.md)", systemImage: "doc.text")
+                    }
+                    .disabled(viewModel.messages.isEmpty)
+                    Button {
+                        if let url = viewModel.exportJSONURL() { exportFile = ShareableURL(url: url) }
+                    } label: {
+                        Label("ส่งออกเป็น JSON (.json)", systemImage: "curlybraces")
+                    }
+                    .disabled(viewModel.messages.isEmpty)
                     Button {
                         showClearConfirmation = true
                     } label: {
@@ -72,9 +100,40 @@ struct ChatView: View {
                 .accessibilityLabel("เมนูเพิ่มเติม")
             }
         }
-        .onAppear(perform: checkSystemAccess)
+        .onAppear {
+            checkSystemAccess()
+            handlePendingRouterPrompt()
+        }
+        .onChange(of: router.pendingPrompt) { _ in
+            handlePendingRouterPrompt()
+        }
         .sheet(item: $shareText) { item in
             ShareSheet(items: [item.text])
+        }
+        .sheet(item: $exportFile) { item in
+            ShareSheet(items: [item.url])
+        }
+        .sheet(isPresented: $showAttachmentPicker) {
+            AttachmentPickerSheet(maxBytes: Int(settings.maxDownloadBytes),
+                                  onImported: { attachments in
+                                      showAttachmentPicker = false
+                                      viewModel.addAttachments(attachments)
+                                  },
+                                  onPasteText: { text in
+                                      showAttachmentPicker = false
+                                      if inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                          inputText = text
+                                      } else {
+                                          inputText += "\n" + text
+                                      }
+                                  },
+                                  onMessage: { message in
+                                      showAttachmentPicker = false
+                                      viewModel.showNotice(message)
+                                  })
+        }
+        .sheet(isPresented: $showRooms) {
+            ChatRoomsView(viewModel: viewModel)
         }
         .sheet(item: approvalBinding) { request in
             ApprovalSheetView(request: request) { decision in
@@ -179,6 +238,11 @@ struct ChatView: View {
             Text("Agent ตอบตามภาษาที่คุณพิมพ์ และทำงานได้จริงบนเครื่อง: อ่าน/เขียนไฟล์, สำรวจโฟลเดอร์, ค้นหาไฟล์, รันคำสั่ง shell, เรียก HTTP, ดาวน์โหลดไฟล์, ค้นหาเว็บ และดึงเนื้อหาหน้าเว็บ • โหมดอนุมัติเปิดอยู่ ค่าเริ่มต้นจะถามก่อนทำสิ่งที่เปลี่ยนเครื่อง")
                 .font(.footnote)
                 .foregroundColor(.secondary)
+            QuickPromptsView(prompts: QuickPromptsView.defaultPrompts(workspacePath: settings.workspacePath),
+                             onSelect: { prompt in
+                                 inputText = prompt.text
+                             })
+
             if !settings.hasAPIKey || settings.modelID.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
                     Label("ยังต้องตั้งค่าให้ครบ", systemImage: "exclamationmark.triangle.fill")
@@ -335,8 +399,35 @@ struct ChatView: View {
 
     // MARK: - ช่องพิมพ์
 
+    /// พื้นที่ด้านล่าง: ชิปไฟล์แนบ (ถ้ามี) + ช่องพิมพ์
+    private var composerArea: some View {
+        VStack(spacing: 6) {
+            if !viewModel.pendingAttachments.isEmpty {
+                AttachmentChipRow(attachments: viewModel.pendingAttachments,
+                                  onRemove: { attachment in
+                                      viewModel.removeAttachment(attachment)
+                                  },
+                                  onTap: nil)
+                    .padding(.horizontal, 12)
+                    .padding(.top, 6)
+            }
+            composerBar
+        }
+    }
+
     private var composerBar: some View {
         HStack(alignment: .bottom, spacing: 8) {
+            Button {
+                showAttachmentPicker = true
+            } label: {
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 27))
+                    .foregroundColor(.accentColor)
+                    .frame(width: 44, height: 44)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("แนบไฟล์หรือรูปภาพ")
+
             ZStack(alignment: .topLeading) {
                 if inputText.isEmpty {
                     Text("พิมพ์คำสั่ง…")
@@ -454,6 +545,37 @@ struct ChatView: View {
         // ลบออกจากหน้าจอและจากไฟล์ประวัติที่บันทึกไว้ (บันทึกอัตโนมัติหลังลบ)
         withAnimation {
             viewModel.remove(message: message)
+        }
+    }
+
+    /// รับคำสั่งที่ส่งมาจากแท็บอื่น (เช่น "ให้ Agent แก้ไฟล์นี้" จากหน้าดูไฟล์)
+    private func handlePendingRouterPrompt() {
+        guard let pending = router.consumePendingPrompt() else { return }
+        if inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            inputText = pending.prompt
+        } else {
+            inputText += "\n" + pending.prompt
+        }
+        if let path = pending.attachmentPath {
+            attachFile(atPath: path)
+        }
+    }
+
+    /// แนบไฟล์ที่มีอยู่แล้วบนเครื่อง (ใช้กับ "ให้ Agent แก้ไฟล์นี้")
+    private func attachFile(atPath path: String) {
+        let store = AttachmentStore(rootPath: settings.uploadsPath)
+        let maxBytes = Int(settings.maxDownloadBytes)
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let attachment = try store.importFile(at: URL(fileURLWithPath: path), maxBytes: maxBytes)
+                DispatchQueue.main.async {
+                    viewModel.addAttachments([attachment])
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    viewModel.showNotice("แนบไฟล์ไม่สำเร็จ: \(error.localizedDescription)")
+                }
+            }
         }
     }
 

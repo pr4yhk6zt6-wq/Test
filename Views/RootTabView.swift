@@ -11,15 +11,18 @@ import SwiftUI
 struct RootTabView: View {
 
     @EnvironmentObject private var settings: AppSettings
+    @ObservedObject private var router = AppRouter.shared
 
     @AppStorage(SettingsKeys.appearance) private var appearanceRawValue: String = AppAppearance.system.rawValue
+    @AppStorage(SettingsKeys.hasCompletedOnboarding) private var hasCompletedOnboarding: Bool = false
+    @State private var showOnboarding: Bool = false
 
     private var preferredScheme: ColorScheme? {
         AppAppearance(rawValue: appearanceRawValue)?.colorScheme
     }
 
     var body: some View {
-        TabView {
+        TabView(selection: $router.selectedTab) {
             NavigationView {
                 ChatView()
             }
@@ -27,6 +30,7 @@ struct RootTabView: View {
             .tabItem {
                 Label("แชท", systemImage: "bubble.left.and.bubble.right")
             }
+            .tag(RootTab.chat)
 
             NavigationView {
                 FileBrowserView(path: FileBrowserView.defaultStartPath)
@@ -35,6 +39,7 @@ struct RootTabView: View {
             .tabItem {
                 Label("ไฟล์", systemImage: "folder")
             }
+            .tag(RootTab.files)
 
             NavigationView {
                 AgentLogView()
@@ -43,6 +48,7 @@ struct RootTabView: View {
             .tabItem {
                 Label("บันทึก", systemImage: "list.bullet.rectangle")
             }
+            .tag(RootTab.log)
 
             NavigationView {
                 SettingsView()
@@ -51,8 +57,22 @@ struct RootTabView: View {
             .tabItem {
                 Label("ตั้งค่า", systemImage: "gearshape")
             }
+            .tag(RootTab.settings)
         }
         .preferredColorScheme(preferredScheme)
+        .fullScreenCover(isPresented: $showOnboarding) {
+            OnboardingView(onFinish: {
+                hasCompletedOnboarding = true
+                showOnboarding = false
+            })
+            .environmentObject(settings)
+        }
+        .onAppear {
+            // เฟส 5: แนะนำการใช้งาน 3 หน้าเมื่อเปิดแอปครั้งแรก
+            if !hasCompletedOnboarding {
+                showOnboarding = true
+            }
+        }
     }
 }
 

@@ -35,18 +35,27 @@ struct MessageBubbleView: View {
     // MARK: - User
 
     private var userBubble: some View {
-        Text(message.text)
-            .font(.system(size: 16 * fontScale))
-            .foregroundColor(.white)
-            .textSelection(.enabled)
-            .fixedSize(horizontal: false, vertical: true)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 9)
-            .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(Color.accentColor)
-            )
-            .contextMenu {
+        VStack(alignment: .trailing, spacing: 6) {
+            // ไฟล์แนบที่ผู้ใช้ส่งมา (เฟส 5) — แสดงเป็นชิปพร้อมรูปย่อ เหนือข้อความ
+            if let attachments = message.attachments, !attachments.isEmpty {
+                ForEach(attachments) { attachment in
+                    AttachmentChipView(attachment: attachment, style: .onAccent)
+                }
+            }
+
+            Text(message.text)
+                .font(.system(size: 16 * fontScale))
+                .foregroundColor(.white)
+                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 9)
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(Color.accentColor)
+                )
+        }
+        .contextMenu {
                 Button {
                     copyToPasteboard(message.text)
                 } label: {

@@ -6,6 +6,9 @@
 //  ใช้ List + searchable (iOS 15) และปุ่มกรอง "เฉพาะโมเดลฟรี/รองรับ tools"
 //
 
+#if canImport(UIKit)
+import UIKit
+#endif
 import SwiftUI
 
 struct ModelPickerView: View {

@@ -52,6 +52,9 @@ enum_cases = defaultdict(set)
 
 type_re = re.compile(r'^(?:@\w+(?:\([^)]*\))?[ \t]+)*(?:public |internal |private |fileprivate |final )*'
                      r'(struct|class|enum|protocol|extension)[ \t]+([A-Za-z_][A-Za-z0-9_]*)', re.M)
+# type ที่ประกาศซ้อนอยู่ (เยื้องเข้าไป เช่น struct ภายใน View) — ใช้เติม declared_types เท่านั้น
+nested_type_re = re.compile(r'^[ \t]+(?:@\w+(?:\([^)]*\))?[ \t]+)*(?:public |internal |private |fileprivate |final |static )*'
+                            r'(struct|class|enum|protocol)[ \t]+([A-Za-z_][A-Za-z0-9_]*)', re.M)
 member_re = re.compile(r'^\s+(?:@\w+(?:\([^)]*\))?\s+)*'
                        r'(?:private\(set\)\s+|private\s+|fileprivate\s+|internal\s+|public\s+|final\s+|static\s+|class\s+|mutating\s+|nonisolated\s+|lazy\s+|weak\s+|unowned\s+)*'
                        r'(var|let|func|init|case|subscript|typealias)\s+([A-Za-z_][A-Za-z0-9_]*)')
@@ -66,6 +69,11 @@ for f in files:
             current = m.group(2)
             declared_types.add(current)
             depth = 0
+        else:
+            nm = nested_type_re.match(line)
+            if nm:
+                # type ที่ประกาศซ้อนใน View/struct (เช่น QuickPromptsView.QuickPrompt)
+                declared_types.add(nm.group(2))
         if current:
             depth += line.count("{") - line.count("}")
             mm = member_re.match(line)
@@ -124,7 +132,7 @@ STATIC_OWNERS = [
     ("TokenUsageTracker", "TokenUsageTracker"),
     ("BackgroundTaskKeeper", "BackgroundTaskKeeper"),
 ]
-SKIP_MEMBERS = {"shared", "self", "init", "type", "Type"}
+SKIP_MEMBERS = {"shared", "self", "init", "type", "Type", "allCases", "rawValue", "id", "hashValue"}
 
 for f in files:
     src = strip_code(f.read_text())
@@ -161,6 +169,13 @@ REQUIRED_TYPES = [
     "ChatMessagePayload", "ModelsResponse", "FailableValue", "FlexibleNumber", "ShareableText",
     "FileBrowserView", "FilePreviewView", "AgentLogView", "AgentLogStore", "AgentLogEntry",
     "EntitlementExplanationView", "EntitlementScanResult",
+    # เฟส 5: ไฟล์แนบ + หลายห้องสนทนา + ดู/แก้ไฟล์ + คำแนะนำการใช้งาน
+    "Attachment", "AttachmentKind", "AttachmentStore", "AttachmentStoreError",
+    "AttachmentMessageBuilder", "VisionSupport", "VisionOverride", "ChatRoom", "ChatRoomStore",
+    "ImageDownscaler", "AppRouter", "RootTab", "AttachmentChipView", "AttachmentChipRow",
+    "AttachmentPickerSheet", "QuickPrompt", "QuickPromptsView", "ChatRoomsView", "OnboardingView",
+    "SystemStatusView", "PDFPreviewView", "FileEditorView",
+    "PHPickerRepresentable", "DocumentPickerRepresentable", "ImagePickerRepresentable",
 ]
 for name in REQUIRED_TYPES:
     if name not in declared_types:

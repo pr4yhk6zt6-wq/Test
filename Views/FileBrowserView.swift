@@ -27,6 +27,73 @@ struct FileBrowserView: View {
     @State private var showHidden = false
     @State private var previewRequest: FilePreviewRequest?
     @State private var notice: String?
+    @State private var editorPath: FileBrowserView.PathBox?
+    @State private var shareFile: ShareableURL?
+    @State private var renameText: String = ""
+    @State private var folderSheet: FolderActionSheet?
+    @State private var pendingAction: PendingFileAction?
+    @State private var destinationPath: String = ""
+    @State private var showImportPicker: Bool = false
+    @State private var confirmDelete: FileEntry?
+    @State private var isWorking: Bool = false
+
+    /// กล่องห่อพาธให้ใช้กับ .sheet(item:)
+    struct PathBox: Identifiable {
+        let value: String
+        var id: String { value }
+        init(_ value: String) { self.value = value }
+    }
+
+    /// ประเภทของชีตที่เปิดอยู่ (เปลี่ยนชื่อ/สร้างใหม่)
+    enum FolderActionSheet: Identifiable {
+        case renameEntry(FileEntry)
+        case newFolder
+        case newFile
+
+        var id: String {
+            switch self {
+            case .renameEntry(let entry): return "rename-\(entry.path)"
+            case .newFolder: return "new-folder"
+            case .newFile: return "new-file"
+            }
+        }
+
+        var title: String {
+            switch self {
+            case .renameEntry: return "เปลี่ยนชื่อ"
+            case .newFolder: return "สร้างโฟลเดอร์ใหม่"
+            case .newFile: return "สร้างไฟล์ใหม่"
+            }
+        }
+
+        var placeholder: String {
+            switch self {
+            case .renameEntry(let entry): return entry.name
+            case .newFolder: return "ชื่อโฟลเดอร์"
+            case .newFile: return "ชื่อไฟล์ เช่น note.txt"
+            }
+        }
+    }
+
+    /// การคัดลอก/ย้ายที่รอปลายทาง
+    enum PendingFileAction: Identifiable {
+        case copy(FileEntry)
+        case move(FileEntry)
+
+        var id: String {
+            switch self {
+            case .copy(let entry): return "copy-\(entry.path)"
+            case .move(let entry): return "move-\(entry.path)"
+            }
+        }
+
+        var title: String {
+            switch self {
+            case .copy: return "คัดลอกไปโฟลเดอร์…"
+            case .move: return "ย้ายไปโฟลเดอร์…"
+            }
+        }
+    }
 
     /// path เริ่มต้นตามข้อกำหนดของเฟส 4
     static let defaultStartPath = "/var/mobile"
@@ -81,6 +148,26 @@ struct FileBrowserView: View {
                     Divider()
 
                     Button {
+                        showImportPicker = true
+                    } label: {
+                        Label("นำเข้าไฟล์เข้าโฟลเดอร์นี้", systemImage: "square.and.arrow.down")
+                    }
+
+                    Button {
+                        prepareSheet(.newFolder)
+                    } label: {
+                        Label("สร้างโฟลเดอร์ใหม่", systemImage: "folder.badge.plus")
+                    }
+
+                    Button {
+                        prepareSheet(.newFile)
+                    } label: {
+                        Label("สร้างไฟล์ใหม่", systemImage: "doc.badge.plus")
+                    }
+
+                    Divider()
+
+                    Button {
                         copyPath()
                     } label: {
                         Label("คัดลอก path นี้", systemImage: "doc.on.doc")
@@ -95,6 +182,38 @@ struct FileBrowserView: View {
         .sheet(item: $previewRequest) { request in
             FilePreviewView(path: request.path)
         }
+        .sheet(item: $editorPath) { item in
+            NavigationView {
+                FileEditorView(path: item.value) {
+                    load()
+                }
+            }
+            .navigationViewStyle(.stack)
+        }
+        .sheet(item: $shareFile) { item in
+            ShareSheet(items: [item.url])
+        }
+        .sheet(item: $folderSheet) { sheet in
+            nameEntrySheet(for: sheet)
+        }
+        .sheet(item: $pendingAction) { action in
+            destinationSheet(for: action)
+        }
+        .sheet(isPresented: $showImportPicker) {
+            DocumentPickerRepresentable(allowsMultipleSelection: true,
+                                        onPicked: { files in
+                                            showImportPicker = false
+                                            importFiles(files)
+                                        },
+                                        onCancel: { showImportPicker = false })
+        }
+        .alert(item: $confirmDelete) { entry in
+            Alert(title: Text("ลบ “\(entry.name)”?"),
+                  message: Text("การลบไม่สามารถย้อนกลับได้"),
+                  primaryButton: .destructive(Text("ลบ")) { deleteEntry(entry) },
+                  secondaryButton: .cancel(Text("ยกเลิก")))
+        }
+        .overlay(workingOverlay)
         .alert("คัดลอก path แล้ว", isPresented: isShowingNotice) {
             Button("ตกลง", role: .cancel) { notice = nil }
         } message: {
@@ -164,17 +283,74 @@ struct FileBrowserView: View {
     private var entriesSection: some View {
         Section {
             ForEach(entries) { entry in
-                if entry.isDirectory {
-                    NavigationLink(destination: FileBrowserView(path: entry.path)) {
-                        entryRow(entry)
+                Group {
+                    if entry.isDirectory {
+                        NavigationLink(destination: FileBrowserView(path: entry.path)) {
+                            entryRow(entry)
+                        }
+                    } else {
+                        Button {
+                            previewRequest = FilePreviewRequest(path: entry.path)
+                        } label: {
+                            entryRow(entry)
+                        }
+                        .buttonStyle(.plain)
                     }
-                } else {
+                }
+                .contextMenu {
+                    if !entry.isDirectory {
+                        Button {
+                            previewRequest = FilePreviewRequest(path: entry.path)
+                        } label: {
+                            Label("ดูเนื้อหา", systemImage: "eye")
+                        }
+
+                        Button {
+                            editorPath = FileBrowserView.PathBox(entry.path)
+                        } label: {
+                            Label("แก้ไขในแอป", systemImage: "square.and.pencil")
+                        }
+                    }
+
                     Button {
-                        previewRequest = FilePreviewRequest(path: entry.path)
+                        sendToAgent(entry)
                     } label: {
-                        entryRow(entry)
+                        Label("ส่งให้ Agent", systemImage: "sparkles")
                     }
-                    .buttonStyle(.plain)
+
+                    Button {
+                        shareFile = ShareableURL(url: URL(fileURLWithPath: entry.path))
+                    } label: {
+                        Label("แชร์ไฟล์", systemImage: "square.and.arrow.up")
+                    }
+
+                    Button {
+                        prepareSheet(.renameEntry(entry))
+                    } label: {
+                        Label("เปลี่ยนชื่อ", systemImage: "pencil")
+                    }
+
+                    Button {
+                        destinationPath = path
+                        pendingAction = .copy(entry)
+                    } label: {
+                        Label("คัดลอกไป…", systemImage: "doc.on.doc")
+                    }
+
+                    Button {
+                        destinationPath = path
+                        pendingAction = .move(entry)
+                    } label: {
+                        Label("ย้ายไป…", systemImage: "arrow.right.doc.on.clipboard")
+                    }
+
+                    Divider()
+
+                    Button(role: .destructive) {
+                        confirmDelete = entry
+                    } label: {
+                        Label("ลบ", systemImage: "trash")
+                    }
                 }
             }
         } header: {
@@ -348,6 +524,236 @@ struct FileBrowserView: View {
             errorMessage = error.localizedDescription
         }
         isLoading = false
+    }
+
+    // MARK: - จัดการไฟล์ (เฟส 5)
+
+    /// ฉากบังหน้าจอระหว่างทำงานกับไฟล์
+    private var workingOverlay: some View {
+        Group {
+            if isWorking {
+                ZStack {
+                    Color.black.opacity(0.12).ignoresSafeArea()
+                    ProgressView("กำลังทำงาน…")
+                        .padding(16)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .fill(Color(UIColor.systemBackground))
+                        )
+                }
+            }
+        }
+    }
+
+    private func prepareSheet(_ sheet: FolderActionSheet) {
+        switch sheet {
+        case .renameEntry(let entry):
+            renameText = entry.name
+        case .newFolder:
+            renameText = ""
+        case .newFile:
+            renameText = "note.txt"
+        }
+        folderSheet = sheet
+    }
+
+    private func nameEntrySheet(for sheet: FolderActionSheet) -> some View {
+        NavigationView {
+            VStack(spacing: 14) {
+                TextField(sheet.placeholder, text: $renameText)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .autocapitalization(.none)
+                    .disableAutocorrection(true)
+                    .padding(.horizontal, 16)
+                    .frame(minHeight: 44)
+
+                Text("ทำงานในโฟลเดอร์: \(path)")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                    .lineLimit(2)
+                    .padding(.horizontal, 16)
+
+                Spacer()
+            }
+            .padding(.top, 16)
+            .navigationTitle(sheet.title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("ยกเลิก") { folderSheet = nil }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("บันทึก") { applyNameEntry(for: sheet) }
+                }
+            }
+        }
+        .navigationViewStyle(.stack)
+    }
+
+    private func applyNameEntry(for sheet: FolderActionSheet) {
+        let name = renameText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else {
+            folderSheet = nil
+            notice = "กรุณาใส่ชื่อก่อนบันทึก"
+            return
+        }
+
+        isWorking = true
+        let currentPath = path
+        DispatchQueue.global(qos: .userInitiated).async {
+            var message: String
+            do {
+                switch sheet {
+                case .renameEntry(let entry):
+                    let newPath = (currentPath as NSString).appendingPathComponent(name)
+                    try FileSystemService.move(entry.path, to: newPath)
+                    message = "เปลี่ยนชื่อเป็น \(name) แล้ว"
+                case .newFolder:
+                    let newPath = (currentPath as NSString).appendingPathComponent(name)
+                    try FileSystemService.createDirectory(newPath)
+                    message = "สร้างโฟลเดอร์ \(name) แล้ว"
+                case .newFile:
+                    let newPath = (currentPath as NSString).appendingPathComponent(name)
+                    let report = try FileSystemService.write("", to: newPath)
+                    message = "สร้างไฟล์แล้ว (\(report.bytesWritten) ไบต์)"
+                }
+            } catch {
+                message = "ไม่สำเร็จ: \(error.localizedDescription)"
+            }
+
+            DispatchQueue.main.async {
+                isWorking = false
+                folderSheet = nil
+                notice = message
+                load()
+            }
+        }
+    }
+
+    private func destinationSheet(for action: PendingFileAction) -> some View {
+        NavigationView {
+            VStack(spacing: 14) {
+                TextField("พาธโฟลเดอร์ปลายทาง", text: $destinationPath)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                    .autocapitalization(.none)
+                    .disableAutocorrection(true)
+                    .padding(.horizontal, 16)
+                    .frame(minHeight: 44)
+
+                Text("ใส่พาธเต็มของโฟลเดอร์ปลายทาง เช่น /var/mobile/Documents")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal, 16)
+
+                Spacer()
+            }
+            .padding(.top, 16)
+            .navigationTitle(action.title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("ยกเลิก") { pendingAction = nil }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("ตกลง") { applyDestination(action) }
+                }
+            }
+        }
+        .navigationViewStyle(.stack)
+    }
+
+    private func applyDestination(_ action: PendingFileAction) {
+        let destination = destinationPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !destination.isEmpty else {
+            pendingAction = nil
+            notice = "กรุณาใส่พาธปลายทาง"
+            return
+        }
+
+        isWorking = true
+        DispatchQueue.global(qos: .userInitiated).async {
+            var message: String
+            do {
+                switch action {
+                case .copy(let entry):
+                    let target = (destination as NSString).appendingPathComponent(entry.name)
+                    try FileSystemService.copy(entry.path, to: target)
+                    message = "คัดลอกไป \(target) แล้ว"
+                case .move(let entry):
+                    let target = (destination as NSString).appendingPathComponent(entry.name)
+                    try FileSystemService.move(entry.path, to: target)
+                    message = "ย้ายไป \(target) แล้ว"
+                }
+            } catch {
+                message = "ไม่สำเร็จ: \(error.localizedDescription)"
+            }
+
+            DispatchQueue.main.async {
+                isWorking = false
+                pendingAction = nil
+                notice = message
+                load()
+            }
+        }
+    }
+
+    private func deleteEntry(_ entry: FileEntry) {
+        isWorking = true
+        DispatchQueue.global(qos: .userInitiated).async {
+            var message: String
+            do {
+                try FileSystemService.remove(entry.path, recursive: entry.isDirectory)
+                message = "ลบ \(entry.name) แล้ว"
+            } catch {
+                message = "ลบไม่สำเร็จ: \(error.localizedDescription)"
+            }
+            DispatchQueue.main.async {
+                isWorking = false
+                confirmDelete = nil
+                notice = message
+                load()
+            }
+        }
+    }
+
+    /// ส่งไฟล์/โฟลเดอร์ให้ Agent ทำงานต่อในแท็บแชท
+    private func sendToAgent(_ entry: FileEntry) {
+        let prompt = entry.isDirectory
+            ? "ช่วยสำรวจโฟลเดอร์นี้ให้ผม: \(entry.path)"
+            : "ช่วยดูไฟล์นี้ให้ผม: \(entry.path)"
+        AppRouter.shared.sendToAgent(prompt, attachmentPath: entry.isDirectory ? nil : entry.path)
+        notice = "ส่งให้ Agent แล้ว — เปิดแท็บแชทเพื่อดู"
+    }
+
+    /// นำเข้าไฟล์จากที่อื่นเข้าโฟลเดอร์ที่กำลังเปิดอยู่
+    private func importFiles(_ files: [(url: URL, name: String)]) {
+        guard !files.isEmpty else { return }
+        isWorking = true
+        let destination = path
+        let maxBytes = Int(AppSettings.shared.maxDownloadBytes)
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            let store = AttachmentStore(rootPath: destination)
+            var imported = 0
+            var lastError: String?
+            for file in files {
+                do {
+                    _ = try store.importFile(at: file.url, originalName: file.name, maxBytes: maxBytes)
+                    imported += 1
+                } catch {
+                    lastError = error.localizedDescription
+                }
+            }
+            DispatchQueue.main.async {
+                isWorking = false
+                if imported > 0 {
+                    notice = "นำเข้า \(imported) ไฟล์เข้า \(destination) แล้ว"
+                } else {
+                    notice = lastError ?? "นำเข้าไฟล์ไม่สำเร็จ"
+                }
+                load()
+            }
+        }
     }
 
     private func copyPath() {
