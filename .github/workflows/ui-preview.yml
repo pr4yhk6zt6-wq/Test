@@ -57,13 +57,15 @@ jobs:
       - name: คอมไพล์แอปสำหรับ Simulator (Debug — โหมดตรวจงานออกแบบมีเฉพาะ Debug)
         run: |
           set -o pipefail
-          DEVICE="iPhone SE (3rd generation)"
+          echo "== Simulator ที่มีให้เลือก =="
+          python3 Scripts/ci/pick-simulator.py > /tmp/sim-udid.txt || true
+          cat /tmp/sim-udid.txt | sed 's/^/UDID: /' || true
           xcodebuild \
             -project iOSAgentSandbox.xcodeproj \
             -scheme iOSAgentSandbox \
             -configuration Debug \
             -sdk iphonesimulator \
-            -destination "platform=iOS Simulator,name=$DEVICE" \
+            -destination "generic/platform=iOS Simulator" \
             -derivedDataPath /tmp/dd \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
             ENABLE_DEBUG_DYLIB=NO \
@@ -75,6 +77,10 @@ jobs:
           mkdir -p shots
 
           UDID="$(python3 Scripts/ci/pick-simulator.py)"
+          if [ -z "$UDID" ]; then
+            echo "::error title=ไม่มี Simulator ให้ใช้::ตรวจรายการเครื่องในบันทึกด้านบน"
+            exit 1
+          fi
           echo "UDID=$UDID"
           xcrun simctl boot "$UDID" 2>/dev/null || true
           xcrun simctl bootstatus "$UDID" -b || true
