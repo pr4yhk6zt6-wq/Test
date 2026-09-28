@@ -477,7 +477,10 @@ struct ListDirectoryTool: AgentTool {
                 let modified = attributes?[.modificationDate] as? Date
                 let isDir = directories.contains(name)
                 let kind = isDir ? "DIR " : "FILE"
-                let sizeText = isDir ? "        " : String(format: "%8@", NetworkPolicy.formatBytes(size))
+                var sizeText = isDir ? "        " : NetworkPolicy.formatBytes(size)
+                while sizeText.count < 8 {
+                    sizeText = " " + sizeText
+                }
                 let dateText = modified.map { formatter.string(from: $0) } ?? "—"
                 lines.append("\(kind) \(sizeText)  \(dateText)  \(name)\(isDir ? "/" : "")")
             }

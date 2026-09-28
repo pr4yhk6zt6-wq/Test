@@ -65,7 +65,7 @@ enum ShellError: LocalizedError {
 
 // MARK: - บริการรันคำสั่ง
 
-final class ShellService {
+final class ShellService: @unchecked Sendable {
 
     static let shared = ShellService()
 
@@ -157,7 +157,13 @@ final class ShellService {
             throw ShellError.spawnFailed(reason: "สร้าง pipe ของ stderr ไม่สำเร็จ", code: errno)
         }
 
+        // บน Darwin posix_spawn_file_actions_t เป็น opaque pointer (ต้องประกาศเป็น Optional แล้วให้ init สร้างให้)
+        // บน Linux/glibc เป็น struct ที่สร้างด้วย () ได้ — เขียนให้ถูกทั้งสองแบบ
+        #if canImport(Darwin)
+        var fileActions: posix_spawn_file_actions_t?
+        #else
         var fileActions = posix_spawn_file_actions_t()
+        #endif
         posix_spawn_file_actions_init(&fileActions)
         posix_spawn_file_actions_adddup2(&fileActions, stdoutPipe[1], STDOUT_FILENO)
         posix_spawn_file_actions_adddup2(&fileActions, stderrPipe[1], STDERR_FILENO)
