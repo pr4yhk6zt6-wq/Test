@@ -88,6 +88,8 @@ DuckDuckGo, นโยบายเครือข่าย และการต�
 | 4 | (ไม่ใช่บั๊กแอป) fixture ในไฟล์เทสต์ escaping กำกวม ทำให้ผลทดสอบหลอก | — | ✅ เปลี่ยนเป็น raw string `#"..."#` เห็นไบต์จริงบนสายตรง ๆ |
 | 5 | **เฟส 3:** `Task.isCancelled` ที่เรียกในบล็อกของ `DispatchQueue.global().async` **คืนค่า false เสมอ** → การกดหยุดระหว่างคำสั่ง shell ไม่ถูกรายงานว่าถูกยกเลิก | ปุ่ม “หยุด” ดูเหมือนทำงาน แต่ผลลัพธ์จะบอกว่าคำสั่งจบเอง — ผู้ใช้เข้าใจผิดว่าแอปค้าง | ✅ เปลี่ยนไปใช้ธง `cancellationRequested` ที่ป้องกันด้วย `NSLock` ตั้งค่าก่อน `kill` และเพิ่มเทสต์ E2E ที่ยืนยันว่ากดหยุดแล้วโปรเซสถูกฆ่าจริง |
 | 6 | **เฟส 3:** คำไทย “รันในนาม” ถูกพิมพ์เป็นรูปที่มีอักษรละติน `r` ปน (mixed-script-allow) และใช้ `.fontWeight(...)` ซึ่งเป็น API ของ iOS 16 | ข้อความบนหน้าจอเพี้ยน และแอปจะไม่คอมไพล์บนเป้า iOS 15 | ✅ แก้ทั้งสองจุด + **เพิ่มตัวตรวจอัตโนมัติ 2 ตัว**: กฎห้าม `.fontWeight` (มีอยู่แล้ว) และตัวสแกน “อักษรละตินปนคำไทย” ใน `Scripts/preflight.py` |
+| 7 | **เฟส 3 (CI จับ):** `posix_spawnattr_t` บน Darwin เป็น opaque pointer (`UnsafeMutableRawPointer`) ไม่ใช่ struct → โค้ดที่เขียนพอยน์เตอร์ซ้อนพอยน์เตอร์คอมไพล์ไม่ผ่านบน macOS/iOS | build บน CI แดงตั้งแต่รอบแรกที่เพิ่ม persona (เจอใน run 36419357769) | ✅ เขียนใหม่: ประกาศ `var attributes` แบบมีเงื่อนไขต่อแพลตฟอร์ม แล้วส่ง `&attributes` เข้า `posix_spawn` ตรง ๆ + ตั้ง persona ผ่าน `dlsym` แบบพอยน์เตอร์ชั้นเดียว |
+| 8 | **เฟส 3 (CI จับ):** `ChatViewModel.makeConversationPayload()` เรียก `settings` ที่เป็นตัวแปร local ของเมธอด `send()` เท่านั้น → `cannot find 'settings' in scope` | build บน CI แดง (run 36419659402) | ✅ ใช้ `AppSettings.shared` ในเมธอดนั้นโดยตรง |
 
 ## 6) สิ่งที่เพิ่มเข้าโค้ดแอปเพื่อให้ทดสอบได้ (ปลอดภัยบน iOS ทั้งหมด)
 
@@ -123,23 +125,27 @@ bash Scripts/check-ios15-compat.sh .         # ห้ามใช้ API ขอ�
 * ✅ **เฟส 1** — ตั้งค่า/โมเดล/สตรีม/retry/usage ครบ และถูกทดสอบด้วยการยิงเครือข่ายจริง
 * ✅ **เฟส 2** — 9 tools + ReAct loop + โหมดอนุมัติ + ประวัติแชท (ทดสอบ E2E กับไฟล์และ shell จริงบนดิสก์)
 * ✅ **เฟส 3** — รันเป็น root ผ่าน persona (พร้อมถอยกลับอัตโนมัติ), ชั้นไฟล์กลาง, ตัวสแกน entitlements, หน้าจอสิทธิ์ + คำอธิบาย 5 คีย์
-* ✅ บั๊กที่เจอเพราะ “รันจริง” และแก้แล้ว: 4 จุดในเฟส 1, ชุดใหญ่ในเฟส 2 (Darwin `posix_spawn_file_actions_t`, `approvalBinding`), และ 2 จุดในเฟส 3
-  (การตรวจจับการยกเลิก shell ที่ใช้ `Task.isCancelled` ไม่ทำงานในคิว Dispatch → เปลี่ยนเป็นธงที่ป้องกันด้วย `NSLock`;
-  คำว่า “รันในนาม” มีอักษรละตินหลุดปน → เพิ่มตัวสแกนอักษรละตินปนคำไทยในเครื่องมือตรวจของโปรเจกต์)
-* ⏳ รอคำยืนยันจากคุณหลังทดสอบ `.ipa` (หัวข้อ 10) ก่อนเริ่มเฟส 4 (ChatView เต็มรูปแบบ, FileBrowserView, AgentLogView)
+* ✅ บั๊กที่เจอเพราะ “รันจริง” และแก้แล้ว 8 จุด: 4 จุดในเฟส 1, 2 จุดในเฟส 2 (Darwin `posix_spawn_file_actions_t`, `approvalBinding`),
+  2 จุดในเฟส 3 ที่เจอในแซนด์บล็อก (การตรวจจับการยกเลิก shell ที่ใช้ `Task.isCancelled` ไม่ทำงานในคิว Dispatch → เปลี่ยนเป็นธงที่ป้องกันด้วย `NSLock`;
+  อักษรละตินหลุดปนคำไทย + `.fontWeight` ของ iOS 16) และ 2 จุดที่ **CI จับได้** (ชนิดพอยน์เตอร์ของ `posix_spawnattr_t` บน Darwin, `settings` หลุด scope)
+* ✅ ตรวจ entitlements ในไฟล์ `.ipa` ที่ส่งมอบจริงด้วยตัวสแกนของโปรเจกต์เอง — พบครบทั้ง 5 คีย์ในไบนารี (`<key>…</key>` ครบทุกตัว)
+* ✅ เฟส 4 ส่งมอบในบิลด์นี้: FileBrowserView (เริ่มที่ `/var/mobile`), FilePreviewView, AgentLogView + บันทึกทุกการเรียก tool,
+  EntitlementExplanationView ในหน้าตั้งค่า, การทำงานเบื้องหลัง, และ **แก้ 2 บั๊กที่คุณเจอบนเครื่อง** (ถามอนุมัติทุกครั้ง / สปินเนอร์ค้าง)
+* ✅ เพิ่มเทสต์ E2E ชุดใหม่ (ข้อ 17) ที่พิสูจน์บั๊กการอนุมัติโดยตรง: กดไม่อนุมัติครั้งแรก → ครั้งที่สองต้องมีคำถามใหม่และคำสั่งต้องรันจริง
+* ✅ ปรับการยกเลิกคำสั่ง shell ให้ฆ่าทั้งกลุ่มโปรเซส (`POSIX_SPAWN_SETPGROUP` + `kill(-pid)`) — กดหยุดแล้วไม่มีคำสั่งลูกค้างต่อ (E2E วัดได้ < 2 วินาที)
 
 ## 10) สถานะการส่งมอบไฟล์ .ipa (อัปเดต)
 
 | รายการ | ค่า |
 |---|---|
-| ไฟล์ | `iOSAgentSandbox.ipa` |
-| ขนาด | 2,185,212 ไบต์ (2.1 MB) — ไบนารี 2.8 MB |
-| sha256 | `efa33c606f68379c702ed3f2ace4eb53fe7478cacb9e695dbff2f1913fc4eebb` |
+| ไฟล์ | `iOSAgentSandbox.ipa` (**เฟส 3** — มีทั้งเฟส 1 + 2 + 3) |
+| ขนาด | 2,277,904 ไบต์ (2.2 MB) — ไบนารี 3,137,504 ไบต์ |
+| sha256 | `bbf567f048213ec9bcc37a531d6a9bc6cdc5be59f0298f41b7cd3fd99db2bf6d` |
 | ลิงก์โหลดตรง | https://github.com/pr4yhk6zt6-wq/Test/releases/download/latest-build/iOSAgentSandbox.ipa |
-| CI run | 36415521180 (commit 6e35746) — **13/13 ขั้นตอนผ่าน** |
-| MinimumOSVersion | 15.0 • UIDeviceFamily: iPhone เท่านั้น |
-| เซ็นด้วย | `ldid -S` พร้อม entitlements (platform-application, no-container, no-sandbox, persona-mgmt, container-required=false) |
-| ผลทดสอบบน runner | unit 93/93 • E2E 52/52 • build ไม่ลงนามสำเร็จ • ตรวจ deployment target ผ่าน |
+| CI run | 36419973023 (commit bff82a3) — **13/13 ขั้นตอนผ่าน** |
+| MinimumOSVersion | 15.0 • UIDeviceFamily: iPhone เท่านั้น • bundle `com.example.iosagentsandbox` |
+| เซ็นด้วย | `ldid -S` พร้อม entitlements 5 คีย์ — **ตรวจซ้ำหลังดาวน์โหลดแล้วพบครบทั้ง 5** (`platform-application`, `no-container`, `no-sandbox`, `persona-mgmt`, `container-required=false`) |
+| ผลทดสอบบน runner (macOS) | unit **141/141** • E2E **99/99** (รวม posix_spawn จริงบน Darwin + เทสต์อนุมัติทุกครั้ง) • build ไม่ลงนามสำเร็จ • deployment target ผ่าน |
 
 **เฟส 2 ที่อยู่ในไฟล์นี้:** ReAct loop 20 รอบ, tools 9 ตัว (read_file, write_file, list_directory, search_files,
 execute_shell, http_request, download_file, web_search, fetch_webpage), โหมดอนุมัติก่อนรันคำสั่ง/เขียนทับ,

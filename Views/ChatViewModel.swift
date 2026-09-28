@@ -128,6 +128,20 @@ final class ChatViewModel: ObservableObject {
         }
     }
 
+    /// ลบบับเบิล assistant ที่ไม่มีข้อความเลย (คำตอบว่าง) ออกจากหน้าจอ
+    private func removeEmptyAssistantBubbles() {
+        let before = messages.count
+        messages.removeAll { $0.role == .assistant && $0.isTextEmpty && !$0.hasToolCalls }
+        if messages.count != before {
+            persistSoon()
+        }
+    }
+
+    /// บับเบิลนี้กำลัง "คิด" อยู่จริงหรือไม่ (ใช้ตัดสินว่าจะแสดงสปินเนอร์ไหม)
+    func isThinking(messageID: UUID) -> Bool {
+        isBusy && streamingAssistantID == messageID
+    }
+
     /// ยกเลิกงานที่กำลังทำอยู่ (kill คำสั่ง shell ที่ค้างด้วย)
     func stop() {
         runTask?.cancel()
@@ -139,6 +153,7 @@ final class ChatViewModel: ObservableObject {
         statusText = ""
         pendingApproval = nil
         lastNotice = "ผู้ใช้ยกเลิกงาน"
+        removeEmptyAssistantBubbles()   // กันสปินเนอร์ค้างหลังกดหยุด
         backgroundKeeper.end()
     }
 
@@ -151,7 +166,6 @@ final class ChatViewModel: ObservableObject {
     /// ล้างประวัติการสนทนาในหน่วยความจำและบนเครื่อง
     func clearConversation() {
         stop()
-        currentEngine?.resetSessionApprovals()
         messages.removeAll()
         errorMessage = nil
         lastNotice = nil
@@ -208,19 +222,19 @@ final class ChatViewModel: ObservableObject {
             statusText = "กำลังคิด…"
 
         case .assistantDelta(_, let delta):
+            guard !delta.isEmpty else { break }   // delta ว่างไม่ควรสร้างบับเบิล
             streamingText += delta
             append(text: delta, to: streamingAssistantID)
 
         case .assistantFinished(let id, let message):
             streamingAssistantID = nil
             streamingText = ""
-            if let message = message, !message.hasToolCalls {
-                // คำตอบสุดท้าย: เขียนทับข้อความที่สตรีมมาเพื่อให้ตรงกับที่ engine ถืออยู่
+            if let message = message, !message.isTextEmpty {
+                // มีข้อความจริง: เขียนทับข้อความที่สตรีมมาเพื่อให้ตรงกับที่ engine ถืออยู่
                 replaceMessage(id: id, with: message)
-            } else if let message = message, message.hasToolCalls {
-                replaceMessage(id: id, with: message)
-            } else if !hasMessage(id: id) {
-                // ไม่มีข้อความเลย (เช่น โมเดลเรียก tool ทันทีโดยไม่พูด) — ไม่ต้องแสดงบับเบิลว่าง
+            } else {
+                // ไม่มีข้อความ (โมเดลเรียก tool ทันที) — ลบบับเบิลว่างทิ้ง
+                // เดิมปล่อยไว้ทำให้เห็น "สปินเนอร์หมุนค้าง" ทั้งที่งานจบแล้ว
                 removeMessage(id: id)
             }
             persistSoon()
@@ -230,6 +244,14 @@ final class ChatViewModel: ObservableObject {
 
         case .toolFinished(let invocation, let result, let duration):
             statusText = "ได้ผลลัพธ์จาก \(invocation.thaiLabel)"
+            AgentLogStore.shared.record(toolName: invocation.toolName,
+                                        thaiLabel: invocation.thaiLabel,
+                                        category: invocation.category,
+                                        argumentsText: invocation.argumentsText,
+                                        resultText: result.text,
+                                        isError: result.isError,
+                                        duration: duration,
+                                        wasTruncated: result.truncated)
             let message = ChatMessage.toolResult(result.text,
                                                  toolCallID: invocation.id,
                                                  name: invocation.toolName,
@@ -243,6 +265,7 @@ final class ChatViewModel: ObservableObject {
         case .approvalRequested(let request):
             // ไม่ต้องทำอะไร — requestApproval() เป็นคนตั้งค่า pendingApproval แล้ว
             statusText = "รอผู้ใช้อนุมัติ: \(request.thaiLabel)"
+            lastNotice = "Agent กำลังรออนุมัติ \(request.thaiLabel) — ระบบถามทุกครั้งเพื่อให้เลือกได้เป็นครั้ง ๆ"
 
         case .approvalResolved(_, let decision, let autoApproved):
             if autoApproved {
@@ -252,7 +275,7 @@ final class ChatViewModel: ObservableObject {
                 case .allowOnce:
                     statusText = "ผู้ใช้อนุมัติแล้ว — กำลังทำงานต่อ"
                 case .allowForSession:
-                    lastNotice = "จะไม่ถามอนุมัติ tool นี้อีกในเซสชันนี้"
+                    lastNotice = "ผู้ใช้อนุมัติแล้ว (มีผลเฉพาะครั้งนี้ — ครั้งต่อไปจะถามใหม่)"
                 case .deny:
                     lastNotice = "ผู้ใช้ไม่อนุมัติ — Agent จะหาทางเลือกอื่น"
                 }
@@ -294,9 +317,14 @@ final class ChatViewModel: ObservableObject {
         runTask = nil
         currentEngine = nil
 
-        // แทนที่ข้อความ assistant ที่ว่างเปล่า (ไม่มีการตอบกลับ) ด้วยข้อความอธิบาย
-        if let last = messages.last, last.role == .assistant, last.isTextEmpty, !last.hasToolCalls {
-            messages[messages.count - 1].text = "_(ไม่ได้รับข้อความตอบกลับจากโมเดล — ลองใหม่อีกครั้งหรือเปลี่ยนโมเดล)_"
+        // เก็บกวาดบับเบิล assistant ที่ว่างเปล่าทุกใบ (ต้นเหตุของ "กล่องหมุนค้าง")
+        removeEmptyAssistantBubbles()
+
+        // ถ้าจบงานด้วยการเรียก tool แล้วยังไม่ได้สรุปคำตอบ ให้บอกผู้ใช้ตรง ๆ
+        if let last = messages.last, last.isToolResult {
+            messages.append(.assistant("_(Agent ใช้ tool เสร็จแล้วแต่ยังไม่ได้สรุป — พิมพ์ถามต่อได้เลย)_"))
+        } else if !messages.contains(where: { $0.role == .assistant && !$0.isTextEmpty }) {
+            messages.append(.assistant("_(ไม่ได้รับข้อความตอบกลับจากโมเดล — ลองใหม่อีกครั้งหรือเปลี่ยนโมเดล)_"))
         }
 
         backgroundKeeper.end()

@@ -521,9 +521,13 @@ let cancelShellTask = Task { () -> Bool in
     }
 }
 try? await Task.sleep(nanoseconds: 400_000_000)
+let cancelIssuedAt = Date()
 cancelShellTask.cancel()
 let shellCancelled = await cancelShellTask.value
+let cancelElapsed = Date().timeIntervalSince(cancelIssuedAt)
 expect("กดหยุดแล้วคำสั่ง shell ถูกฆ่าและรายงานว่าถูกยกเลิก", shellCancelled)
+expect("ฆ่าทั้งกลุ่มโปรเซสทันที (ไม่เหลือคำสั่งลูกค้างอยู่)",
+       cancelElapsed < 2.0, String(format: "ใช้เวลา %.2f วินาทีหลังกดหยุด", cancelElapsed))
 
 // MARK: - 14) FileSystemService ของเฟส 3
 
@@ -653,6 +657,54 @@ let cachedSecond = PrivilegeService.cachedReport(workspacePath: phase3Dir, prefe
 expect("แคชผลตรวจสิทธิ์ทำงาน (ไม่สแกนไบนารีซ้ำทุกข้อความ)", cachedFirst.checkedAt == cachedSecond.checkedAt)
 
 try? FileManager.default.removeItem(atPath: phase3Dir)
+
+// MARK: - 17) บั๊กที่ผู้ใช้รายงานบนเครื่องจริง: ต้องถามอนุมัติทุกครั้ง และการปฏิเสธต้องไม่ปิดกั้นครั้งต่อไป
+
+print("\n[17] ถามอนุมัติทุกครั้ง (deny แล้วครั้งถัดไปยังถามใหม่และทำงานได้)")
+
+let approveEveryRegistry = ToolRegistry(tools: [ExecuteShellTool()])
+let approveEveryEngine = AgentEngine(configuration: makeConfiguration(baseSuffix: "/approve-every"),
+                                     registry: approveEveryRegistry)
+let approveEveryApprovals = ApprovalCounter()
+
+// ผู้ใช้กด "ไม่อนุมัติ" ครั้งแรก แล้ว "อนุญาต" ครั้งที่สอง
+var decisionsSoFar = 0
+let approveEveryRun = await runEngine(approveEveryEngine, text: "รันคำสั่ง shell ให้สองครั้ง") { request in
+    approveEveryApprovals.record(request)
+    decisionsSoFar += 1
+    return decisionsSoFar == 1 ? .deny : .allowOnce
+}
+
+let approvalRequestCount = approveEveryRun.events.filter { event in
+    if case .approvalRequested = event { return true }
+    return false
+}.count
+let autoApprovedCount = approveEveryRun.events.filter { event in
+    if case .approvalResolved(_, _, let autoApproved) = event { return autoApproved }
+    return false
+}.count
+
+var approveEveryResults: [ToolExecutionResult] = []
+for event in approveEveryRun.events {
+    if case .toolFinished(let invocation, let result, _) = event, invocation.toolName == "execute_shell" {
+        approveEveryResults.append(result)
+    }
+}
+
+expect("ถามอนุมัติ 2 ครั้ง (ครั้งที่สองถามใหม่หลังโดนปฏิเสธ)", approvalRequestCount == 2,
+       "ได้: \(approvalRequestCount)")
+expect("ทุกครั้งเป็นการถามจริง ไม่มีการอนุมัติอัตโนมัติข้ามครั้ง", autoApprovedCount == 0,
+       "ได้: \(autoApprovedCount)")
+expect("ครั้งแรกที่ไม่อนุมัติ: แจ้งกลับโมเดลว่าไม่ได้รับอนุมัติ", approveEveryResults.first?.isError == true,
+       String(approveEveryResults.first?.text.prefix(120) ?? "(ไม่มี)"))
+expect("ครั้งแรกที่ไม่อนุมัติ: คำสั่งไม่ถูกเรียกใช้จริง",
+       approveEveryResults.first.map { !$0.text.contains("approve-once-1") } ?? false,
+       String(approveEveryResults.first?.text.prefix(120) ?? "(ไม่มี)"))
+expect("ครั้งที่สองที่อนุญาต: คำสั่งรันจริงและได้ผลลัพธ์จากเครื่อง",
+       approveEveryResults.dropFirst().first.map { !$0.isError && $0.text.contains("approve-once-2") } ?? false,
+       String(approveEveryResults.dropFirst().first?.text.prefix(120) ?? "(ไม่มี)"))
+expect("ลูปทำงานต่อจนจบและสรุปคำตอบได้", approveEveryRun.finalText.contains("ครั้งที่สอง"),
+       String(approveEveryRun.finalText.prefix(160)))
 
 // MARK: - 8) ตรวจว่าไม่ได้ใช้ API ของ iOS 16+ ในเส้นทางที่ทดสอบ
 

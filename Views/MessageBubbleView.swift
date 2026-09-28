@@ -14,6 +14,8 @@ struct MessageBubbleView: View {
 
     let message: ChatMessage
     let fontScale: Double
+    /// true = บับเบิลนี้กำลังสตรีม/คิดอยู่ (แสดงสปินเนอร์) — งานที่จบแล้วต้องไม่หมุนค้าง
+    var isThinking: Bool = false
     let onDelete: () -> Void
     let onShare: (String) -> Void
 
@@ -77,13 +79,20 @@ struct MessageBubbleView: View {
             }
 
             if message.isTextEmpty {
-                HStack(spacing: 6) {
-                    ProgressView()
-                        .scaleEffect(0.7)
-                    Text("…")
+                if isThinking {
+                    HStack(spacing: 6) {
+                        ProgressView()
+                            .scaleEffect(0.7)
+                        Text("…")
+                            .foregroundColor(.secondary)
+                    }
+                    .frame(minHeight: 24)
+                } else {
+                    Text("(ไม่มีข้อความ)")
+                        .font(.caption2)
                         .foregroundColor(.secondary)
+                        .frame(minHeight: 20)
                 }
-                .frame(minHeight: 24)
             } else {
                 MessageContentView(markdown: message.text, fontScale: fontScale)
             }

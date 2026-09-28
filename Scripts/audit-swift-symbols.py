@@ -159,7 +159,8 @@ REQUIRED_TYPES = [
     "JSONValue", "ChatCompletionChunk", "ChatStreamEvent", "ChatCompletionResult",
     "ConnectionTestResult", "OpenRouterModel", "APIErrorBody", "ToolCallDelta", "ToolCallAccumulator",
     "ChatMessagePayload", "ModelsResponse", "FailableValue", "FlexibleNumber", "ShareableText",
-    "FileBrowserPlaceholderView", "AgentLogPlaceholderView",
+    "FileBrowserView", "FilePreviewView", "AgentLogView", "AgentLogStore", "AgentLogEntry",
+    "EntitlementExplanationView", "EntitlementScanResult",
 ]
 for name in REQUIRED_TYPES:
     if name not in declared_types:

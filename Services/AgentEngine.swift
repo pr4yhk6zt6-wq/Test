@@ -60,7 +60,11 @@ struct ToolInvocation: Identifiable, Equatable {
 // MARK: - คำขออนุมัติจากผู้ใช้
 
 struct ApprovalRequest: Identifiable, Equatable {
+    /// id ของ "คำขอนี้" — สร้างใหม่ทุกครั้ง เพื่อให้หน้าต่างอนุมัติเด้งทุกครั้งที่ Agent ขอ
+    /// (ไม่ผูกกับ id ของ tool_call ซึ่งโมเดลอาจส่งค่าซ้ำ)
     let id: String
+    /// id ของ tool_call ที่กำลังขออนุมัติ (ใช้จับคู่ผลลัพธ์)
+    let toolCallID: String
     let toolName: String
     let thaiLabel: String
     let summary: String
@@ -72,16 +76,37 @@ struct ApprovalRequest: Identifiable, Equatable {
     var isDestructive: Bool {
         risk.level == .destructive
     }
+
+    init(toolCallID: String,
+         toolName: String,
+         thaiLabel: String,
+         summary: String,
+         detail: String?,
+         argumentsText: String,
+         risk: RiskAssessment) {
+        self.id = UUID().uuidString
+        self.toolCallID = toolCallID
+        self.toolName = toolName
+        self.thaiLabel = thaiLabel
+        self.summary = summary
+        self.detail = detail
+        self.argumentsText = argumentsText
+        self.risk = risk
+    }
 }
 
 /// คำตอบของผู้ใช้ต่อคำขออนุมัติ
 enum ApprovalDecision: Equatable {
-    /// อนุญาตครั้งนี้ครั้งเดียว
+    /// อนุญาตเฉพาะการเรียกครั้งนี้ (ค่าเริ่มต้นของหน้าต่างอนุมัติ)
     case allowOnce
-    /// อนุญาตทุกครั้งที่ tool นี้ถูกเรียกในเซสชันนี้
+    /// เดิมคือ "อนุญาตตลอดเซสชัน" — ตอนนี้ถือเป็น "อนุญาตครั้งนี้" เหมือนกัน
+    /// (คงไว้เพื่อความเข้ากันได้กับโค้ด/เทสต์เดิม แต่ engine จะถามใหม่ทุกครั้งเสมอ)
     case allowForSession
-    /// ไม่อนุญาต
+    /// ไม่อนุมัติ — มีผลเฉพาะครั้งนี้ ครั้งต่อไปจะถามใหม่
     case deny
+
+    /// true = ผู้ใช้อนุญาตให้ทำงานต่อ
+    var isAllowed: Bool { self != .deny }
 }
 
 // MARK: - เหตุการณ์ที่ engine ส่งออก
@@ -152,10 +177,8 @@ final class AgentEngine {
     private let registry: ToolRegistry
     private let usage: UsageRecording?
 
-    /// tool ที่ผู้ใช้เลือก "อนุญาตตลอดเซสชัน"
-    private var sessionApprovedTools: Set<String> = []
-    /// true = ผู้ใช้เลือก "อนุญาตตลอดเซสชัน" ให้ทุก tool (ใช้เมื่ออนุมัติ download/shell แล้วเลือกตัวเลือกนั้น)
-    private var sessionApprovedAll = false
+    // หมายเหตุสำคัญ (แก้ตามที่ผู้ใช้รายงาน): engine ไม่จำการอนุมัติข้ามครั้งอีกแล้ว
+    // ทุกครั้งที่ tool ที่ต้องอนุมัติถูกเรียก จะเด้งหน้าต่างขออนุมัติใหม่เสมอ
     /// จำนวนรอบที่ใช้ไปจริงในงานล่าสุด (ใช้ตรวจสอบในเทสต์)
     private(set) var lastUsedRounds = 0
     private(set) var lastStopReason: AgentStopReason?
@@ -169,12 +192,6 @@ final class AgentEngine {
         self.configuration = configuration
         self.registry = registry
         self.usage = usage
-    }
-
-    /// ล้างการอนุมัติระยะยาว (ใช้เมื่อผู้ใช้ล้างบทสนทนา)
-    func resetSessionApprovals() {
-        sessionApprovedTools.removeAll()
-        sessionApprovedAll = false
     }
 
     /// หยุดงานที่กำลังทำอยู่ทันที (kill คำสั่ง shell ที่ค้างอยู่ด้วย)
@@ -460,22 +477,17 @@ final class AgentEngine {
                                             arguments: arguments,
                                             risk: risk)
 
-            // 3) ขออนุมัติถ้าจำเป็น
-            var approved = !configuration.requireApproval
+            // 3) ขออนุมัติ "ทุกครั้ง" ที่จำเป็น (ไม่จำคำตอบข้ามครั้งอีกแล้ว)
+            //    - ถ้าปิดโหมดอนุมัติในตั้งค่า → ไม่ถามเลย
+            //    - ถ้าเปิด → ถามทุกครั้งที่ tool นั้นต้องอนุมัติ (แม้เพิ่งไม่อนุมัติไปเมื่อกี้)
+            //      คำตอบมีผลเฉพาะ "การเรียกครั้งนี้" เท่านั้น
+            var approved = true
 
             if configuration.requireApproval {
-                let alreadyApproved = sessionApprovedAll
-                    || sessionApprovedTools.contains(tool.descriptor.name)
-                    || (!tool.descriptor.alwaysRequiresApproval && !risk.needsApproval)
-
-                if alreadyApproved {
-                    approved = true
-                    continuation.yield(.approvalResolved(id: call.id,
-                                                         decision: .allowForSession,
-                                                         autoApproved: true))
-                } else {
+                let requiresPrompt = tool.descriptor.alwaysRequiresApproval || risk.needsApproval
+                if requiresPrompt {
                     let detail = await tool.approvalDetail(arguments: arguments)
-                    let request = ApprovalRequest(id: call.id,
+                    let request = ApprovalRequest(toolCallID: call.id,
                                                   toolName: tool.descriptor.name,
                                                   thaiLabel: tool.descriptor.thaiLabel,
                                                   summary: tool.descriptor.summary,
@@ -485,19 +497,22 @@ final class AgentEngine {
                     continuation.yield(.approvalRequested(request))
 
                     let decision = await approvalHandler(request)
-                    if decision == .allowForSession {
-                        sessionApprovedTools.insert(tool.descriptor.name)
-                    }
                     continuation.yield(.approvalResolved(id: call.id,
                                                          decision: decision,
                                                          autoApproved: false))
                     approved = decision != .deny
+                } else {
+                    // tool ที่ไม่ต้องอนุมัติ (อ่านไฟล์/ค้นหา ฯลฯ) — เดินหน้าต่อได้เลย
+                    continuation.yield(.approvalResolved(id: call.id,
+                                                         decision: .allowOnce,
+                                                         autoApproved: true))
                 }
             }
 
             guard approved else {
-                let summary = "ผู้ใช้ไม่อนุมัติการเรียก \(tool.descriptor.name) ครั้งนี้ — หยุดใช้ tool นี้และอธิบายให้ผู้ใช้ทราบ " +
-                    "หรือเสนอทางเลือกที่ปลอดภัยกว่า ห้ามพยายามเรียกซ้ำด้วยคำสั่งเดิม"
+                let summary = "ผู้ใช้กด “ไม่อนุมัติ” คำขอนี้ — อย่าทำสิ่งที่ต้องอนุมัติต่อในรอบนี้ " +
+                    "ให้สรุปสั้น ๆ ว่ายังไม่ได้ทำอะไร และบอกผู้ใช้ว่าถ้าต้องการให้ทำจริง ให้สั่งอีกครั้งได้ " +
+                    "(ระบบจะถามอนุมัติใหม่ทุกครั้ง — การไม่อนุมัติครั้งนี้ไม่ใช่การห้ามถาวร)"
                 let refusal = ToolExecutionResult.failure(.blocked, summary)
                 // ส่ง event ให้ UI แสดงการ์ดว่า "ถูกปฏิเสธ" ด้วย เพื่อให้ผู้ใช้เห็นว่าเกิดอะไรขึ้น
                 continuation.yield(.toolStarted(invocation))

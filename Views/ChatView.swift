@@ -116,6 +116,7 @@ struct ChatView: View {
                             } else {
                                 MessageBubbleView(message: message,
                                                   fontScale: chatFontScale,
+                                                  isThinking: viewModel.isThinking(messageID: message.id),
                                                   onDelete: { delete(message) },
                                                   onShare: { text in shareText = ShareableText(text: text) })
                                     .id(message.id)

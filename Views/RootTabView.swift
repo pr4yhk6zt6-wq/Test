@@ -2,8 +2,8 @@
 //  RootTabView.swift
 //  iOS Agent Sandbox
 //
-//  แท็บหลักของแอป
-//  เฟส 1: แชท + ตั้งค่า (ทำงานได้จริง), ไฟล์ + บันทึก (placeholder ของเฟส 3–4)
+//  แท็บหลักของแอป (ทั้ง 4 แท็บทำงานจริงแล้วในเฟส 4)
+//  แชท (AgentEngine + อนุมัติทีละครั้ง) • ไฟล์ (เริ่มที่ /var/mobile) • บันทึก tool • ตั้งค่า
 //
 
 import SwiftUI
@@ -29,7 +29,7 @@ struct RootTabView: View {
             }
 
             NavigationView {
-                FileBrowserPlaceholderView()
+                FileBrowserView(path: FileBrowserView.defaultStartPath)
             }
             .navigationViewStyle(.stack)
             .tabItem {
@@ -37,7 +37,7 @@ struct RootTabView: View {
             }
 
             NavigationView {
-                AgentLogPlaceholderView()
+                AgentLogView()
             }
             .navigationViewStyle(.stack)
             .tabItem {

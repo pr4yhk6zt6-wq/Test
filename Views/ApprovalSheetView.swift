@@ -142,8 +142,8 @@ struct ApprovalSheetView: View {
     }
 
     private var explanation: some View {
-        Text("โหมดอนุมัติเปิดอยู่ (ค่าเริ่มต้น) — Agent จะถามก่อนรันคำสั่ง shell และก่อนเขียนทับไฟล์ที่มีอยู่แล้ว " +
-             "ถ้าไม่อยากให้ถามทุกครั้ง ปิดได้ที่แท็บตั้งค่า > Agent")
+        Text("โหมดอนุมัติเปิดอยู่ (ค่าเริ่มต้น) — Agent จะถามก่อนรันคำสั่ง shell และก่อนเขียนทับไฟล์ใน path ของระบบ " +
+             "ทุกครั้ง ไม่จำคำตอบเก่า ถ้าไม่อยากให้ถามเลยปิดได้ที่แท็บตั้งค่า > Agent")
             .font(.caption)
             .foregroundColor(.secondary)
             .fixedSize(horizontal: false, vertical: true)
@@ -160,12 +160,18 @@ struct ApprovalSheetView: View {
             .buttonStyle(.borderedProminent)
 
             Button {
-                decide(.allowForSession)
+                decide(.deny)
             } label: {
-                Label("อนุญาตตลอดเซสชันนี้", systemImage: "clock.badge.checkmark")
+                Label("ไม่อนุญาตครั้งนี้", systemImage: "xmark.circle")
                     .frame(maxWidth: .infinity, minHeight: 44)
             }
             .buttonStyle(.bordered)
+
+            Text("การอนุญาตมีผลเฉพาะครั้งนี้เท่านั้น — ครั้งต่อไปที่ต้องอนุมัติ ระบบจะถามใหม่เสมอ")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .padding(12)
         .background(Color(UIColor.systemBackground))

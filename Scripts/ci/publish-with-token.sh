@@ -114,7 +114,7 @@ if [ "$MODE" = "push" ]; then
     info "ไม่มีการเปลี่ยนแปลง — ใช้ commit เดิม"
   else
     git -c user.email="agent@local" -c user.name="Arena Agent" \
-        commit -q -m "iOS Agent Sandbox: เฟส 1 (Settings + OpenRouterService) พร้อมชุดทดสอบ"
+        commit -q -m "iOS Agent Sandbox: เฟส 4 (ถามอนุมัติทุกครั้ง + แก้สปินเนอร์ค้าง + FileBrowserView/FilePreviewView/AgentLogView + log การใช้ tool)"
     info "commit แล้ว: $(git rev-parse --short HEAD)"
   fi
 
@@ -136,7 +136,7 @@ if [ "$MODE" = "push" ]; then
       git reset --soft FETCH_HEAD
       if ! git diff --cached --quiet; then
         git -c user.email="agent@local" -c user.name="Arena Agent" \
-            commit -q -m "iOS Agent Sandbox: เฟส 1 (Settings + OpenRouterService) พร้อมชุดทดสอบ"
+            commit -q -m "iOS Agent Sandbox: เฟส 4 (ถามอนุมัติทุกครั้ง + แก้สปินเนอร์ค้าง + FileBrowserView/FilePreviewView/AgentLogView + log การใช้ tool)"
       fi
       if ! git push "$PUSH_URL" main 2>>/tmp/push-error.log; then
         echo "---- รายละเอียด error ----"; tail -20 /tmp/push-error.log

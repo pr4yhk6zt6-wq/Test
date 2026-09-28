@@ -181,7 +181,7 @@ final class ShellService: @unchecked Sendable {
         let pid = currentPid
         lock.unlock()
         guard let pid = pid, pid > 0 else { return }
-        kill(pid, SIGKILL)
+        ShellService.terminateProcessGroup(pid)
     }
 
     // MARK: - การทำงานจริง (บล็อก)
@@ -255,6 +255,10 @@ final class ShellService: @unchecked Sendable {
             ShellService.configurePersonaAttributes(&attributes)
         }
 
+        // ให้โปรเซสลูกเป็นหัวหน้ากลุ่มของตัวเอง เพื่อให้ "กดหยุด" ฆ่าได้ทั้งกลุ่ม
+        // (ถ้าไม่ตั้ง คำสั่งที่ shell fork ต่อ เช่น `sleep 60` จะกลายเป็นโปรเซสกำพร้าและทำงานต่อ)
+        ShellService.configureProcessGroup(&attributes)
+
         /// เรียก posix_spawn หนึ่งครั้งด้วย attributes ปัจจุบัน
         func spawnProcess() -> Int32 {
             argvPointers.withUnsafeBufferPointer { argvBuffer -> Int32 in
@@ -286,7 +290,7 @@ final class ShellService: @unchecked Sendable {
 
         // มีคนกดหยุดระหว่างเตรียมคำสั่ง → ฆ่าทันทีที่โปรเซสเกิด (กันโปรเซสค้าง)
         if isCancellationRequested, spawnStatus == 0, pid > 0 {
-            kill(pid, SIGKILL)
+            ShellService.terminateProcessGroup(pid)
         }
 
         if spawnStatus != 0, runAsRoot {
@@ -363,7 +367,7 @@ final class ShellService: @unchecked Sendable {
             }
             if Date() >= deadline {
                 timedOut = true
-                kill(pid, SIGKILL)
+                ShellService.terminateProcessGroup(pid)
                 var finalStatus: Int32 = 0
                 waitpid(pid, &finalStatus, 0)
                 status = finalStatus
@@ -371,7 +375,7 @@ final class ShellService: @unchecked Sendable {
             }
             // ตรวจว่าถูกยกเลิกหรือยัง (cancel → handler ข้างนอกตั้งธงและฆ่าโปรเซสให้แล้ว)
             if isCancellationRequested {
-                kill(pid, SIGKILL)
+                ShellService.terminateProcessGroup(pid)
                 var finalStatus: Int32 = 0
                 waitpid(pid, &finalStatus, 0)
                 status = finalStatus
@@ -459,13 +463,40 @@ final class ShellService: @unchecked Sendable {
             _ = setGroupID(pointer, 0)  // gid 0 = root
         }
     }
+
+    /// ตั้งให้โปรเซสลูกเป็นหัวหน้ากลุ่มของตัวเอง (pgid = pid ของลูก)
+    /// หรือก็คือ "กดหยุดแล้วฆ่าได้ทั้งสาย" ไม่เหลือคำสั่งลูกค้างอยู่เบื้องหลัง
+    static func configureProcessGroup(_ pointer: UnsafeMutablePointer<posix_spawnattr_t?>) {
+        var flags: Int16 = 0
+        if posix_spawnattr_getflags(pointer, &flags) != 0 {
+            flags = 0
+        }
+        _ = posix_spawnattr_setflags(pointer, flags | Int16(POSIX_SPAWN_SETPGROUP))
+        _ = posix_spawnattr_setpgroup(pointer, 0)
+    }
     #else
     /// บน Linux/macOS ที่รัน unit test ไม่มี persona ของ XNU — ไม่มีอะไรต้องตั้ง
     /// (ฟังก์ชันนี้มีไว้ให้โค้ดที่เรียกใช้คอมไพล์ผ่านทั้งสองแพลตฟอร์ม)
     static func configurePersonaAttributes(_ pointer: UnsafeMutablePointer<posix_spawnattr_t>) {
         _ = pointer
     }
+
+    /// ตั้งกลุ่มโปรเซสให้ลูก (เหมือนฝั่ง Darwin แต่ชนิดของ posix_spawnattr_t ต่างกัน)
+    static func configureProcessGroup(_ pointer: UnsafeMutablePointer<posix_spawnattr_t>) {
+        var flags: Int16 = 0
+        _ = posix_spawnattr_getflags(pointer, &flags)
+        _ = posix_spawnattr_setflags(pointer, flags | Int16(POSIX_SPAWN_SETPGROUP))
+        _ = posix_spawnattr_setpgroup(pointer, 0)
+    }
     #endif
+
+    /// ฆ่าโปรเซสลูกพร้อมลูกหลานทั้งกลุ่ม (ใช้ตอนกดหยุดและตอนหมดเวลา)
+    /// ถ้าโปรเซสจบไปแล้ว ระบบจะคืน ESRCH ซึ่งไม่เป็นปัญหา
+    static func terminateProcessGroup(_ pid: pid_t) {
+        guard pid > 0 else { return }
+        kill(-pid, SIGKILL)
+        kill(pid, SIGKILL)
+    }
 
     /// แปลง wait status เป็น exit code แบบที่คนทั่วไปเข้าใจ
     static func exitCode(fromStatus status: Int32) -> Int32 {

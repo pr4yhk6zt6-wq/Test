@@ -94,6 +94,15 @@ def last_tool_result_text(body) -> str:
     return ""
 
 
+def count_tool_results(body) -> int:
+    """นับจำนวนผลลัพธ์ของ tool ในคำขอ (ใช้จำลองหลายรอบการเรียก tool)"""
+    try:
+        messages = body.get("messages") or []
+    except AttributeError:
+        return 0
+    return sum(1 for message in messages if isinstance(message, dict) and message.get("role") == "tool")
+
+
 def tool_call_chunks():
     """tool_calls ที่ arguments ถูกแบ่งเป็น 4 chunk (แบบที่ OpenRouter ส่งจริง)"""
     return [
@@ -237,6 +246,23 @@ class Handler(BaseHTTPRequestHandler):
         if "/tools/" in path:
             bump("/tools")
             self._stream_tool_calls()
+            return
+
+        if "/approve-every/" in path:
+            # ใช้ทดสอบข้อกำหนดใหม่: "ต้องถามอนุมัติทุกครั้ง" — ขอเรียก execute_shell สองครั้งคนละรอบ
+            # (ครั้งแรกผู้ใช้จะกดไม่อนุมัติ ครั้งที่สองต้องมีคำถามใหม่และทำงานได้จริง)
+            bump("/approve-every")
+            finished = count_tool_results(body)
+            if finished == 0:
+                self._stream_react_tool_call("execute_shell",
+                                             json.dumps({"command": "echo approve-once-1", "timeout_seconds": 15}),
+                                             call_id="call_ap_1")
+            elif finished == 1:
+                self._stream_react_tool_call("execute_shell",
+                                             json.dumps({"command": "echo approve-once-2", "timeout_seconds": 15}),
+                                             call_id="call_ap_2")
+            else:
+                self._stream_final_reply("ครั้งที่สองรันสำเร็จแล้วครับ: " + last_tool_result_text(body)[:200])
             return
 
         if "/react-shell/" in path:
