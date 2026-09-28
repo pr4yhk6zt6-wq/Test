@@ -368,7 +368,8 @@ struct ChatScreenNew: View {
         case .assistant:
             assistantBlock(message)
         case .tool:
-            toolHistoryRow(message)
+            // ขั้นตอนของเครื่องมือวาดรวมเป็นการ์ดไทม์ไลน์ (ดู activityGroupCard) — ไม่วาดซ้ำที่นี่
+            EmptyView()
         case .system:
             EmptyView()
         }
