@@ -19,6 +19,7 @@ import json
 import sys
 import threading
 import time
+import socketserver
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 COUNTS = {}
@@ -66,6 +67,24 @@ def tool_call_chunks():
 
         "[DONE]",
     ]
+
+
+class FastThreadingHTTPServer(ThreadingHTTPServer):
+    """ThreadingHTTPServer ที่ข้าม socket.getfqdn()
+
+    เหตุผล: HTTPServer.server_bind() เรียก socket.getfqdn(host) ซึ่งทำ reverse DNS
+    บน GitHub Actions runner (Azure) การค้นหานี้ "ค้างได้นานมาก" ทำให้เซิร์ฟเวอร์
+    ขึ้นช้า/ไม่ขึ้นเลย ทั้งที่โปรเซสยังอยู่ — เจอจริงตอนรัน E2E บน macos-15
+    """
+
+    daemon_threads = True
+    allow_reuse_address = True
+
+    def server_bind(self):
+        socketserver.TCPServer.server_bind(self)
+        host, port = self.server_address[:2]
+        self.server_name = host
+        self.server_port = port
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -226,7 +245,7 @@ def main():
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8099
     with open(COUNTS_PATH, "w") as handle:
         json.dump({}, handle)
-    server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    server = FastThreadingHTTPServer(("127.0.0.1", port), Handler)
     print(f"mock OpenRouter listening on {port}", flush=True)
     server.serve_forever()
 
