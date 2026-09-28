@@ -1,613 +1,1050 @@
 <!DOCTYPE html>
-<html lang="th">
+<html lang="th" data-theme="light" data-activity="normal" data-motion="on" data-device="ios">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>AgentAI — Phase 3: Background + Support Pages</title>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=Noto+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent Sandbox — เฟส 3: งานเบื้องหลัง · งานของฉัน · ต้นทุน · โหมดเสียง · หน้ารอง</title>
 <style>
-:root {
-  --font-main: 'IBM Plex Sans Thai', 'Noto Sans Thai', -apple-system, sans-serif;
-  --radius-card: 18px;
-  --radius-pill: 28px;
-  --shadow-card: 0 2px 10px rgba(0,0,0,0.05);
-  --shadow-sheet: 0 8px 30px rgba(0,0,0,0.12);
-  --spacing-8: 8px; --spacing-12: 12px; --spacing-16: 16px; --spacing-24: 24px; --spacing-32: 32px;
-  --bg: #F5F3F0; --surface: #FFFFFF; --surface-2: #EDEAE6;
-  --text-primary: #1C1916; --text-secondary: #6B6058; --text-muted: #9A9088;
-  --accent: #B07A2A; --accent-soft: #F2E6CE; --accent-deep: #8A5E1E;
-  --success: #2D5A3F; --success-soft: #E2EBE5; --warning: #9A6B1E; --warning-soft: #F5EDD8;
-  --error: #8B2E2E; --error-soft: #F4E4E4; --border: #E2DDD8; --overlay: rgba(28,25,22,0.30); --glass: rgba(255,255,255,0.90);
+/* ============================================================================
+   TOKENS v2 (ชุดเดียวกับเฟส 1–2)
+   ========================================================================== */
+:root{
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:20px; --sp-6:24px; --sp-8:32px;
+  --r-xs:8px; --r-sm:12px; --r-md:16px; --r-lg:20px; --r-xl:28px; --r-pill:999px;
+  --font-th:"IBM Plex Sans Thai","Noto Sans Thai",-apple-system,"SF Pro Text",system-ui,sans-serif;
+  --font-mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
+  --fs-display:25px; --fs-title:20px; --fs-head:17px; --fs-body:16px; --fs-callout:15px;
+  --fs-sub:14px; --fs-foot:13px; --fs-cap:12px; --fs-micro:11.5px;
+  --lh-body:1.62; --lh-tight:1.35;
+  --dur-1:120ms; --dur-2:180ms; --dur-3:240ms; --ease:cubic-bezier(.2,.8,.2,1);
+  --sh-1:0 1px 2px rgba(18,20,26,.06), 0 1px 1px rgba(18,20,26,.04);
+  --sh-2:0 4px 14px rgba(18,20,26,.08);
+  --sh-3:0 12px 32px rgba(18,20,26,.14);
+  --bg:#F7F7F4; --surface:#FFFFFF; --surface-2:#EFEFEA; --surface-3:#E5E5DF;
+  --border:#E0E0DA; --border-strong:#C9C9C2;
+  --t1:#15181D; --t2:#545B66; --t3:#646C77;
+  --accent:#2E4A8A; --accent-soft:#E8ECF7; --accent-ink:#2E4A8A; --on-accent:#FFFFFF;
+  --success:#17683F; --success-soft:#E3F0E9;
+  --warning:#8A5A00; --warning-soft:#FAF0DA;
+  --error:#A3241F; --error-soft:#FBE9E7;
+  --scrim:rgba(20,22,28,.42);
+  --shimmer:linear-gradient(90deg,transparent,rgba(46,74,138,.14),transparent);
 }
-[data-theme="dark"] {
-  --bg: #161310; --surface: #1E1C18; --surface-2: #2A2721;
-  --text-primary: #F0EDE8; --text-secondary: #A89F94; --text-muted: #6B5E56;
-  --accent: #D49A4A; --accent-soft: rgba(212,154,74,0.12); --accent-deep: #A87D2E;
-  --success: #4A8F6A; --success-soft: rgba(74,143,106,0.12);
-  --warning: #C48A3A; --warning-soft: rgba(196,138,58,0.12);
-  --error: #C06A6A; --error-soft: rgba(192,106,106,0.12);
-  --border: #2A2721; --overlay: rgba(240,237,232,0.30); --glass: rgba(30,28,24,0.92);
+[data-theme="dark"]{
+  --bg:#0F1013; --surface:#17191E; --surface-2:#1F2228; --surface-3:#272B33;
+  --border:#2A2E37; --border-strong:#39404F;
+  --t1:#E9EBEF; --t2:#9CA3AF; --t3:#8A93A1;
+  --accent:#8CA4E8; --accent-soft:#252A38; --accent-ink:#A7B8EE; --on-accent:#0F1013;
+  --success:#6BC08C; --success-soft:#1D2A24;
+  --warning:#DDAE5E; --warning-soft:#2A2519;
+  --error:#EE8B84; --error-soft:#2C1F1E;
+  --scrim:rgba(6,7,9,.6);
+  --sh-1:0 1px 2px rgba(0,0,0,.5); --sh-2:0 6px 18px rgba(0,0,0,.5); --sh-3:0 16px 40px rgba(0,0,0,.6);
+  --shimmer:linear-gradient(90deg,transparent,rgba(167,184,238,.16),transparent);
 }
-*, *::before, *::after { box-sizing: border-box; }
-html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; -webkit-text-size-adjust: 100%; }
-body { font-family: var(--font-main); background: #3D342E; color: var(--text-primary); margin: 0; padding: 0; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; }
-.phone-frame { position: relative; width: 390px; height: 844px; background: var(--bg); border-radius: 44px; box-shadow: 0 24px 60px rgba(0,0,0,0.35), 0 8px 20px rgba(0,0,0,0.15), inset 0 0 0 1px rgba(255,255,255,0.06); overflow: hidden; display: flex; flex-direction: column; }
-.phone-frame::before { content:''; position:absolute; top:0; left:50%; transform:translateX(-50%); width:160px; height:28px; background:var(--surface); border-bottom-left-radius:20px; border-bottom-right-radius:20px; z-index:100; pointer-events:none; box-shadow:inset 0 -1px 0 var(--border); }
-.phone-frame::after { content:''; position:absolute; top:10px; left:50%; transform:translateX(-50%); width:60px; height:4px; background:#2A2A2A; border-radius:2px; z-index:101; }
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{font-family:var(--font-th);background:#E7E7E2;color:#15181D;-webkit-font-smoothing:antialiased;padding:20px 16px 60px}
+[data-theme="dark"] body{background:#0B0C0E;color:#E9EBEF}
+.wrap{max-width:1240px;margin:0 auto}
+.lab-head{margin-bottom:12px}
+.lab-head h1{font-size:19px;margin:0}
+.lab-head p{margin:3px 0 0;font-size:13.5px;color:#545B66;line-height:1.6}
+[data-theme="dark"] .lab-head p{color:#9CA3AF}
+.lab-bar{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;background:#FFF;border:1px solid #E0E0DA;border-radius:16px;padding:11px 14px;margin-bottom:10px;box-shadow:0 1px 2px rgba(18,20,26,.05)}
+[data-theme="dark"] .lab-bar{background:#17191E;border-color:#2A2E37}
+.grp{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.grp>span.lbl{font-size:11.5px;font-weight:600;color:#646C77}
+[data-theme="dark"] .grp>span.lbl{color:#8A93A1}
+.seg{display:inline-flex;background:#EFEFEA;border-radius:999px;padding:3px;gap:2px;flex-wrap:wrap}
+[data-theme="dark"] .seg{background:#1F2228}
+.seg button{font-family:inherit;font-size:12.5px;font-weight:500;color:#545B66;border:0;background:transparent;border-radius:999px;padding:7px 12px;min-height:34px;cursor:pointer;transition:background var(--dur-1) var(--ease)}
+[data-theme="dark"] .seg button{color:#9CA3AF}
+.seg button[aria-pressed="true"]{background:#FFF;color:#15181D;box-shadow:0 1px 2px rgba(18,20,26,.10)}
+[data-theme="dark"] .seg button[aria-pressed="true"]{background:#2E3440;color:#E9EBEF;box-shadow:none}
+.tag{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:600;border-radius:999px;padding:2px 8px;line-height:1.7}
+.tag.now{background:#E3F0E9;color:#17683F}
+.tag.future{background:#FAF0DA;color:#8A5A00}
+[data-theme="dark"] .tag.now{background:#1D2A24;color:#6BC08C}
+[data-theme="dark"] .tag.future{background:#2A2519;color:#DDAE5E}
+.stage{display:flex;gap:26px;align-items:flex-start;flex-wrap:wrap}
 
-.app-header { position:sticky; top:0; z-index:50; padding:60px var(--spacing-16) 12px; background:linear-gradient(180deg, var(--glass) 50%, rgba(255,255,255,0) 100%); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:var(--spacing-12); }
-.phone-frame .app-header { padding-top: 60px; }
-.header-left { display:flex; align-items:center; gap:10px; min-width:0; }
-.header-avatar { width:36px; height:36px; border-radius:50%; background:linear-gradient(135deg, var(--accent-deep), var(--accent)); display:flex; align-items:center; justify-content:center; font-weight:700; color:#fff; font-size:14px; flex-shrink:0; letter-spacing:0.02em; }
-.header-info { min-width:0; }
-.header-title { font-size:16px; font-weight:600; color:var(--text-primary); line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.header-sub { font-size:12px; color:var(--text-secondary); line-height:1.2; }
-.header-right { display:flex; gap:8px; align-items:center; flex-shrink:0; }
-.status-pill { display:inline-flex; align-items:center; gap:6px; padding:5px 12px; border-radius:20px; font-size:11px; font-weight:600; letter-spacing:0.01em; white-space:nowrap; }
-.status-working { background:var(--accent-soft); color:var(--accent-deep); }
+/* ---------- กรอบเครื่อง ---------- */
+.device{position:relative;flex:0 0 auto}
+.frame{position:relative;width:390px;height:844px;background:var(--bg);border-radius:52px;overflow:hidden;box-shadow:0 0 0 10px #1B1D22,0 0 0 12px #34373F,0 26px 60px rgba(12,14,18,.38);display:flex;flex-direction:column;transition:width var(--dur-3) var(--ease),height var(--dur-3) var(--ease),border-radius var(--dur-3) var(--ease)}
+.device[data-device="i7"] .frame{width:375px;height:667px;border-radius:26px}
+.notch{position:absolute;top:9px;left:50%;transform:translateX(-50%);width:112px;height:26px;background:#101216;border-radius:14px;z-index:60}
+.device[data-device="i7"] .notch{display:none}
+.home-indicator{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:var(--t1);opacity:.28;z-index:60}
+.device[data-device="i7"] .home-indicator{width:44px;height:44px;border-radius:50%;border:1.5px solid var(--border-strong);background:transparent;opacity:.65}
+.statusbar{height:44px;flex:0 0 auto;display:flex;align-items:flex-end;justify-content:space-between;padding:0 22px 6px;font-size:13px;font-weight:600;color:var(--t1)}
+.device[data-device="i7"] .statusbar{height:24px;padding:0 12px 2px;font-size:12px}
+.appbar{flex:0 0 auto;display:flex;align-items:center;gap:var(--sp-2);padding:var(--sp-2) var(--sp-3);border-bottom:1px solid var(--border);background:var(--surface)}
+.device[data-device="i7"] .appbar{padding:6px 10px}
+.iconbtn{width:44px;height:44px;flex:0 0 auto;border:0;background:transparent;border-radius:12px;color:var(--t2);display:flex;align-items:center;justify-content:center;cursor:pointer}
+.iconbtn:hover{background:var(--surface-2);color:var(--t1)}
+.appbar-mid{flex:1 1 auto;min-width:0}
+.appbar-title{font-size:var(--fs-head);font-weight:600;color:var(--t1);line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.agent-state{display:flex;align-items:center;gap:5px;font-size:var(--fs-micro);color:var(--t2);line-height:1.5}
+.state-dot{width:7px;height:7px;border-radius:50%;flex:0 0 auto;background:var(--success)}
+.agent-state[data-state="working"] .state-dot{background:var(--accent);animation:breathe 1.6s var(--ease) infinite}
+.agent-state[data-state="waiting"] .state-dot{background:var(--warning)}
+@keyframes breathe{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.45;transform:scale(.82)}}
+@keyframes ripple{0%{transform:scale(.6);opacity:.8}70%{transform:scale(1.35);opacity:0}100%{opacity:0}}
+@keyframes sweep{from{background-position:150% 0}to{background-position:-50% 0}}
+@keyframes pulseRing{0%{transform:scale(.9);opacity:.55}70%{transform:scale(1.35);opacity:0}100%{opacity:0}}
 
-.chat-scroll { flex:1; overflow-y:auto; overflow-x:hidden; padding:var(--spacing-16); scroll-behavior:smooth; -ms-overflow-style:none; scrollbar-width:none; }
-.chat-scroll::-webkit-scrollbar { display:none; }
+.content{flex:1 1 auto;overflow-y:auto;padding:var(--sp-3) var(--sp-4) var(--sp-4);display:flex;flex-direction:column;gap:var(--sp-3)}
+.content::-webkit-scrollbar{width:0}
+.content.tight{padding:0}
+.turn{display:flex;flex-direction:column;gap:var(--sp-3)}
+.bubble{align-self:flex-end;max-width:84%;background:var(--accent-soft);color:var(--t1);border-radius:18px 18px 6px 18px;padding:10px 14px;font-size:var(--fs-body);line-height:var(--lh-body)}
+.agent-text{font-size:var(--fs-body);line-height:var(--lh-body);color:var(--t1)}
+.agent-text p{margin:0 0 10px}
+.agent-text p:last-child{margin-bottom:0}
+.muted{color:var(--t2)}
+.dim{color:var(--t3)}
+.small{font-size:var(--fs-sub);line-height:1.6}
+.tiny{font-size:var(--fs-cap);line-height:1.6}
+.micro{font-size:var(--fs-micro);line-height:1.55}
+.mono{font-family:var(--font-mono);font-size:12.5px}
+.num{font-variant-numeric:tabular-nums}
+.shimmer{background-image:var(--shimmer);background-size:200% 100%;animation:sweep 1.5s linear infinite;border-radius:6px;color:transparent}
 
-/* === COMMON COMPONENTS === */
-.section-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin: var(--spacing-24) 0 var(--spacing-12); font-weight: 700; }
+/* ---------- บล็อกพื้นฐาน ---------- */
+.card{border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface);overflow:hidden}
+.card.faint{background:var(--surface-2);border-color:transparent}
+.card.pad{padding:12px}
+.card + .card{margin-top:8px}
+.card-head{display:flex;align-items:center;gap:10px;padding:10px 12px;min-height:52px}
+.card-body{padding:0 12px 12px}
+.card-body.pt{padding-top:10px;border-top:1px solid var(--border)}
+.sec-h{font-size:var(--fs-cap);font-weight:600;color:var(--t3);margin:14px 2px 6px}
+.sec-h:first-child{margin-top:2px}
+.list{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);overflow:hidden}
+.row{display:flex;align-items:center;gap:11px;padding:11px 12px;min-height:52px;background:transparent;border:0;border-bottom:1px solid var(--border);width:100%;font-family:inherit;text-align:left;cursor:default}
+.row:last-child{border-bottom:0}
+.row.btn{cursor:pointer}
+.row.btn:hover{background:var(--surface-2)}
+.row-ico{width:30px;height:30px;border-radius:9px;background:var(--surface-2);color:var(--t2);display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+.row-ico.ok{background:var(--success-soft);color:var(--success)}
+.row-ico.run{background:var(--accent-soft);color:var(--accent-ink)}
+.row-ico.warn{background:var(--warning-soft);color:var(--warning)}
+.row-ico.err{background:var(--error-soft);color:var(--error)}
+.row-main{flex:1 1 auto;min-width:0}
+.row-t{font-size:var(--fs-sub);font-weight:600;color:var(--t1);line-height:1.5}
+.row-s{font-size:var(--fs-micro);color:var(--t3);line-height:1.55}
+.row-right{flex:0 0 auto;font-size:var(--fs-foot);color:var(--t3);display:flex;align-items:center;gap:8px}
+.chev{color:var(--t3);flex:0 0 auto}
+.toggle{width:48px;height:29px;border-radius:999px;background:var(--surface-3);position:relative;flex:0 0 auto;transition:background var(--dur-2) var(--ease);border:0;cursor:pointer}
+.toggle::after{content:"";position:absolute;top:2px;left:2px;width:25px;height:25px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform var(--dur-2) var(--ease)}
+.toggle[aria-pressed="true"]{background:var(--success)}
+.toggle[aria-pressed="true"]::after{transform:translateX(19px)}
+.toggle.acc[aria-pressed="true"]{background:var(--accent)}
+.toggle[disabled]{opacity:.45}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:var(--fs-micro);font-weight:500;padding:3px 9px;border-radius:999px;background:var(--surface-2);color:var(--t2);line-height:1.6}
+.chip.ok{background:var(--success-soft);color:var(--success)}
+.chip.err{background:var(--error-soft);color:var(--error)}
+.chip.run{background:var(--accent-soft);color:var(--accent-ink)}
+.chip.warn{background:var(--warning-soft);color:var(--warning)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.btn{font-family:inherit;font-size:var(--fs-sub);font-weight:500;border-radius:var(--r-sm);min-height:44px;padding:0 14px;border:1px solid var(--border);background:var(--surface);color:var(--t1);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.btn:hover{border-color:var(--border-strong)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn.ghost{background:transparent}
+.btn.sm{min-height:38px;font-size:var(--fs-foot);padding:0 12px}
+.btn.wide{flex:1 1 auto}
+.btn.dangerline{border-color:var(--error);color:var(--error)}
+.banner{display:flex;gap:10px;align-items:flex-start;border-radius:var(--r-md);padding:11px 12px;font-size:var(--fs-foot);line-height:1.6;border:1px solid var(--border);background:var(--surface)}
+.banner b{font-size:var(--fs-sub);display:block;margin-bottom:2px}
+.banner .col{flex:1 1 auto;min-width:0}
+.banner .rowx{display:flex;gap:8px;margin-top:9px;flex-wrap:wrap}
+.banner.warn{border-color:var(--warning);background:var(--warning-soft)}
+.banner.err{border-color:var(--error);background:var(--error-soft)}
+.banner.ok{border-color:var(--success);background:var(--success-soft)}
+.banner.info{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-ink)}
+.bar{height:6px;border-radius:3px;background:var(--surface-2);overflow:hidden}
+.bar>i{display:block;height:100%;background:var(--accent);border-radius:3px}
+.bar>i.ok{background:var(--success)}
+.bar>i.warn{background:var(--warning)}
+.bar.striped{background-image:var(--shimmer);background-size:200% 100%;animation:sweep 1.5s linear infinite}
+.bars{display:flex;align-items:flex-end;gap:8px;height:96px;padding:6px 2px 0}
+.bars .col{flex:1 1 0;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:6px;height:100%}
+.bars .col i{width:100%;border-radius:6px 6px 3px 3px;background:var(--accent-soft);border:1px solid var(--accent-soft);display:block}
+.bars .col.now i{background:var(--accent);border-color:var(--accent)}
+.bars .lbl{font-size:10.5px;color:var(--t3)}
+.kv{display:flex;justify-content:space-between;gap:12px;font-size:var(--fs-foot);padding:7px 0;border-bottom:1px solid var(--border);line-height:1.6}
+.kv:last-child{border-bottom:0}
+.kv span:last-child{color:var(--t1);font-weight:500;text-align:right}
+.field{display:flex;align-items:center;gap:8px;background:var(--surface-2);border-radius:var(--r-xl);padding:4px 10px;border:1px solid transparent;min-height:44px}
+.field:focus-within{border-color:var(--accent);background:var(--surface)}
+.field input{flex:1 1 auto;border:0;background:transparent;font-family:inherit;font-size:var(--fs-body);color:var(--t1);padding:8px 2px;outline:none}
+.field input::placeholder{color:var(--t3)}
+.search{display:flex;align-items:center;gap:8px;background:var(--surface-2);border-radius:var(--r-pill);padding:8px 12px;min-height:40px}
+.search input{border:0;background:transparent;font-family:inherit;font-size:var(--fs-sub);color:var(--t1);outline:none;width:100%}
+.swatchrow{display:flex;gap:8px;flex-wrap:wrap}
+.pill-choice{font-family:inherit;font-size:var(--fs-foot);border-radius:var(--r-pill);padding:9px 14px;min-height:40px;border:1px solid var(--border);background:var(--surface);color:var(--t1);cursor:pointer}
+.pill-choice[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-ink);font-weight:600}
+.preview-note{font-size:var(--fs-micro);color:var(--t3);line-height:1.6;margin-top:6px}
 
-/* Card (no bubble for agent — document style) */
-.card-document { max-width: 100%; color: var(--text-primary); font-size: 15px; line-height: 1.7; margin-bottom: var(--spacing-16); }
-.card-document h3 { font-size: 17px; font-weight: 600; margin: 0 0 10px; color: var(--text-primary); line-height: 1.3; }
-.card-document p { margin: 0 0 14px; }
+/* ---------- แท็บล่าง ---------- */
+.tabbar{flex:0 0 auto;display:flex;border-top:1px solid var(--border);background:var(--surface)}
+.tabbar button{flex:1 1 0;border:0;background:transparent;font-family:inherit;min-height:50px;padding:6px 2px 4px;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--t3);cursor:pointer;font-size:10.5px}
+.tabbar button[aria-pressed="true"]{color:var(--accent-ink)}
+.tabbar svg{width:21px;height:21px}
 
-/* Voice Mode Status */
-.voice-status { background: var(--surface); border: 1.5px solid var(--border); border-radius: 20px; padding: 16px; box-shadow: var(--shadow-card); margin-bottom: var(--spacing-16); }
-.voice-status .voice-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
-.voice-status .voice-icon { width: 40px; height: 40px; border-radius: 50%; background: var(--accent-soft); border: 2px solid var(--accent); display: flex; align-items: center; justify-content: center; flex-shrink: 0; animation: pulse-ring 2s infinite; }
-.voice-status .voice-icon svg { width: 18px; height: 18px; stroke: var(--accent-deep); stroke-width: 2; fill: none; }
-@keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 rgba(176,122,42,0.3); } 70% { box-shadow: 0 0 0 10px rgba(176,122,42,0); } 100% { box-shadow: 0 0 0 0 rgba(176,122,42,0); } }
-.voice-status .voice-body h4 { font-size: 14px; font-weight: 600; margin: 0 0 4px; color: var(--text-primary); }
-.voice-status .voice-body .voice-sub { font-size: 12px; color: var(--text-secondary); }
-.voice-status .voice-sub .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 1.5s infinite; margin-right: 6px; vertical-align: middle; }
-@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+/* ---------- หน้าจอล็อก/ศูนย์แจ้งเตือน ---------- */
+.lock{flex:1 1 auto;overflow-y:auto;padding:52px 14px 18px;display:flex;flex-direction:column;gap:10px;
+  background:linear-gradient(160deg,#22304F 0%,#2E4A8A 45%,#4A5D8F 100%)}
+[data-theme="dark"] .lock{background:linear-gradient(160deg,#0B0F1A 0%,#141C2E 55%,#1B2438 100%)}
+.lock-time{color:#fff;text-align:center;margin-bottom:6px}
+.lock-time .big{font-size:52px;font-weight:300;line-height:1.1;letter-spacing:-.02em}
+.lock-time .small{font-size:13px;opacity:.85}
+.notif{background:rgba(255,255,255,.94);backdrop-filter:blur(6px);border-radius:16px;padding:11px 12px;box-shadow:0 6px 18px rgba(0,0,0,.22)}
+[data-theme="dark"] .notif{background:rgba(30,34,42,.94)}
+.notif-top{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.notif-app{font-size:11px;font-weight:600;color:#545B66;letter-spacing:.02em}
+[data-theme="dark"] .notif-app{color:#9CA3AF}
+.notif-t{font-size:13.5px;font-weight:600;color:#15181D;line-height:1.5}
+[data-theme="dark"] .notif-t{color:#E9EBEF}
+.notif-b{font-size:12.5px;color:#545B66;line-height:1.6;margin-top:2px}
+[data-theme="dark"] .notif-b{color:#9CA3AF}
+.notif-acts{display:flex;gap:8px;margin-top:9px}
+.notif-acts button{flex:1 1 auto;font-family:inherit;font-size:12.5px;font-weight:500;min-height:36px;border-radius:10px;border:1px solid #E0E0DA;background:#F7F7F4;color:#15181D;cursor:pointer}
+.notif-acts button.primary{background:#2E4A8A;border-color:#2E4A8A;color:#fff}
+[data-theme="dark"] .notif-acts button{background:#1F2228;border-color:#2A2E37;color:#E9EBEF}
+[data-theme="dark"] .notif-acts button.primary{background:#8CA4E8;border-color:#8CA4E8;color:#0F1013}
+.lock-hint{color:rgba(255,255,255,.9);font-size:12px;text-align:center;margin-top:2px;line-height:1.6}
 
-/* Background Task Banner */
-.bg-task-banner { background: linear-gradient(135deg, var(--surface-2), var(--surface)); border: 1px solid var(--border); border-radius: 16px; padding: 14px 16px; margin-bottom: var(--spacing-16); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.bg-task-banner .bg-info .bg-name { font-size: 14px; font-weight: 600; color: var(--text-primary); }
-.bg-task-banner .bg-info .bg-status { font-size: 12px; color: var(--text-secondary); }
-.bg-task-banner .bg-progress { height: 4px; background: var(--surface-2); border-radius: 2px; overflow: hidden; width: 80px; flex-shrink: 0; }
-.bg-task-banner .bg-progress-bar { height: 100%; width: 65%; background: linear-gradient(90deg, var(--accent), var(--accent-deep)); border-radius: 2px; }
+/* ---------- โหมดเสียง ---------- */
+.voice{flex:1 1 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px;background:var(--bg);text-align:center}
+.orb{width:150px;height:150px;border-radius:50%;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;position:relative}
+.orb::after{content:"";position:absolute;inset:0;border-radius:50%;border:2px solid var(--accent);animation:pulseRing 2.2s var(--ease) infinite}
+.orb.idle::after{animation:none;opacity:0}
+.orb.speaking::after{animation-duration:1.3s}
+.orb svg{color:var(--accent-ink)}
+.wave{display:flex;align-items:center;gap:4px;height:34px}
+.wave i{width:4px;border-radius:2px;background:var(--accent);opacity:.85;animation:wave 1.1s ease-in-out infinite}
+.wave i:nth-child(2){animation-delay:.1s}.wave i:nth-child(3){animation-delay:.2s}.wave i:nth-child(4){animation-delay:.3s}
+.wave i:nth-child(5){animation-delay:.15s}.wave i:nth-child(6){animation-delay:.25s}.wave i:nth-child(7){animation-delay:.35s}
+.wave i:nth-child(8){animation-delay:.05s}.wave i:nth-child(9){animation-delay:.2s}
+@keyframes wave{0%,100%{height:8px}50%{height:30px}}
+.voice-state{font-size:var(--fs-title);font-weight:600;color:var(--t1);line-height:1.4}
+.voice-detail{font-size:var(--fs-sub);color:var(--t2);max-width:280px;line-height:1.65}
+.voice-acts{display:flex;gap:10px}
+.roundbtn{width:56px;height:56px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--t1);display:flex;align-items:center;justify-content:center;cursor:pointer}
+.roundbtn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);width:64px;height:64px}
+.roundbtn.end{background:var(--error);border-color:var(--error);color:#fff}
 
-/* Live Activity Simulation (iOS) */
-.live-activity { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 14px; box-shadow: var(--shadow-card); margin-bottom: var(--spacing-16); }
-.live-activity .la-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-.live-activity .la-title { font-size: 13px; font-weight: 600; color: var(--text-primary); }
-.live-activity .la-badge { font-size: 10px; padding: 3px 8px; border-radius: 10px; background: var(--accent-soft); color: var(--accent-deep); font-weight: 600; letter-spacing: 0.02em; }
-.live-activity .la-progress-text { font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; }
-.live-activity .la-progress-bar { height: 6px; background: var(--surface-2); border-radius: 3px; overflow: hidden; }
-.live-activity .la-progress-fill { height: 100%; width: 42%; background: linear-gradient(90deg, var(--accent), var(--accent-deep)); border-radius: 3px; }
+/* ---------- Onboarding ---------- */
+.onb{flex:1 1 auto;display:flex;flex-direction:column;padding:20px 20px 16px;gap:14px;background:var(--bg)}
+.onb-art{flex:1 1 auto;display:flex;align-items:center;justify-content:center;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);min-height:230px;position:relative;overflow:hidden}
+.onb-title{font-size:var(--fs-display);font-weight:600;color:var(--t1);line-height:1.4}
+.onb-body{font-size:var(--fs-callout);color:var(--t2);line-height:1.7}
+.onb-dots{display:flex;gap:6px;justify-content:center}
+.onb-dots i{width:7px;height:7px;border-radius:50%;background:var(--border-strong)}
+.onb-dots i.on{background:var(--accent);width:20px;border-radius:4px}
+.onb-foot{display:flex;gap:8px;align-items:center}
 
-/* Notification Simulation (Android) */
-.ongoing-notif { background: var(--surface); border: 1.5px solid var(--warning); border-radius: 16px; padding: 14px; box-shadow: var(--shadow-card); margin-bottom: var(--spacing-16); }
-.ongoing-notif .notif-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-.ongoing-notif .notif-icon { width: 28px; height: 28px; border-radius: 50%; background: var(--warning-soft); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.ongoing-notif .notif-icon svg { width: 16px; height: 16px; stroke: var(--warning); stroke-width: 2; fill: none; }
-.ongoing-notif .notif-title { font-size: 13px; font-weight: 600; color: var(--text-primary); }
-.ongoing-notif .notif-body { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
-.ongoing-notif .notif-btn { margin-top: 10px; padding: 8px 14px; border-radius: 12px; border: 1.5px solid var(--warning); background: var(--surface); color: var(--warning); font-size: 12px; font-weight: 600; cursor: pointer; font-family: var(--font-main); transition: all 0.15s; }
-.ongoing-notif .notif-btn:hover { background: var(--warning); color: #fff; }
+.tabseg{flex:1 1 0;font-family:inherit;font-size:12.5px;font-weight:500;color:var(--t2);border:0;background:transparent;border-radius:999px;padding:8px 10px;min-height:36px;cursor:pointer;white-space:nowrap}
+.tabseg[aria-pressed="true"]{background:var(--surface);color:var(--t1);box-shadow:var(--sh-1)}
+.misc{font-size:var(--fs-micro);color:var(--t3);line-height:1.6}
+.sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.toast{position:absolute;left:50%;bottom:96px;transform:translate(-50%,8px);background:var(--t1);color:var(--bg);font-size:var(--fs-foot);padding:9px 14px;border-radius:var(--r-pill);box-shadow:var(--sh-2);opacity:0;pointer-events:none;transition:opacity var(--dur-2) var(--ease);z-index:95;max-width:86%;text-align:center}
+.toast.show{opacity:1;transform:translate(-50%,0)}
 
-/* My Tasks Page */
-.task-tabs { display: flex; gap: 8px; margin-bottom: var(--spacing-16); border-bottom: 1.5px solid var(--border); padding-bottom: 8px; }
-.task-tab { flex: 1; padding: 8px 4px; text-align: center; font-size: 12px; font-weight: 600; color: var(--text-muted); border: none; background: transparent; cursor: pointer; font-family: var(--font-main); border-bottom: 2px solid transparent; transition: all 0.15s; }
-.task-tab.active { color: var(--accent-deep); border-bottom-color: var(--accent); }
-
-.task-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); padding: 14px; box-shadow: var(--shadow-card); margin-bottom: var(--spacing-12); }
-.task-card .task-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-.task-card .task-name { font-size: 14px; font-weight: 600; color: var(--text-primary); }
-.task-card .task-status { font-size: 10px; padding: 2px 8px; border-radius: 10px; background: var(--success-soft); color: var(--success); font-weight: 600; }
-.task-card .task-status.running { background: var(--accent-soft); color: var(--accent-deep); }
-.task-card .task-status.waiting { background: var(--warning-soft); color: var(--warning); }
-.task-card .task-meta { font-size: 11px; color: var(--text-muted); line-height: 1.4; }
-.task-card .task-progress { height: 4px; background: var(--surface-2); border-radius: 2px; overflow: hidden; margin-top: 8px; }
-.task-card .task-progress-fill { height: 100%; width: 42%; background: linear-gradient(90deg, var(--accent), var(--accent-deep)); border-radius: 2px; }
-
-/* Cost / Quota */
-.cost-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
-.cost-row:last-child { border-bottom: none; }
-.cost-label { color: var(--text-secondary); }
-.cost-value { font-weight: 600; color: var(--text-primary); }
-.cost-warning { background: var(--warning-soft); border: 1px solid var(--warning); border-radius: 12px; padding: 12px; font-size: 12px; color: var(--warning); line-height: 1.5; margin-top: var(--spacing-12); }
-
-/* Voice Mode Section */
-.voice-section { background: var(--surface-2); border: 1.5px solid var(--border); border-radius: 20px; padding: 20px; margin-bottom: var(--spacing-24); }
-.voice-section .voice-mode-title { font-size: 16px; font-weight: 700; color: var(--text-primary); margin-bottom: 16px; }
-.voice-state-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
-.voice-state-row:last-child { border-bottom: none; }
-.voice-state-icon { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.voice-state-icon.listen { background: var(--success-soft); }
-.voice-state-icon.think { background: var(--accent-soft); animation: pulse-ring 2s infinite; }
-.voice-state-icon.speak { background: var(--warning-soft); }
-.voice-state-icon.wait { background: var(--surface); border: 1.5px solid var(--border); }
-.voice-state-icon svg { width: 14px; height: 14px; stroke-width: 2; fill: none; }
-.voice-state-icon.listen svg { stroke: var(--success); }
-.voice-state-icon.think svg { stroke: var(--accent-deep); }
-.voice-state-icon.speak svg { stroke: var(--warning); }
-.voice-state-icon.wait svg { stroke: var(--text-muted); }
-.voice-state-label { font-size: 13px; font-weight: 600; color: var(--text-primary); }
-.voice-state-desc { font-size: 11px; color: var(--text-muted); }
-
-/* Support Pages (Tabs simulation) */
-.support-tabs { display: flex; gap: 6px; margin-bottom: var(--spacing-16); overflow-x: auto; scrollbar-width: none; padding-bottom: 4px; }
-.support-tabs::-webkit-scrollbar { display: none; }
-.support-tab { padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary); font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; font-family: var(--font-main); transition: all 0.15s; flex-shrink: 0; }
-.support-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
-
-/* Onboarding */
-.onboarding-slide { display: none; }
-.onboarding-slide.active { display: block; }
-.onboarding-slide .slide-num { font-size: 48px; font-weight: 700; color: var(--accent-soft); line-height: 1; margin-bottom: 8px; }
-.onboarding-slide h2 { font-size: 20px; font-weight: 700; margin: 0 0 8px; color: var(--text-primary); line-height: 1.25; }
-.onboarding-slide p { font-size: 15px; color: var(--text-secondary); line-height: 1.6; margin: 0 0 24px; }
-.onboarding-slide .slide-illustration { width: 120px; height: 120px; border-radius: 28px; background: linear-gradient(135deg, var(--accent-soft), var(--surface-2)); display: flex; align-items: center; justify-content: center; margin-bottom: 20px; box-shadow: 0 8px 24px rgba(176,122,42,0.08); }
-
-/* Chat History */
-.history-item { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
-.history-item:last-child { border-bottom: none; }
-.history-item .history-icon { width: 36px; height: 36px; border-radius: 50%; background: var(--surface-2); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.history-item .history-icon svg { width: 16px; height: 16px; stroke: var(--text-muted); stroke-width: 2; fill: none; }
-.history-item .history-body { flex: 1; min-width: 0; }
-.history-item .history-title { font-size: 14px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.history-item .history-sub { font-size: 12px; color: var(--text-muted); }
-.history-item .history-pin { color: var(--accent); font-weight: 700; font-size: 16px; flex-shrink: 0; }
-
-/* Connector List */
-.connector-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); }
-.connector-item:last-child { border-bottom: none; }
-.connector-item .connector-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.connector-item .connector-logo-small { width: 32px; height: 32px; border-radius: 8px; background: var(--surface-2); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.connector-item .connector-logo-small svg { width: 16px; height: 16px; stroke: var(--text-muted); stroke-width: 2; fill: none; }
-.connector-item .connector-info .connector-name { font-size: 14px; font-weight: 600; color: var(--text-primary); }
-.connector-item .connector-info .connector-perm { font-size: 11px; color: var(--text-muted); }
-.connector-item .connector-switch { width: 44px; height: 24px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--border); position: relative; cursor: pointer; flex-shrink: 0; transition: all 0.2s; }
-.connector-item .connector-switch.on { background: var(--success); border-color: var(--success); }
-.connector-item .connector-switch .switch-knob { position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: all 0.2s; }
-.connector-item .connector-switch.on .switch-knob { left: 22px; }
-
-/* File List */
-.file-list-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
-.file-list-row:last-child { border-bottom: none; }
-.file-list-row .file-type-icon { width: 28px; height: 28px; border-radius: 6px; background: var(--surface-2); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.file-list-row .file-type-icon svg { width: 14px; height: 14px; stroke: var(--text-muted); stroke-width: 2; fill: none; }
-.file-list-row .file-info .file-name { font-size: 13px; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.file-list-row .file-info .file-meta { font-size: 11px; color: var(--text-muted); }
-
-/* Share / Export */
-.export-option { display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface); margin-bottom: 8px; transition: all 0.15s; cursor: pointer; }
-.export-option:hover { border-color: var(--accent); background: var(--accent-soft); }
-.export-option .export-icon { width: 36px; height: 36px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.export-option .export-icon svg { width: 18px; height: 18px; stroke: var(--text-muted); stroke-width: 2; fill: none; }
-.export-option .export-body .export-title { font-size: 14px; font-weight: 600; color: var(--text-primary); }
-.export-option .export-body .export-desc { font-size: 11px; color: var(--text-muted); }
-
-/* Settings */
-.setting-group { margin-bottom: var(--spacing-24); }
-.setting-group .group-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 8px; font-weight: 700; }
-.setting-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); }
-.setting-row:last-child { border-bottom: none; }
-.setting-row .setting-label { font-size: 14px; color: var(--text-primary); }
-.setting-row .setting-value { font-size: 13px; color: var(--text-secondary); }
-
-/* Alert (sensitive data warning) */
-.alert-sensitive { background: var(--warning-soft); border: 1px solid var(--warning); border-radius: 14px; padding: 12px; font-size: 13px; color: var(--warning); line-height: 1.5; margin-top: var(--spacing-12); }
-
-/* Scroll to bottom */
-.scroll-bottom-btn { position: fixed; bottom: 88px; right: 16px; width: 44px; height: 44px; border-radius: 50%; background: var(--surface); border: 1px solid var(--border); color: var(--text-secondary); box-shadow: var(--shadow-card); display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 40; transition: all 0.2s; opacity: 0; pointer-events: none; transform: translateY(10px); }
-.scroll-bottom-btn.visible { opacity: 1; pointer-events: auto; transform: translateY(0); }
-.scroll-bottom-btn:hover { background: var(--surface-2); color: var(--accent-deep); border-color: var(--accent); }
-
-/* Controls */
-.controls-bar { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 500; display: flex; gap: 10px; background: rgba(30,28,24,0.90); backdrop-filter: blur(12px); padding: 8px 14px; border-radius: 24px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
-.controls-bar button { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.10); color: #F2F0EC; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: var(--font-main); transition: all 0.15s; }
-.controls-bar button:hover { background: rgba(255,255,255,0.18); border-color: rgba(255,255,255,0.25); }
-.controls-bar button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+/* ---------- แผงคำอธิบาย ---------- */
+.notes{flex:1 1 320px;min-width:300px;max-width:470px;display:flex;flex-direction:column;gap:12px}
+.card-n{background:#FFF;border:1px solid #E0E0DA;border-radius:16px;padding:14px 16px;box-shadow:0 1px 2px rgba(18,20,26,.05)}
+[data-theme="dark"] .card-n{background:#17191E;border-color:#2A2E37}
+.card-n h3{margin:0 0 8px;font-size:13.5px;font-weight:600}
+.card-n ul{margin:0;padding-left:18px;font-size:13px;line-height:1.75;color:#545B66}
+[data-theme="dark"] .card-n ul{color:#9CA3AF}
+.card-n p{margin:8px 0 0;font-size:12.5px;line-height:1.7;color:#646C77}
+[data-theme="dark"] .card-n p{color:#8A93A1}
+[data-motion="off"] *{animation:none!important;transition-duration:1ms!important}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition-duration:1ms!important}.shimmer{background-image:none;color:var(--t3)}}
 </style>
 </head>
 <body>
+<div class="wrap">
+  <div class="lab-head">
+    <h1>Agent Sandbox — เฟส 3: งานเบื้องหลังและการแจ้งเตือน · งานของฉัน · ต้นทุน/โควตา · โหมดเสียง · หน้ารอง</h1>
+    <p>ป้าย <span class="tag now">มีในแอปแล้ว</span> ทำได้ด้วยของที่มีจริง · <span class="tag future">เตรียมไว้</span> ต้องแก้ engine ก่อน · ทุกหน้าจอใช้ design tokens ชุดเดียวกับเฟส 1–2</p>
+  </div>
 
-<div class="controls-bar" role="toolbar" aria-label="ตัวเลือกการดูต้นแบบ">
-  <button onclick="setTheme('light')" id="btn-light" class="active">Light</button>
-  <button onclick="setTheme('dark')" id="btn-dark">Dark</button>
-</div>
+  <div class="lab-bar">
+    <div class="grp"><span class="lbl">หมวด</span><div class="seg" id="groupSeg"></div></div>
+    <div class="grp"><span class="lbl">ธีม</span><div class="seg">
+      <button id="tLight" aria-pressed="true" onclick="setTheme('light')">สว่าง</button>
+      <button id="tDark" aria-pressed="false" onclick="setTheme('dark')">มืด</button></div></div>
+    <div class="grp"><span class="lbl">ขนาดจอ</span><div class="seg">
+      <button id="d14" aria-pressed="true" onclick="setDevice('ios')">390 × 844</button>
+      <button id="d7" aria-pressed="false" onclick="setDevice('i7')">iPhone 7 · 375×667</button></div></div>
+    <div class="grp"><span class="lbl">ลดการเคลื่อนไหว</span><div class="seg">
+      <button id="mOn" aria-pressed="true" onclick="setMotion('on')">เปิด</button>
+      <button id="mOff" aria-pressed="false" onclick="setMotion('off')">ปิด</button></div></div>
+  </div>
+  <div class="lab-bar">
+    <div class="grp"><span class="lbl">หน้า</span><div class="seg" id="sceneSeg"></div></div>
+    <div class="grp"><span class="lbl">ตัวแปร</span><div class="seg" id="variantSeg"></div></div>
+  </div>
 
-<div class="phone-frame" id="phone" role="region" aria-label="ต้นแบบเฟส 3: งานเบื้องหลังและหน้ารอง" data-theme="light">
-  <header class="app-header" role="banner">
-    <div class="header-left">
-      <div class="header-avatar" aria-label="ไอคอน Agent">AI</div>
-      <div class="header-info">
-        <div class="header-title">งานของฉัน</div>
-        <div class="header-sub">2 งานกำลังทำ · 1 รอคุณ · 3 เสร็จแล้ว</div>
+  <div class="stage">
+    <div class="device" id="device" data-device="ios">
+      <div class="frame">
+        <div class="notch" aria-hidden="true"></div>
+        <div class="statusbar" aria-hidden="true">
+          <span class="num">9:41</span>
+          <span style="display:flex;align-items:center;gap:5px">
+            <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" width="3" height="11" rx="1"/></svg>
+            <svg width="16" height="11" viewBox="0 0 16 11" fill="currentColor"><path d="M8 10.5 5.4 7.9a3.7 3.7 0 0 1 5.2 0L8 10.5Zm0-4.6a6.6 6.6 0 0 0-4.7 1.9L1.6 6.1a9 9 0 0 1 12.8 0l-1.7 1.7A6.6 6.6 0 0 0 8 5.9Z"/></svg>
+            <svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x=".5" y=".5" width="21" height="11" rx="3.5" stroke="currentColor" opacity=".45"/><rect x="2" y="2" width="15" height="8" rx="2" fill="currentColor"/><path d="M23 4v4a2 2 0 0 0 0-4Z" fill="currentColor" opacity=".45"/></svg>
+          </span>
+        </div>
+
+        <div class="appbar" id="appbar">
+          <button class="iconbtn" id="abLeft" aria-label="ย้อนกลับ" onclick="toast('สาธิต: ย้อนกลับ')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+          </button>
+          <div class="appbar-mid">
+            <div class="appbar-title" id="abTitle">—</div>
+            <div class="agent-state" id="abState" data-state="idle" role="status" aria-live="polite">
+              <span class="state-dot" aria-hidden="true"></span><span id="abStateText">—</span>
+            </div>
+          </div>
+          <button class="iconbtn" id="abRight" aria-label="เมนูเพิ่มเติม" onclick="toast('สาธิต: เมนูเพิ่มเติม')">
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg>
+          </button>
+        </div>
+
+        <div class="content" id="content" role="main"></div>
+        <div id="composerSlot"></div>
+        <nav class="tabbar" id="tabbar" aria-label="แท็บหลัก"></nav>
+        <div class="home-area" style="flex:0 0 auto;height:26px"><div class="home-indicator"></div></div>
+
+        <div class="toast" id="toast" role="status" aria-live="polite"></div>
       </div>
     </div>
-    <div class="header-right" aria-label="สถานะระบบ">
-      <span class="status-pill status-working" aria-live="polite">
-        <span style="width:6px;height:6px;border-radius:50%;background:var(--accent-deep);display:inline-block;animation:pulse 1.5s infinite;"></span>
-        ออนไลน์
-      </span>
-    </div>
-  </header>
 
-  <main class="chat-scroll" id="chat-scroll" role="main" aria-label="พื้นที่แสดงงานและหน้ารอง">
-
-    <!-- === BACKGROUND TASK === -->
-    <section aria-label="งานเบื้องหลัง">
-      <div class="section-label">งานเบื้องหลัง</div>
-      <div class="bg-task-banner" aria-label="งานกำลังทำในพื้นหลัง">
-        <div class="bg-info">
-          <div class="bg-name">วางแผนทริปเชียงใหม่</div>
-          <div class="bg-status">กำลังเลือกที่พัก · 65%</div>
-        </div>
-        <div class="bg-progress" aria-label="ความคืบหน้า 65%"><div class="bg-progress-bar"></div></div>
-        <button onclick="alert('หยุดงานเบื้องหลัง')" style="padding:6px 12px;border-radius:12px;border:1.5px solid var(--border);background:var(--surface);color:var(--text-secondary);font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font-main);margin-left:4px;flex-shrink:0;">หยุด</button>
-      </div>
-    </section>
-
-    <!-- === LIVE ACTIVITY (iOS) === -->
-    <section aria-label="Live Activity">
-      <div class="live-activity" aria-label="Live Activity บน Lock Screen">
-        <div class="la-header">
-          <span class="la-title">วางแผนทริปเชียงใหม่</span>
-          <span class="la-badge">กำลังทำ</span>
-        </div>
-        <div class="la-progress-text">กำลังเลือกที่พัก · ประมาณ 2 นาทีที่เหลือ</div>
-        <div class="la-progress-bar"><div class="la-progress-fill"></div></div>
-      </div>
-    </section>
-
-    <!-- === ONGOING NOTIFICATION (Android) === -->
-    <section aria-label="การแจ้งเตือนต่อเนื่อง Android">
-      <div class="ongoing-notif" aria-label="การแจ้งเตือนต่อเนื่องบน Android">
-        <div class="notif-header">
-          <div class="notif-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/></svg></div>
-          <div class="notif-title">Agent กำลังทำงาน</div>
-        </div>
-        <div class="notif-body">วางแผนทริปเชียงใหม่ — กำลังเลือกที่พักที่เหมาะสมกับงบประมาณ</div>
-        <button class="notif-btn" onclick="alert('หยุดงานจากการแจ้งเตือน')">หยุดงาน</button>
-      </div>
-    </section>
-
-    <!-- === MY TASKS === -->
-    <section aria-label="งานของฉัน" style="margin-bottom: var(--spacing-24);">
-      <div class="section-label">งานของฉัน</div>
-      <div class="task-tabs" role="tablist" aria-label="แท็บงาน">
-        <button class="task-tab active" onclick="showTab('running')" role="tab" aria-selected="true" aria-controls="tab-running">กำลังทำ <span style="color:var(--accent);font-weight:700;">2</span></button>
-        <button class="task-tab" onclick="showTab('waiting')" role="tab" aria-selected="false" aria-controls="tab-waiting">รอคุณ <span style="color:var(--warning);font-weight:700;">1</span></button>
-        <button class="task-tab" onclick="showTab('done')" role="tab" aria-selected="false" aria-controls="tab-done">เสร็จแล้ว <span style="color:var(--success);font-weight:700;">3</span></button>
+    <aside class="notes">
+      <div class="card-n">
+        <h3>วิธีดู</h3>
+        <ul>
+          <li>เลือก <b>หมวด</b>  ->  <b>หน้า</b>  ->  <b>ตัวแปร</b> ด้านบน</li>
+          <li>เปิด-ปิดสวิตช์ในหน้าจอได้จริง (สาธิต)</li>
+          <li>สลับเป็น <b>iPhone 7 · 375×667</b> เพื่อดูว่าหน้าจอยังใช้ได้บนเครื่องจริง</li>
+        </ul>
       </div>
 
-      <div id="tab-running" role="tabpanel" aria-labelledby="tab-running">
-        <article class="task-card" aria-label="งานกำลังทำ: วางแผนทริป">
-          <div class="task-header">
-            <div class="task-name">วางแผนทริปเชียงใหม่ 3 วัน</div>
-            <span class="task-status running">กำลังทำ</span>
-          </div>
-          <div class="task-meta">เริ่ม 14:32 · ใช้เวลา 42 วินาที · คาดว่าจะเสร็จใน 2 นาที</div>
-          <div class="task-progress"><div class="task-progress-fill"></div></div>
-        </article>
-        <article class="task-card" aria-label="งานกำลังทำ: สรุปไฟล์">
-          <div class="task-header">
-            <div class="task-name">สรุปไฟล์ PDF ที่ส่งมา</div>
-            <span class="task-status running">กำลังทำ</span>
-          </div>
-          <div class="task-meta">เริ่ม 14:45 · ใช้เวลา 15 วินาที</div>
-          <div class="task-progress"><div class="task-progress-fill" style="width:30%;"></div></div>
-        </article>
+      <div class="card-n">
+        <h3>ข้อเท็จจริงที่เฟสนี้ยึด</h3>
+        <ul>
+          <li><b>iPhone 7 / iOS 15 ไม่มี</b> Live Activity และ Dynamic Island  ->  ใช้การแจ้งเตือนปกติ + แบนเนอร์ในแอป (ระบุตรง ๆ ไม่หลอกผู้ใช้)</li>
+          <li><b>เวลาทำงานเบื้องหลังจำกัด</b> — ใช้ <span class="mono">beginBackgroundTask</span> ของระบบ จึงบอก "ทำงานต่อได้ช่วงสั้น ๆ" ไม่สัญญาว่าปิดแอปแล้วเสร็จแน่นอน</li>
+          <li><b>แท็บจริง</b> ในแอป: แชท · ไฟล์ · บันทึก · ตั้งค่า  ->  ดีไซน์ใหม่เปลี่ยน "บันทึก" เป็น <b>งานของฉัน</b> และย้ายบันทึกการเรียกใช้เข้าไปข้างใน (ยังเข้าถึงได้ ไม่หาย)</li>
+          <li><b>ต้นทุน</b>: แอปนับโทเคนจริง และมีค่าใช้จ่ายเฉพาะเมื่อผู้ให้บริการส่งมา  ->  แสดง "ไม่ระบุ" เมื่อไม่มี ห้ามเดา</li>
+          <li><b>โหมดเสียง</b> ยังไม่มีในแอป — หน้านี้เป็นสเปกพร้อมป้าย "เตรียมไว้"</li>
+        </ul>
       </div>
 
-      <div id="tab-waiting" style="display:none;" role="tabpanel" aria-labelledby="tab-waiting">
-        <article class="task-card" aria-label="งานรอคำตอบ: ยืนยันการส่งอีเมล">
-          <div class="task-header">
-            <div class="task-name">ส่งอีเมลยืนยันการจองโรงแรม</div>
-            <span class="task-status waiting">รอคุณ</span>
-          </div>
-          <div class="task-meta">รอการอนุมัติก่อนส่งอีเมล · ต้องการคำตอบภายใน 10 นาที</div>
-        </article>
+      <div class="card-n">
+        <h3>กติกาความปลอดภัยที่เฟสนี้เพิ่ม</h3>
+        <ul>
+          <li><b>ห้ามอนุมัติการกระทำจากแจ้งเตือนโดยตรง</b> — แจ้งเตือนบอกว่ามีเรื่องรออยู่ แต่ต้องเข้าแอปเพื่ออ่านบริบทก่อนอนุญาต (กันกดพลาดจากหน้าล็อก)</li>
+          <li><b>การลบ/งานตั้งเวลา</b> ต้องยืนยันในแอปเสมอ ไม่ทำจากแจ้งเตือน</li>
+          <li><b>ส่งออกไฟล์</b> เตือนก่อนเสมอว่าข้อมูลจะอยู่ในไฟล์ที่แชร์ต่อได้ และมีตัวเลือกปิดข้อมูลอ่อนไหว</li>
+        </ul>
       </div>
-
-      <div id="tab-done" style="display:none;" role="tabpanel" aria-labelledby="tab-done">
-        <article class="task-card" aria-label="งานเสร็จแล้ว: ค้นหาข้อมูล">
-          <div class="task-header">
-            <div class="task-name">ค้นหาข้อมูลพื้นฐานเชียงใหม่</div>
-            <span class="task-status">เสร็จแล้ว</span>
-          </div>
-          <div class="task-meta">เสร็จ 14:33 · ใช้เวลา 1 นาที 12 วินาที</div>
-        </article>
-        <article class="task-card" aria-label="งานเสร็จแล้ว: สรุปไฟล์">
-          <div class="task-header">
-            <div class="task-name">สรุปไฟล์ PDF รายงานการขาย</div>
-            <span class="task-status">เสร็จแล้ว</span>
-          </div>
-          <div class="task-meta">เสร็จ 14:28 · ใช้เวลา 45 วินาที · บางส่วนสำเร็จ</div>
-        </article>
-      </div>
-    </section>
-
-    <!-- === COST / QUOTA === -->
-    <section aria-label="ต้นทุนและโควตา">
-      <div class="section-label">ต้นทุนและโควตา</div>
-      <article class="card-document" aria-label="รายละเอียดต้นทุน">
-        <h3>การใช้ทรัพยากรงานนี้</h3>
-        <div class="cost-row"><span class="cost-label">เวลาที่ใช้</span><span class="cost-value">42 วินาที</span></div>
-        <div class="cost-row"><span class="cost-label">เครดิตที่ใช้</span><span class="cost-value">0.8</span></div>
-        <div class="cost-row"><span class="cost-label">โควตารายวัน</span><span class="cost-value">ใช้ไป 65% (65/100)</span></div>
-        <div class="cost-row"><span class="cost-label">ประมาณเวลาที่เหลือ</span><span class="cost-value">2 นาที</span></div>
-        <div class="cost-warning" aria-label="คำเตือนโควตา">โควตาใกล้หมด — ใช้ไป 65% ของโควตารายวัน · ประมาณเวลาที่เหลือ 2 นาที · หากใกล้หมดระบบจะหยุดการทำงานอัตโนมัติ</div>
-      </article>
-    </section>
-
-    <!-- === VOICE MODE === -->
-    <section aria-label="โหมดเสียง">
-      <div class="section-label">โหมดเสียง</div>
-      <div class="voice-section" aria-label="สถานะการทำงานด้วยเสียง">
-        <div class="voice-mode-title">สถานะการทำงานด้วยเสียง</div>
-        <div class="voice-state-row">
-          <span class="voice-state-icon listen" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg></span>
-          <div>
-            <div class="voice-state-label">กำลังฟัง</div>
-            <div class="voice-state-desc">ไมค์ทำงาน — พูดคำสั่งของคุณได้เลย</div>
-          </div>
-        </div>
-        <div class="voice-state-row">
-          <span class="voice-state-icon think" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg></span>
-          <div>
-            <div class="voice-state-label">กำลังคิด</div>
-            <div class="voice-state-desc">Agent กำลังประมวลผลคำสั่งที่ได้ยิน — รอสักครู่</div>
-          </div>
-        </div>
-        <div class="voice-state-row">
-          <span class="voice-state-icon speak" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg></span>
-          <div>
-            <div class="voice-state-label">กำลังพูด</div>
-            <div class="voice-state-desc">Agent กำลังอ่านคำตอบให้ฟัง — ฟังจนจบหรือแตะเพื่อหยุด</div>
-          </div>
-        </div>
-        <div class="voice-state-row">
-          <span class="voice-state-icon wait" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg></span>
-          <div>
-            <div class="voice-state-label">รอคำสั่ง</div>
-            <div class="voice-state-desc">Agent พร้อมฟังคำสั่งใหม่ — แตะเพื่อเริ่มพูด</div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- === SUPPORT PAGES === -->
-    <section aria-label="หน้ารอง">
-      <div class="section-label">หน้ารอง</div>
-
-      <!-- Onboarding -->
-      <article aria-label="คำแนะนำการใช้งาน">
-        <div class="card-document">
-          <h3>คำแนะนำการใช้งาน (Onboarding)</h3>
-          <div class="onboarding-slide active" id="slide-1">
-            <div class="slide-num" aria-hidden="true">01</div>
-            <h2>เห็นทุกขั้นตอนที่ Agent ทำ</h2>
-            <p>Agent ไม่ทำงานลับหลัง — คุณเห็นทุกการค้นหา ทุกการเรียกเครื่องมือ และทุกไฟล์ที่สร้างได้เสมอ ผ่าน Live Status Line และ Timeline</p>
-            <div class="slide-illustration" aria-hidden="true"><svg viewBox="0 0 24 24" width="56" height="56" stroke="var(--accent)" stroke-width="1.5" fill="none"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></div>
-          </div>
-          <div class="onboarding-slide" id="slide-2">
-            <div class="slide-num" aria-hidden="true">02</div>
-            <h2>ควบคุมได้ทุกเมื่อ</h2>
-            <p>คุณหยุดงาน แทรกคำสั่ง แก้ไขแผน หรืออนุมัติได้ทุกขั้นตอน — ไม่มีการทำสิ่งที่มีผลกระทบโดยไม่ขออนุญาต</p>
-          </div>
-          <div class="onboarding-slide" id="slide-3">
-            <div class="slide-num" aria-hidden="true">03</div>
-            <h2>ปลอดภัยและโปร่งใส</h2>
-            <p>Agent ไม่เห็นรหัสที่คุณพิมพ์ ไม่ทำตามคำสั่งแปลกจากเว็บ และบอกสาเหตุทุกครั้งที่ล้มเหลว — คุณเลือกได้ว่าจะดำเนินงานต่อหรือหยุด</p>
-          </div>
-          <div style="display:flex;gap:8px;margin-top:16px;">
-            <button onclick="document.getElementById('slide-1').classList.add('active');document.getElementById('slide-2').classList.remove('active');document.getElementById('slide-3').classList.remove('active');" style="padding:6px 14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--text-secondary);font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font-main);">หน้า 1</button>
-            <button onclick="document.getElementById('slide-1').classList.remove('active');document.getElementById('slide-2').classList.add('active');document.getElementById('slide-3').classList.remove('active');" style="padding:6px 14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--text-secondary);font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font-main);">หน้า 2</button>
-            <button onclick="document.getElementById('slide-1').classList.remove('active');document.getElementById('slide-2').classList.remove('active');document.getElementById('slide-3').classList.add('active');" style="padding:6px 14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--text-secondary);font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font-main);">หน้า 3</button>
-          </div>
-        </div>
-      </article>
-
-      <!-- Chat History -->
-      <article aria-label="ประวัติแชท">
-        <div class="card-document">
-          <h3>ประวัติแชท</h3>
-          <div style="display:flex;gap:8px;margin-bottom:var(--spacing-12);">
-            <input type="text" placeholder="ค้นหาจากข้อความในทุกห้อง..." style="flex:1;padding:8px 12px;border-radius:14px;border:1px solid var(--border);background:var(--surface);font-family:var(--font-main);font-size:13px;color:var(--text-primary);outline:none;" oninput="this.parentElement.nextElementSibling.style.display='none';if(this.value.length>0){this.value='';}" aria-label="ค้นหาประวัติแชท">
-            <button onclick="alert('ปักหมุดห้องสำคัญ')" style="padding:8px 12px;border-radius:14px;border:1px solid var(--border);background:var(--surface);color:var(--text-secondary);font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font-main);">ปักหมุด</button>
-          </div>
-          <div aria-label="รายการห้องสนทนา">
-            <div class="history-item">
-              <span class="history-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></span>
-              <div class="history-body">
-                <div class="history-title">วางแผนทริปเชียงใหม่ 3 วัน</div>
-                <div class="history-sub">เสร็จแล้ว · 14:35 · 6 ขั้นตอน</div>
-              </div>
-              <span class="history-pin" aria-label="ปักหมุดแล้ว">&#9733;</span>
-            </div>
-            <div class="history-item">
-              <span class="history-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></span>
-              <div class="history-body">
-                <div class="history-title">สรุปไฟล์ PDF รายงานการขาย</div>
-                <div class="history-sub">เสร็จแล้ว · 14:28 · บางส่วนสำเร็จ</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </article>
-
-      <!-- Connector -->
-      <article aria-label="เชื่อมต่อแอปและเครื่องมือ">
-        <div class="card-document">
-          <h3>เชื่อมต่อแอปและเครื่องมือ</h3>
-          <div aria-label="รายการเครื่องมือ">
-            <div class="connector-item">
-              <div class="connector-left">
-                <span class="connector-logo-small" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="15" y2="21"/></svg></span>
-                <div class="connector-info">
-                  <div class="connector-name">Calendar</div>
-                  <div class="connector-perm">อ่าน + เขียน</div>
-                </div>
-              </div>
-              <button class="connector-switch on" onclick="this.classList.toggle('on')" aria-label="สลับสถานะ Calendar" title="สลับสถานะ"><span class="switch-knob" aria-hidden="true"></span></button>
-            </div>
-            <div class="connector-item">
-              <div class="connector-left">
-                <span class="connector-logo-small" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></span>
-                <div class="connector-info">
-                  <div class="connector-name">Email</div>
-                  <div class="connector-perm">ส่งได้</div>
-                </div>
-              </div>
-              <button class="connector-switch" onclick="this.classList.toggle('on')" aria-label="สลับสถานะ Email" title="สลับสถานะ"><span class="switch-knob" aria-hidden="true"></span></button>
-            </div>
-            <div class="connector-item">
-              <div class="connector-left">
-                <span class="connector-logo-small" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 1v6m0 6v6m-9-9h6m6 0h6"/></svg></span>
-                <div class="connector-info">
-                  <div class="connector-name">Web Search</div>
-                  <div class="connector-perm">อ่านอย่างเดียว</div>
-                </div>
-              </div>
-              <button class="connector-switch on" onclick="this.classList.toggle('on')" aria-label="สลับสถานะ Web Search" title="สลับสถานะ"><span class="switch-knob" aria-hidden="true"></span></button>
-            </div>
-          </div>
-        </div>
-      </article>
-
-      <!-- Files -->
-      <article aria-label="ไฟล์และผลงานทั้งหมด">
-        <div class="card-document">
-          <h3>ไฟล์และผลงานทั้งหมด</h3>
-          <div aria-label="รายการไฟล์">
-            <div class="file-list-row">
-              <span class="file-type-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span>
-              <div class="file-info"><div class="file-name">แผนการเดินทาง.pdf</div><div class="file-meta">2.4 MB · 14:35</div></div>
-            </div>
-            <div class="file-list-row">
-              <span class="file-type-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></span>
-              <div class="file-info"><div class="file-name">ภาพแผนที่เส้นทาง.png</div><div class="file-meta">1.2 MB · 14:33</div></div>
-            </div>
-            <div class="file-list-row">
-              <span class="file-type-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></span>
-              <div class="file-info"><div class="file-name">โค้ดคำนวณงบประมาณ.py</div><div class="file-meta">4 KB · 14:34</div></div>
-            </div>
-          </div>
-        </div>
-      </article>
-
-      <!-- Share / Export -->
-      <article aria-label="แชร์และส่งออก">
-        <div class="card-document">
-          <h3>แชร์และส่งออกบทสนทนา</h3>
-          <div aria-label="ตัวเลือกการส่งออก">
-            <button class="export-option" onclick="alert('ส่งออกเป็น Markdown')" aria-label="ส่งออก Markdown">
-              <span class="export-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span>
-              <div class="export-body"><div class="export-title">Markdown (.md)</div><div class="export-desc">ส่งออกข้อความและสรุปขั้นตอน</div></div>
-            </button>
-            <button class="export-option" onclick="alert('ส่งออกเป็น JSON')" aria-label="ส่งออก JSON">
-              <span class="export-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M21 6H3"/><path d="M10 12H3"/><path d="M21 18H3"/><path d="M10 6h11"/></svg></span>
-              <div class="export-body"><div class="export-title">JSON (.json)</div><div class="export-desc">ส่งออกรวมข้อมูลเทคนิคทั้งหมด</div></div>
-            </button>
-          </div>
-          <div class="alert-sensitive" aria-label="คำเตือนข้อมูลอ่อนไหว">บทสนทนานี้อาจมีข้อมูลอ่อนไหว (เช่น รหัสผ่าน ข้อมูลส่วนตัว) — โปรดตรวจสอบก่อนส่งออก</div>
-        </div>
-      </article>
-
-      <!-- Settings -->
-      <article aria-label="ตั้งค่า">
-        <div class="card-document">
-          <h3>ตั้งค่า</h3>
-          <div class="setting-group">
-            <div class="group-title">การแสดงผล</div>
-            <div class="setting-row"><span class="setting-label">ธีม</span><span class="setting-value">ตามระบบ</span></div>
-            <div class="setting-row"><span class="setting-label">ภาษา</span><span class="setting-value">ไทย</span></div>
-            <div class="setting-row"><span class="setting-label">ระดับรายละเอียดกิจกรรม</span><span class="setting-value">ปกติ</span></div>
-          </div>
-          <div class="setting-group">
-            <div class="group-title">ความเป็นส่วนตัว</div>
-            <div class="setting-row"><span class="setting-label">บันทึกประวัติ</span><span class="setting-value">ในเครื่อง ไม่ส่งไปเซิร์ฟเวอร์</span></div>
-            <div class="setting-row"><span class="setting-label">ลบประวัติอัตโนมัติ</span><span class="setting-value">ปิด</span></div>
-          </div>
-          <div class="setting-group">
-            <div class="group-title">สิทธิ์ที่อนุญาตเสมอ</div>
-            <div class="setting-row"><span class="setting-label">Calendar — เขียน</span><button onclick="alert('เพิกถอนสิทธิ์ Calendar')" style="padding:4px 10px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text-muted);font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font-main);">เพิกถอน</button></div>
-            <div class="setting-row"><span class="setting-label">Web Search — อ่าน</span><button onclick="alert('เพิกถอนสิทธิ์ Web Search')" style="padding:4px 10px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text-muted);font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font-main);">เพิกถอน</button></div>
-            <div class="setting-row" style="border-top:1px solid var(--border);margin-top:8px;padding-top:8px;">
-              <button onclick="alert('ลบสิทธิ์ทั้งหมดที่อนุญาตเสมอ')" style="width:100%;padding:10px;border-radius:14px;border:1.5px solid var(--error);background:var(--error-soft);color:var(--error);font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font-main);transition:all 0.15s;">ลบสิทธิ์ทั้งหมดที่อนุญาตเสมอ</button>
-            </div>
-          </div>
-        </div>
-      </article>
-
-    </section>
-
-  </main>
-
-  <!-- Input Bar -->
-  <footer class="input-bar-wrap" role="region" aria-label="ช่องพิมพ์ข้อความ">
-    <form class="input-bar" onsubmit="sendMessage(event)" aria-label="ฟอร์มส่งข้อความ">
-      <button type="button" class="icon-btn" onclick="addAttachment()" aria-label="เพิ่มไฟล์" title="เพิ่มไฟล์"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></button>
-      <textarea id="msg-input" rows="1" placeholder="พิมพ์ข้อความหรือคำสั่ง..." aria-label="ช่องพิมพ์ข้อความ" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();document.getElementById('form-btn').click();}" oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px';"></textarea>
-      <button type="button" class="icon-btn" onclick="toggleMic()" aria-label="ไมโครโฟน" title="ไมโครโฟน"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button>
-      <button type="submit" class="send-btn" id="form-btn" aria-label="ส่งข้อความ" title="ส่ง"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
-    </form>
-  </footer>
-
+    </aside>
+  </div>
 </div>
-
-<button class="scroll-bottom-btn" id="scroll-btn" onclick="scrollToBottom()" aria-label="เลื่อนลงล่างสุด" title="เลื่อนลงล่างสุด"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
 
 <script>
-function setTheme(t) {
-  document.getElementById('phone').setAttribute('data-theme', t);
-  document.getElementById('btn-light').classList.toggle('active', t === 'light');
-  document.getElementById('btn-dark').classList.toggle('active', t === 'dark');
-}
-function showTab(id) {
-  ['running','waiting','done'].forEach(t => {
-    document.getElementById('tab-'+t).style.display = (t === id) ? 'block' : 'none';
-  });
-  document.querySelectorAll('.task-tab').forEach(btn => btn.classList.remove('active'));
-  event.target.classList.add('active');
-}
-function sendMessage(e) {
-  e.preventDefault();
-  const input = document.getElementById('msg-input');
-  const text = input.value.trim();
-  if (!text) return;
-  const group = document.createElement('section');
-  group.className = 'message-group';
-  group.innerHTML = '<div style="display:flex;justify-content:flex-end;"><div class="user-bubble" style="align-self:flex-end;max-width:82%;background:var(--accent);color:#fff;padding:14px 18px;border-radius:20px 20px 6px 20px;font-size:15px;line-height:1.6;box-shadow:0 4px 12px rgba(176,122,42,0.18);word-break:break-word;">' + text.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div></div>';
-  document.getElementById('chat-scroll').appendChild(group);
-  input.value = ''; input.style.height = 'auto'; scrollToBottom();
-}
-function addAttachment() {
-  const wrap = document.querySelector('.input-bar-wrap');
-  if (!wrap.querySelector('.attachment-preview')) {
-    const div = document.createElement('div');
-    div.className = 'attachment-preview';
-    div.innerHTML = '<span class="chip-file"><span style="font-size:11px;color:var(--text-muted);margin-right:4px;">FILE</span> trip-plan.pdf <span onclick="this.parentElement.remove()" style="cursor:pointer;color:var(--text-muted);">×</span></span>';
-    wrap.insertBefore(div, wrap.querySelector('.input-bar'));
-  }
-}
-function toggleMic() {
-  const btn = document.querySelector('.icon-btn[aria-label="ไมโครโฟน"]');
-  btn.style.color = btn.style.color === 'var(--accent-deep)' ? '' : 'var(--accent-deep)';
-}
-function scrollToBottom() {
-  document.getElementById('chat-scroll').scrollTo({ top: document.getElementById('chat-scroll').scrollHeight, behavior: 'smooth' });
-  document.getElementById('scroll-btn').classList.remove('visible');
-}
-const scrollArea = document.getElementById('chat-scroll');
-scrollArea.addEventListener('scroll', () => {
-  const btn = document.getElementById('scroll-btn');
-  if (scrollArea.scrollTop + scrollArea.clientHeight < scrollArea.scrollHeight - 120) btn.classList.add('visible');
-  else btn.classList.remove('visible');
-});
-</script>
+const UI={theme:'light',device:'ios',motion:'on',group:'bg',scene:'bg_banner',variant:0};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const I={
+  back:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>',
+  chev:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 6 6 6-6 6"/></svg>',
+  check:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5 9.5 18 20 6.5"/></svg>',
+  clock:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/></svg>',
+  play:'<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5 19 12 7 19.5v-15Z"/></svg>',
+  stop:'<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><rect x="7" y="7" width="10" height="10" rx="2"/></svg>',
+  mic:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
+  micSmall:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>',
+  doc:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z"/><path d="M14 3v5h5"/></svg>',
+  folder:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/></svg>',
+  task:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M7.5 9h5M7.5 13h9M7.5 16.5h6"/></svg>',
+  gear:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 3v2.2M12 18.8V21M4.6 7.5l1.9 1.1M17.5 15.4l1.9 1.1M4.6 16.5l1.9-1.1M17.5 8.6l1.9-1.1"/></svg>',
+  bell:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9a6 6 0 0 1 12 0c0 4 1.5 5.5 1.5 5.5H4.5S6 13 6 9Z"/><path d="M10 18.5a2 2 0 0 0 4 0"/></svg>',
+  warn:'<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3 1.5 21h21L12 3Zm0 6.2a1 1 0 0 1 1 1v4a1 1 0 0 1-2 0v-4a1 1 0 0 1 1-1Zm0 8.4a1.15 1.15 0 1 1 0-2.3 1.15 1.15 0 0 1 0 2.3Z"/></svg>',
+  info:'<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 3.4a1.4 1.4 0 1 1 0 2.8 1.4 1.4 0 0 1 0-2.8Zm1.2 13.2h-2.4v-6.8h2.4v6.8Z"/></svg>',
+  lock:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="4.5" y="10" width="15" height="11" rx="2.5"/><path d="M8 10V7.5a4 4 0 0 1 8 0V10"/></svg>',
+  shield:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 3l7 3v6c0 4.2-2.9 7.6-7 9-4.1-1.4-7-4.8-7-9V6l7-3Z"/><path d="m9 12 2 2 4-4"/></svg>',
+  search:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg>',
+  pin:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M9 4h6l-1 6 3 3v2H7v-2l3-3-1-6Z"/><path d="M12 15v5"/></svg>',
+  share:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3m0 0L8 7m4-4 4 4"/><path d="M5 13v5a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3v-5"/></svg>',
+  layers:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 13 9 5 9-5"/></svg>',
+  globe:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.7 2.6 15.3 0 18M12 3c-2.6 2.7-2.6 15.3 0 18"/></svg>',
+  cal:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="3.5" y="5.5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3.5v4M16 3.5v4"/></svg>',
+  mail:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="3" y="5.5" width="18" height="13" rx="2.5"/><path d="m4 7 8 6 8-6"/></svg>',
+  x:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>'
+};
 
+/* ---------- ชิ้นส่วนสำเร็จรูป ---------- */
+const row=(o)=>`<${o.href?'button':'div'} class="row ${o.btn?'btn':''}" ${o.onclick?`onclick="${o.onclick}"`:''} ${o.btn?'type="button"':''}>
+  ${o.ico?`<span class="row-ico ${o.tone||''}" aria-hidden="true">${o.ico}</span>`:''}
+  <span class="row-main"><span class="row-t">${o.title}</span>${o.sub?`<span class="row-s">${o.sub}</span>`:''}</span>
+  <span class="row-right">${o.right||''}${o.chevron?`<span class="chev">${I.chev}</span>`:''}</span>
+</${o.href?'button':'div'}>`;
+const toggle=(id,on,label,sub,tone)=>`<div class="row">
+  <span class="row-main"><span class="row-t">${label}</span>${sub?`<span class="row-s">${sub}</span>`:''}</span>
+  <span class="row-right"><button class="toggle ${tone==='acc'?'acc':''}" id="${id}" aria-pressed="${on?'true':'false'}" aria-label="${label}" onclick="flip(this)"></button></span></div>`;
+const sect=(t,h)=>`<div class="sec-h">${t}</div>${h}`;
+const card=(h,cls='')=>`<div class="card ${cls}">${h}</div>`;
+const banner=(tone,icon,title,body,rows)=>`<div class="banner ${tone}"><span style="flex:0 0 auto;margin-top:1px">${icon}</span>
+  <span class="col"><b>${title}</b><span class="small">${body}</span>${rows?`<span class="rowx">${rows}</span>`:''}</span></div>`;
+
+/* ---------- แถบสถานะสดย่อ (ใช้ในหน้าจอเสียง/งานของฉัน) ---------- */
+const miniLive=(title,sub,time)=>`<div class="card pad"><div style="display:flex;align-items:center;gap:10px">
+  <span class="pulse" style="width:16px;height:16px;position:relative;display:inline-block"></span>
+  <span style="flex:1 1 auto;min-width:0"><span class="row-t" style="display:block">${title}</span><span class="row-s">${sub}</span></span>
+  <span class="row-right num">${time}</span></div>
+  <div class="bar" style="margin-top:9px"><i class="striped" style="width:66%"></i></div></div>`;
+const TASKBAR={now:[
+    {n:'สรุปค่าไฟ 3 เดือนย้อนหลัง', s:'กำลังค้นหาเว็บ · ขั้น 5 จาก 6', tone:'run', ico:I.clock, pct:72, t:'24 วิ',
+     act:`<button class="btn sm" onclick="toast('สาธิต: หยุดงานนี้')">หยุด</button>`},
+    {n:'จัดระเบียบไฟล์ใน Downloads', s:'รอคิว — จะเริ่มหลังงานแรกจบ', tone:'', ico:I.layers, pct:0, t:'—',
+     act:`<button class="btn sm ghost" onclick="toast('สาธิต: ยกเลิกงานที่รอคิว')">ยกเลิก</button>`}
+  ],waiting:[
+    {n:'เขียนอีเมลถึงการไฟฟ้า', s:'รออนุญาต: ส่งอีเมล (มีไฟล์แนบ 1 ไฟล์)', tone:'warn', ico:I.warn, pct:40, t:'รอ 2 นาที',
+     act:`<button class="btn sm primary" onclick="toast('สาธิต: ไปตอบในแอป')">ไปตอบ</button>`},
+    {n:'สรุปค่าไฟ 3 เดือนย้อนหลัง', s:'รอคำตอบ: จะเทียบยอดกับเดือนไหน', tone:'warn', ico:I.info, pct:80, t:'รอ 40 วินาที',
+     act:`<button class="btn sm" onclick="toast('สาธิต: ไปตอบในแชท')">ไปตอบ</button>`}
+  ],done:[
+    {n:'สรุปค่าไฟ 3 เดือนย้อนหลัง', s:'เสร็จแล้ว · ใช้เวลา 42 วินาที · ได้ไฟล์ 1 ไฟล์', tone:'ok', ico:I.check, pct:100, t:'14:12',
+     act:`<button class="btn sm" onclick="toast('สาธิต: เปิดผลลัพธ์')">เปิดผลลัพธ์</button>`},
+    {n:'ค้นข้อมูลค่า Ft ล่าสุด', s:'สำเร็จบางส่วน · ขั้นค้นเว็บล้มเหลว 1 ขั้น', tone:'warn', ico:I.warn, pct:100, t:'13:40',
+     act:`<button class="btn sm" onclick="toast('สาธิต: ดูสาเหตุ')">ดูสาเหตุ</button>`}
+  ]};
+
+/* ============================================================================
+   หน้า (scenes)
+   ========================================================================== */
+const SCENES={
+
+/* ===================== 1. งานเบื้องหลังและการแจ้งเตือน ===================== */
+bg_banner:{group:'bg',label:'แบนเนอร์ในแชท',variants:['กำลังทำงานเบื้องหลัง','ระบบจะหยุดใน 40 วินาที','กลับมาแล้ว ทำต่อ'],
+  appbar:{title:'สรุปค่าไฟ 3 เดือนย้อนหลัง',state:['working','กำลังทำงาน · ขั้น 5 จาก 6'],left:'menu',right:'dots',tabs:'chat'},
+  render(v){
+    const timeline=card(`
+      <div class="card-head"><span class="row-ico run" aria-hidden="true">${I.clock}</span>
+        <span class="row-main"><span class="row-t">กำลังทำงาน 6 ขั้นตอน</span><span class="row-s">ขั้นที่ 5 · ใช้เวลา 24 วินาที</span></span></div>
+      <div class="card-body">${[
+        ['อ่านใบแจ้งหนี้ 3 ไฟล์','สำเร็จ','ok'],
+        ['วางแผน 4 ขั้นตอน','สำเร็จ','ok'],
+        ['คำนวณผลต่างรายเดือน','สำเร็จ','ok'],
+        ['ค้นหาสาเหตุค่าไฟสูงขึ้น','กำลังทำ','run']
+      ].map(r=>`<div style="display:flex;align-items:center;gap:9px;padding:5px 0">
+        <span class="row-ico ${r[2]==='ok'?'ok':'run'}" style="width:22px;height:22px;border-radius:50%" aria-hidden="true">${r[2]==='ok'?I.check:I.clock}</span>
+        <span class="row-t" style="flex:1 1 auto">${r[0]}</span><span class="row-right">${r[1]}</span></div>`).join('')}</div>`);
+    const body = v===0
+      ? banner('info',I.info,'แอปทำงานต่อได้ช่วงสั้น ๆ แม้คุณออกจากแอป',
+          'iPhone ให้เวลาทำงานเบื้องหลังจำกัด · ตอนนี้เหลือประมาณ 2:40 นาที — ถ้าหมดเวลา งานจะหยุดชั่วคราวและกลับมาต่อได้',
+          `<button class="btn sm primary" onclick="toast('สาธิต: เปิดแจ้งเตือนเมื่อเสร็จ')">แจ้งเตือนเมื่อเสร็จ</button>
+           <button class="btn sm" onclick="toast('สาธิต: ทำงานให้จบก่อนออกจากแอป')">รอให้จบก่อน</button>`)
+      : v===1
+      ? banner('warn',I.warn,'อีก 40 วินาที ระบบจะหยุดงานชั่วคราว',
+          'ทุกรูปแบบนี้เป็นเรื่องปกติของ iPhone — ผลที่ทำเสร็จแล้วถูกเก็บครบ กลับมาเปิดแอปแล้วกด “ทำต่อ” ได้ทันที',
+          `<button class="btn sm primary" onclick="toast('สาธิต: หยุดเก็บผลไว้ตอนนี้')">หยุดเก็บผลไว้ตอนนี้</button>
+           <button class="btn sm ghost" onclick="toast('สาธิต: เปิดหน้าจอไว้ให้ทำงานต่อ')">เปิดหน้านี้ค้างไว้</button>`)
+      : banner('ok',I.check,'กลับมาต่อแล้ว',
+          'สัญญาณ/เวลาเบื้องหลังกลับมา — ทำงานต่อจากขั้นที่ 5 โดยใช้ผลเดิม ไม่ต้องเริ่มใหม่',
+          `<button class="btn sm" onclick="toast('สาธิต: ดูสิ่งที่ทำไปแล้ว')">ดูสิ่งที่ทำไปแล้ว</button>`);
+    return {content:`${body}${timeline}`,live:null};
+  }},
+
+bg_notify:{group:'bg',label:'การแจ้งเตือน (ศูนย์แจ้งเตือน)',variants:['4 แบบ','แบบย่อ'],lock:true,
+  appbar:null,
+  render(v){
+    const notifs = [
+      {t:'สรุปค่าไฟเสร็จแล้ว', b:'ใช้เวลา 42 วินาที · ได้ไฟล์ 1 ไฟล์ · แตะเพื่อดูผลลัพธ์',
+       acts:`<button class="primary" onclick="toast('สาธิต: เปิดผลลัพธ์ในแอป')">ดูผลลัพธ์</button><button onclick="toast('สาธิต: ปิดแจ้งเตือนนี้')">ปิด</button>`},
+      {t:'มีเรื่องรอคุณตอบ', b:'ต้องการอนุญาตก่อนส่งอีเมลถึงการไฟฟ้า — ต้องเข้าแอปเพื่ออ่านรายละเอียดก่อนอนุญาต',
+       acts:`<button class="primary" onclick="toast('สาธิต: เข้าแอปเพื่ออ่านรายละเอียดและอนุญาต')">เปิดในแอป</button><button onclick="toast('สาธิต: ปิดไว้ก่อน')">ไว้ก่อน</button>`,
+       note:'แจ้งเตือนไม่สามารถกดอนุญาตได้เอง — ต้องดูบริบทในแอป'},
+      {t:'งานล้มเหลว 1 ขั้น', b:'ค้นหาสาเหตุค่าไฟสูงขึ้น ทำไม่สำเร็จ (อินเทอร์เน็ตขาดตอน) · กดเพื่อดูทางเลือก',
+       acts:`<button class="primary" onclick="toast('สาธิต: เปิดแอปไปดูทางเลือก')">ดูทางเลือก</button><button onclick="toast('สาธิต: ปิดแจ้งเตือนนี้')">ปิด</button>`},
+      {t:'งานยังเดินอยู่เบื้องหลัง', b:'เหลือเวลาทำงานเบื้องหลัง 2:40 นาที · ถ้าหมดเวลา งานจะหยุดชั่วคราวและกลับมาต่อได้',
+       acts:`<button class="primary" onclick="toast('สาธิต: เปิดแอป')">เปิดแอป</button><button onclick="toast('สาธิต: หยุดงานชั่วคราว')">หยุดไว้</button>`}
+    ];
+    return {lock:`<div class="lock-time"><div class="big num">9:41</div><div class="small">วันอาทิตย์ที่ 28 กันยายน 2568</div></div>
+      ${notifs.slice(0, v===1?2:4).map(n=>`<div class="notif">
+        <div class="notif-top"><span class="row-ico run" style="width:22px;height:22px;border-radius:7px" aria-hidden="true">${I.task}</span>
+        <span class="notif-app">Agent Sandbox</span><span style="margin-left:auto" class="notif-app">ตอนนี้</span></div>
+        <div class="notif-t">${n.t}</div><div class="notif-b">${n.b}</div>
+        <div class="notif-acts">${n.acts}</div>
+        ${n.note?`<div class="misc" style="margin-top:7px">${n.note}</div>`:''}</div>`).join('')}
+      <div class="lock-hint">${v===1?'แบบย่อ: แสดงเฉพาะงานที่ต้องให้คุณตัดสินใจ และงานที่เพิ่งเสร็จ':'ปัดการแจ้งเตือนไม่ได้ — มีแค่ปุ่มเปิดแอป/ปิดไว้ก่อน ไม่มีปุ่มที่มีผลต่อเครื่องโดยตรง'}</div>`};
+  }},
+
+bg_settings:{group:'bg',label:'ตั้งค่าการแจ้งเตือน',variants:['ค่าที่เหมาะกับ iPhone 7'],
+  appbar:{title:'ตั้งค่า › การแจ้งเตือน',state:['idle','ตั้งค่าการแจ้งเตือน'],left:'back',right:'none',tabs:'settings'},
+  render(){
+    return {content:`
+      ${banner('info',I.info,'iPhone 7 (iOS 15) ไม่มี Live Activity / Dynamic Island',
+        'จึงใช้การแจ้งเตือนปกติ + แบนเนอร์ในแอปแทน — เป็นข้อจำกัดของระบบ ไม่ใช่ข้อจำกัดของแอป')}
+      ${sect('แจ้งเตือนเมื่อ',card(
+        toggle('n1',true,'งานเสร็จแล้ว','ส่งแจ้งเตือนพร้อมสรุปสั้น ๆ และปุ่มเปิดผลลัพธ์')+
+        toggle('n2',true,'มีเรื่องรอคุณตอบ','ต้องการอนุญาต หรือ Agent มีคำถาม — แตะแล้วเข้าแอปเพื่อตัดสินใจ')+
+        toggle('n3',true,'งานล้มเหลว','เมื่อมีขั้นที่ทำไม่สำเร็จ (มีทางไปต่อเสมอ)')+
+        toggle('n4',false,'ความคืบหน้าระหว่างทาง','แจ้งเตือนทุกขั้น — ค่าเริ่มต้นปิด เพื่อไม่ให้รบกวน'))) }
+      ${sect('ไม่รบกวน',card(
+        toggle('n5',false,'เปิดโหมดไม่รบกวนอัตโนมัติ','22:00 - 07:00 · งานที่ต้องให้คุณตัดสินใจจะยังแจ้ง 1 ครั้ง')))}
+      ${sect('เสียงและรูปแบบ',card(
+        row({title:'เสียงแจ้งเตือน',sub:'ค่าเริ่มต้นของระบบ',right:'ตามระบบ',chevron:true,btn:true,onclick:"toast('สาธิต: เลือกเสียง')"})+
+        row({title:'แสดงบนหน้าจอล็อก',sub:'ซ่อนเนื้อหางานไว้ก่อนปลดล็อก',right:'ซ่อนรายละเอียด',chevron:true,btn:true,onclick:"toast('สาธิต: เลือกการแสดงบนหน้าจอล็อก')"})))}
+      <p class="misc">การแจ้งเตือนทุกแบบ “เปิดแอปเท่านั้น” — ไม่มีปุ่มที่ทำให้ Agent ลงมือทำจากหน้าล็อก เพื่อกันกดพลาด (ดูตัวอย่างได้ที่หน้า “การแจ้งเตือน”)</p>`,
+      live:null};
+  }},
+
+/* ============================ 2. งานของฉัน ============================ */
+tasks_now:{group:'tasks',label:'กำลังทำ',variants:['2 งาน (1 กำลังทำ 1 รอคิว)'],
+  appbar:{title:'งานของฉัน',state:['working','กำลังทำ 1 งาน · รอคิว 1 งาน'],left:'back',right:'filter',tabs:'tasks'},
+  render(){
+    const b=`<div class="seg" style="display:flex;background:var(--surface-2);border-radius:999px;padding:3px;gap:2px">
+      <button class="tabseg" aria-pressed="true">กำลังทำ 1</button>
+      <button class="tabseg" onclick="toast('สาธิต: ไปหน้างานที่รอคุณ')">รอคุณ 2</button>
+      <button class="tabseg" onclick="toast('สาธิต: ไปหน้างานที่เสร็จแล้ว')">เสร็จแล้ว 12</button></div>`;
+    const list=TASKBAR.now.map(t=>`<div class="card" style="margin-top:10px">
+      <div class="card-head"><span class="row-ico ${t.tone}" aria-hidden="true">${t.ico}</span>
+        <span class="row-main"><span class="row-t">${t.n}</span><span class="row-s">${t.s}</span></span>
+        <span class="row-right num">${t.t}</span></div>
+      <div class="card-body pt"><div class="bar ${t.pct&&t.pct<100?'striped':''}"><i style="width:${t.pct}%"></i></div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button class="btn sm" onclick="toast('สาธิต: เปิดห้องแชทของงานนี้')">เปิดห้องแชท</button>
+          ${t.act}</div></div></div>`).join('');
+    return {content:`${b}
+      ${banner('info',I.info,'แอปนี้ทำได้ทีละงาน (ตามห้องสนทนา)',
+        'รายการ “รอคิว” ที่เห็นคือคิวของงานถัดไป — การรันหลายงานพร้อมกันจริงต้องแก้ engine (ระบุไว้ใน §9 เฟส 2)')}
+      ${list}
+      <p class="misc">งานที่รอคิวสามารถยกเลิกได้ และจะไม่เริ่มจนกว่าคุณจะยืนยัน</p>`,live:null};
+  }},
+
+tasks_waiting:{group:'tasks',label:'รอคุณ',variants:['รออนุญาต + รอคำตอบ'],
+  appbar:{title:'งานของฉัน',state:['waiting','มี 2 เรื่องรอคุณ'],left:'back',right:'filter',tabs:'tasks'},
+  render(){
+    const list=TASKBAR.waiting.map(t=>`<div class="card" style="margin-top:10px">
+      <div class="card-head"><span class="row-ico ${t.tone}" aria-hidden="true">${t.ico}</span>
+        <span class="row-main"><span class="row-t">${t.n}</span><span class="row-s">${t.s}</span></span>
+        <span class="row-right"><span class="chip warn">รอคุณ</span></span></div>
+      <div class="card-body pt" style="display:flex;gap:8px;flex-wrap:wrap">
+        ${t.act}<button class="btn sm ghost" onclick="toast('สาธิต: เปิดห้องแชท')">เปิดห้องแชท</button></div></div>`).join('');
+    return {content:`${banner('warn',I.warn,'2 เรื่องรอการตัดสินใจของคุณ',
+      'งานที่รออยู่จะไม่เดินต่อจนกว่าจะตอบ และจะไม่มีการเปลี่ยนไฟล์ใด ๆ ระหว่างรอ')}${list}
+      <p class="misc">แตะ “ไปตอบ” แล้วจะเข้าไปที่บริบทของเรื่องนั้นโดยตรง — การอนุมัติทำได้เฉพาะในแอป ไม่ทำจากแจ้งเตือน</p>`,live:null};
+  }},
+
+tasks_done:{group:'tasks',label:'เสร็จแล้ว',variants:['มีผลลัพธ์','มีบางขั้นล้มเหลว'],
+  appbar:{title:'งานของฉัน',state:['idle','ไม่มีงานกำลังทำ'],left:'back',right:'filter',tabs:'tasks'},
+  render(v){
+    const list=TASKBAR.done.slice(0, v===1?2:1).concat(v===1?[]:[]).map(t=>`<div class="card" style="margin-top:10px">
+      <div class="card-head"><span class="row-ico ${t.tone}" aria-hidden="true">${t.ico}</span>
+        <span class="row-main"><span class="row-t">${t.n}</span><span class="row-s">${t.s}</span></span>
+        <span class="row-right num">${t.t}</span></div>
+      <div class="card-body pt" style="display:flex;gap:8px;flex-wrap:wrap">
+        ${t.act}<button class="btn sm" onclick="toast('สาธิต: ส่งออกผลลัพธ์ (.md/.json)')">ส่งออก</button>
+        <button class="btn sm ghost" onclick="toast('สาธิต: แชร์ลิงก์ผลลัพธ์')">แชร์</button></div></div>`).join('');
+    const extra = v===1 ? `<div class="card" style="margin-top:10px">
+      <div class="card-head"><span class="row-ico warn" aria-hidden="true">${I.warn}</span>
+        <span class="row-main"><span class="row-t">ค้นข้อมูลค่า Ft ล่าสุด</span><span class="row-s">สำเร็จบางส่วน · ขั้นค้นเว็บล้มเหลว · ใช้ข้อมูลในเครื่องแทน</span></span>
+        <span class="row-right num">13:40</span></div>
+      <div class="card-body pt" style="display:flex;gap:8px"><button class="btn sm primary" onclick="toast('สาธิต: ลองใหม่ตั้งแต่ขั้นที่ล้มเหลว')">ลองใหม่ขั้นที่ล้มเหลว</button>
+      <button class="btn sm" onclick="toast('สาธิต: ใช้ผลลัพธ์เท่าที่มี')">ใช้ผลลัพธ์นี้</button></div></div>`:'';
+    return {content:`<div class="search">${I.search}<input placeholder="ค้นงานที่ผ่านมา (ชื่องาน/เนื้อหา)" aria-label="ค้นงาน"></div>
+      ${banner('ok',I.check,'งานที่เสร็จจะถูกเก็บไว้ 30 วัน','ผลลัพธ์และไทม์ไลน์ยังดูย้อนหลังได้ · ไฟล์ที่สร้างอยู่ใน “ไฟล์และผลงาน”')}
+      ${list}${extra}`,live:null};
+  }},
+
+tasks_schedule:{group:'tasks',label:'งานตั้งเวลา',variants:['รายการงาน','สร้างงานใหม่'],future:true,
+  appbar:{title:'งานตั้งเวลา',state:['idle','เตรียมไว้ — ยังไม่มีในแอป'],left:'back',right:'none',tabs:'tasks'},
+  render(v){
+    const isNew = v===1;
+    const body = isNew
+      ? `${sect('ตั้งเวลา',card(
+          row({title:'ทำซ้ำ',sub:'ทุกวันจันทร์',right:'แก้ไข',chevron:true,btn:true,onclick:"toast('สาธิต: เลือกความถี่')"})+
+          row({title:'เวลาเริ่ม',sub:'09:00',right:'09:00',chevron:true,btn:true,onclick:"toast('สาธิต: เลือกเวลา')"})+
+          row({title:'การแจ้งเตือน',sub:'แจ้งเมื่อเสร็จ และเมื่อต้องให้คุณตัดสินใจ',right:'เปิด',chevron:true,btn:true,onclick:"toast('สาธิต: ตั้งค่าการแจ้งเตือน')"})))}
+         ${sect('คำสั่งที่จะให้ทำทุกครั้ง',card(`<div class="card pad">
+            <div class="small" style="color:var(--t1)">“ตรวจค่าไฟเดือนล่าสุด แล้วแจ้งว่าสูงกว่าค่าเฉลี่ยกี่บาท พร้อมแนบไฟล์สรุป”</div></div>
+            <p class="misc" style="margin:8px 2px 0">Agent จะทำงานนี้ตามคำสั่งเดิมทุกครั้ง · ถ้ามีขั้นที่ต้องเปลี่ยนไฟล์ จะถามอนุญาตเหมือนงานปกติ</p>`))}
+         ${banner('warn',I.warn,'งานตั้งเวลาไม่ทำงานเองแบบไร้การควบคุม','ทุกครั้งที่เริ่ม จะมีแจ้งเตือน 1 ครั้ง และปุ่มหยุดในแอปเสมอ · ถ้าเครื่องปิดอยู่ งานจะทำเมื่อเปิดแอปเท่านั้น (ข้อจำกัดของ iOS)')}`
+      : `${banner('info',I.info,'เตรียมไว้ — ยังไม่มีในแอป','ดีไซน์นี้เตรียมหน้าจอไว้ล่วงหน้า เพื่อให้เพิ่มได้โดยไม่ต้องรื้อหน้าอื่น')}
+         ${sect('กำลังทำงานตามเวลา',card(
+          row({ico:I.cal,tone:'run',title:'ตรวจค่าไฟทุกวันจันทร์',sub:'09:00 · ครั้งล่าสุด 22 ก.ย. 2568 สำเร็จ',right:'เปิด',chevron:true,btn:true,onclick:"toast('สาธิต: เปิดงานตั้งเวลา')"})+
+          row({ico:I.cal,title:'สรุปไฟล์งานใน Downloads',sub:'ทุกวันที่ 1 ของเดือน · 09:30',right:'ปิดชั่วคราว',chevron:true,btn:true,onclick:"toast('สาธิต: เปิดงานตั้งเวลา')"})))}
+         <div style="margin-top:10px;display:flex;gap:8px"><button class="btn primary wide" onclick="toast('สาธิต: สร้างงานตั้งเวลาใหม่')">สร้างงานตั้งเวลา</button></div>
+         ${banner('warn',I.warn,'ปิดชั่วคราวได้ ไม่ต้องลบ','ปิดแล้วประวัติเดิมยังอยู่ และเปิดกลับได้ทุกเมื่อ')}`;
+    return {content:body,live:null};
+  }},
+
+tasks_detail:{group:'tasks',label:'รายละเอียดงาน',variants:['กำลังทำ','เสร็จแล้ว'],
+  appbar:{title:'สรุปค่าไฟ 3 เดือนย้อนหลัง',state:['working','กำลังทำงาน · ขั้น 5 จาก 6'],left:'back',right:'dots',tabs:'tasks'},
+  render(v){
+    const done = v===1;
+    return {content:`
+      <div class="card pad">
+        <div style="display:flex;gap:10px;align-items:center">
+          <span class="row-ico ${done?'ok':'run'}" aria-hidden="true">${done?I.check:I.clock}</span>
+          <span style="flex:1 1 auto"><span class="row-t" style="display:block">${done?'เสร็จแล้ว':'กำลังทำงาน'}</span>
+          <span class="row-s">${done?'ใช้เวลา 42 วินาที · 6 ขั้นตอน':'ขั้นที่ 5 จาก 6 · 24 วินาที'}</span></span>
+        </div>
+        ${done?'':'<div class="bar striped" style="margin-top:10px"><i style="width:72%"></i></div>'}
+      </div>
+      ${sect('ไทม์ไลน์ย่อ',card([
+        ['อ่านไฟล์ 3 ไฟล์','2.6 วิ','ok'],['วางแผน 4 ขั้น','0.8 วิ','ok'],['คำนวณผลต่าง','3.1 วิ','ok'],
+        ['ค้นหาสาเหตุค่าไฟ','9.4 วิ','run'],['บันทึกไฟล์สรุป',done?'1.9 วิ':'—',done?'ok':''],
+        ['ปิดข้อมูลอ่อนไหวในไทม์ไลน์','—','ok']
+      ].map(r=>`<div style="display:flex;align-items:center;gap:9px;padding:6px 0;border-bottom:1px solid var(--border)">
+        <span class="row-ico ${r[2]==='ok'?'ok':r[2]==='run'?'run':''}" style="width:22px;height:22px;border-radius:50%" aria-hidden="true">${r[2]==='ok'?I.check:r[2]==='run'?I.clock:I.layers}</span>
+        <span class="row-t" style="flex:1 1 auto">${r[0]}</span><span class="row-right num">${r[1]}</span></div>`).join('')))}
+      ${sect('ทรัพยากรที่ใช้',card(
+        `<div style="padding:2px 12px 12px">
+          <div class="kv"><span>โทเคนที่ใช้</span><span class="num">12,480 (↑9,140 ↓3,340)</span></div>
+          <div class="kv"><span>จำนวนคำขอไปโมเดล</span><span class="num">8 ครั้ง</span></div>
+          <div class="kv"><span>ค่าใช้จ่าย</span><span>$\u200b0.000000 (ผู้ให้บริการส่งมา)</span></div>
+          <div class="kv"><span>เวลาที่ใช้จริง</span><span class="num">42 วินาที</span></div>
+          <div class="kv"><span>เวลาที่เหลือ (ประมาณ)</span><span class="dim">ไม่แสดง — ยังไม่มีข้อมูลรองรับ</span></div>
+        </div>`))}
+      ${sect('การกระทำ',card(
+        row({ico:I.doc,title:'เปิดไฟล์ผลลัพธ์',sub:'สรุปค่าไฟ-3-เดือน.md · 4 KB',chevron:true,btn:true,onclick:"toast('สาธิต: เปิดไฟล์')"})+
+        row({ico:I.task,title:'เปิดบันทึกการเรียกใช้',sub:'ดูทุกรายละเอียดเทคนิคของงานนี้',chevron:true,btn:true,onclick:"toast('สาธิต: เปิดบันทึกการทำงาน')"})+
+        row({ico:I.share,title:'ส่งออกหรือแชร์ผลลัพธ์',sub:'เลือกได้ว่าจะรวมขั้นตอนกิจกรรมหรือไม่',chevron:true,btn:true,onclick:"toast('สาธิต: เปิดหน้าแชร์/ส่งออก')"})))}
+      <div style="display:flex;gap:8px;margin-top:12px">
+        ${done?`<button class="btn wide primary" onclick="toast('สาธิต: สั่งให้ทำงานนี้ซ้ำ')">ทำงานนี้ซ้ำ</button>`
+              :`<button class="btn wide dangerline" onclick="toast('สาธิต: หยุดและเก็บผลไว้')">หยุดงานนี้</button>
+                <button class="btn wide" onclick="toast('สาธิต: เปิดห้องแชทของงานนี้')">ดูในแชท</button>`}</div>`,
+      live:null};
+  }},
+
+tasks_log:{group:'tasks',label:'บันทึกการเรียกใช้',variants:['ทั้งหมด','กรองเฉพาะที่ล้มเหลว'],
+  appbar:{title:'บันทึกการเรียกใช้',state:['idle','บันทึก 300 รายการล่าสุด'],left:'back',right:'filter',tabs:'tasks'},
+  render(v){
+    const items=[['read_file','อ่าน บิล_ต.ค._2568.pdf','สำเร็จ','2.4 วิ','ok'],
+      ['web_search','ค้นหา “สาเหตุค่าไฟสูงขึ้น ตุลาคม 2568”','สำเร็จ','9.4 วิ','ok'],
+      ['execute_shell','รันคำสั่งคำนวณผลต่าง','สำเร็จ','3.1 วิ','ok'],
+      ['write_file','บันทึก สรุปค่าไฟ-3-เดือน.md','สำเร็จ','1.4 วิ','ok'],
+      ['http_request','เรียกข้อมูลจาก eppo.go.th','ล้มเหลว (หมดเวลา)','10.0 วิ','err']];
+    const list=items.filter(i=>v===1?i[4]==='err':true).map(i=>`<div class="card" style="margin-top:8px">
+      <div class="card-head"><span class="row-ico ${i[4]}" aria-hidden="true">${i[4]==='ok'?I.check:I.warn}</span>
+      <span class="row-main"><span class="row-t">${i[1]}</span><span class="row-s mono">${i[0]} · ${i[2]} · ${i[3]}</span></span></div></div>`).join('');
+    return {content:`${banner('info',I.info,'บันทึกนี้เก็บในเครื่องคุณเท่านั้น','ไม่ถูกส่งออกไปไหน และเก็บ 300 รายการล่าสุด (เพื่อประหยัดหน่วยความจำบนเครื่อง RAM 2GB)')}
+      ${list}
+      <p class="misc">ชื่อ tool แสดงในหน้านี้เท่านั้น (เป็นหน้าสำหรับตรวจสอบย้อนหลัง) — ในหน้าแชทผู้ใช้จะเห็นเป็นภาษาคนเสมอ</p>`,live:null};
+  }},
+
+/* ======================= 3. ต้นทุน / โควตา / บริบท ======================= */
+usage_task:{group:'usage',label:'งานนี้ใช้ไปเท่าไร',variants:['มีค่าใช้จ่าย','ไม่มีข้อมูลค่าใช้จ่าย'],
+  appbar:{title:'ต้นทุนของงานนี้',state:['idle','สรุปการใช้งาน'],left:'back',right:'none',tabs:'tasks'},
+  render(v){
+    return {content:`
+      ${banner('info',I.info,'ตัวเลขทั้งหมดเป็นค่าจริงจากผู้ให้บริการ','แสดงเฉพาะสิ่งที่วัดได้ — ไม่มี “เวลาที่เหลือ” หรือ “โควตาจะเต็มใน…” เพราะไม่มีข้อมูลรองรับ')}
+      ${sect('งานนี้',card(`<div style="padding:2px 12px 12px">
+        <div class="kv"><span>โทเคนขาเข้า</span><span class="num">9,140</span></div>
+        <div class="kv"><span>โทเคนขาออก</span><span class="num">3,340</span></div>
+        <div class="kv"><span>รวม</span><span class="num">12,480 โทเคน</span></div>
+        <div class="kv"><span>จำนวนคำขอ</span><span class="num">8 ครั้ง</span></div>
+        <div class="kv"><span>เวลาใช้งานจริง</span><span class="num">42 วินาที</span></div>
+        <div class="kv"><span>ค่าใช้จ่าย</span><span>${v===0?'$\u200b0.004120':'ไม่ระบุ — โมเดลนี้ไม่ส่งข้อมูลค่าใช้จ่าย'}</span></div>
+        <div class="kv"><span>เวลาที่เหลือ (ประมาณ)</span><span class="dim">ไม่แสดง — ยังไม่มีข้อมูลรองรับ</span></div>
+      </div>`))}
+      ${sect('โมเดลที่ใช้',card(
+        row({ico:I.layers,title:'โมเดลที่ใช้ในงานนี้',sub:'8 คำขอ · 12,480 โทเคน',right:'เปลี่ยน',chevron:true,btn:true,onclick:"toast('สาธิต: เปลี่ยนโมเดลเริ่มต้น')"})))}
+      <p class="misc">ใช้คำนวณจากยอดที่ผู้ให้บริการส่งกลับมาในคำขอจริง · ถ้าโมเดลไม่ส่งค่าใช้จ่าย ระบบจะบอกว่า “ไม่ระบุ” ไม่เดาให้</p>`,live:null};
+  }},
+
+usage_overview:{group:'usage',label:'ภาพรวมการใช้งาน',variants:['7 วัน','30 วัน'],
+  appbar:{title:'ต้นทุนและการใช้งาน',state:['idle','สรุปจากทุกงาน'],left:'back',right:'reset',tabs:'settings'},
+  render(v){
+    const days = v===0 ? ['จ.','อ.','พ.','พฤ.','ศ.','ส.','อา.'] : ['สัปดาห์ 1','สัปดาห์ 2','สัปดาห์ 3','สัปดาห์ 4'];
+    const vals = v===0 ? [32,18,64,41,88,12,26] : [180,240,150,320];
+    const max = Math.max(...vals);
+    return {content:`
+      ${sect('',`<div class="card pad">
+        <div class="small muted">โทเคนที่ใช้${v===0?' 7 วันล่าสุด':' 30 วันล่าสุด'}</div>
+        <div class="row-t num" style="font-size:25px;margin-top:2px">${v===0?'281,400':'890,200'} โทเคน</div>
+        <div class="bars">${vals.map((x,i)=>`<div class="col ${i===vals.length-1?'now':''}"><i style="height:${Math.round(x/max*100)}%"></i><span class="lbl">${days[i]}</span></div>`).join('')}</div>
+        <div class="misc" style="margin-top:8px">แถบสีเข้ม = ${v===0?'วันนี้':'สัปดาห์นี้'} (ยังไม่จบช่วง) — ตัวเลขจะเพิ่มขึ้นจนจบวัน</div></div>`)}
+      ${sect('แยกตามงาน',card(
+        row({title:'สรุปค่าไฟ 3 เดือนย้อนหลัง',sub:'12,480 โทเคน · 42 วินาที · เสร็จแล้ว',right:'14:12',chevron:true,btn:true,onclick:"toast('สาธิต: ดูต้นทุนของงานนี้')"})+
+        row({title:'จัดระเบียบไฟล์ใน Downloads',sub:'48,200 โทเคน · 6 นาที · เสร็จแล้ว',right:'11:05',chevron:true,btn:true,onclick:"toast('สาธิต: ดูต้นทุนของงานนี้')"})+
+        row({title:'เขียนอีเมลถึงการไฟฟ้า',sub:'3,120 โทเคน · รอคุณอนุญาต',right:'รอคุณ',chevron:true,btn:true,onclick:"toast('สาธิต: ดูต้นทุนของงานนี้')"})))}
+      ${sect('บริบทของโมเดล (สำคัญกับเครื่อง RAM 2GB)',card(`<div style="padding:2px 12px 12px">
+        <div class="kv"><span>หน้าต่างบริบทที่ตั้งไว้</span><span class="num">32,768 โทเคน</span></div>
+        <div class="kv"><span>ใช้ไปในห้องนี้</span><span class="num">18,900 (58%)</span></div>
+        <div class="bar" style="margin-top:10px"><i style="width:58%"></i></div>
+        <p class="misc" style="margin-top:8px">เมื่อใกล้เต็ม แอปจะเสนอ “ตัดประวัติเก่า” ให้อัตโนมัติ (ของเดิมในแอป) เพื่อไม่ให้คำขอล้มเหลว</p></div>`))}
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn wide" onclick="toast('สาธิต: รีเซ็ตตัวนับของเซสชันนี้')">รีเซ็ตตัวนับเซสชัน</button>
+        <button class="btn wide" onclick="toast('สาธิต: ดูบันทึกการเรียกใช้')">ดูบันทึกการเรียกใช้</button></div>`,live:null};
+  }},
+
+usage_limit:{group:'usage',label:'เตือนก่อนถึงขีดจำกัด',variants:['บริบทใกล้เต็ม','ถูกจำกัดการใช้งาน'],
+  appbar:{title:'สรุปค่าไฟ 3 เดือนย้อนหลัง',state:['waiting','รอคุณตัดสินใจ'],left:'back',right:'dots',tabs:'chat'},
+  render(v){
+    if (v===0) return {content:`
+      ${banner('warn',I.warn,'บริบทของห้องนี้ใช้ไป 82%',
+        'ถ้าเต็ม คำขอถัดไปจะล้มเหลว · วิธีที่ปลอดภัยที่สุดคือตัดประวัติเก่าออก (ข้อความเดิมยังอยู่ในไฟล์ส่งออกได้)',
+        `<button class="btn sm primary" onclick="toast('สาธิต: ตัดประวัติเก่าให้แล้ว')">ตัดประวัติเก่า</button>
+         <button class="btn sm" onclick="toast('สาธิต: ส่งออกประวัติก่อนตัด')">ส่งออกประวัติก่อน</button>
+         <button class="btn sm ghost" onclick="toast('สาธิต: ทำงานต่อแบบนี้')">ทำงานต่อ</button>`)}
+      ${card(`<div class="card pad"><div class="small muted">การใช้บริบทในห้องนี้</div>
+        <div class="row-t num" style="margin-top:2px">26,900 / 32,768 โทเคน</div>
+        <div class="bar" style="margin-top:9px"><i class="warn" style="width:82%"></i></div></div>`)}
+      <p class="misc">ตัวเลขนี้วัดจากบทสนทนาจริงในห้องนี้ ไม่ใช่การประมาณ</p>`,live:null};
+    return {content:`
+      ${banner('warn',I.clock,'ผู้ให้บริการจำกัดการใช้งานชั่วคราว','จะลองใหม่ให้อัตโนมัติแบบเว้นช่วงเพิ่มขึ้น (สูงสุด 3 ครั้ง) · ตัวเลขด้านล่างคือจังหวะที่แอปจะลองเอง ไม่ใช่เวลาที่โควตาจะคืน',
+        `<button class="btn sm primary" onclick="toast('สาธิต: ลองเดี๋ยวนี้')">ลองเดี๋ยวนี้</button>
+         <button class="btn sm" onclick="toast('สาธิต: เปลี่ยนโมเดล')">เปลี่ยนโมเดล</button>
+         <button class="btn sm ghost" onclick="toast('สาธิต: หยุดเก็บผลไว้')">หยุดเก็บผลไว้</button>`)}
+      ${sect('การใช้งานรอบนี้',card(`<div style="padding:2px 12px 12px">
+        <div class="kv"><span>คำขอที่สำเร็จ</span><span class="num">8 ครั้ง</span></div>
+        <div class="kv"><span>คำขอที่ถูกปฏิเสธ (429)</span><span class="num">2 ครั้ง</span></div>
+        <div class="kv"><span>โทเคนที่ใช้ไป</span><span class="num">12,480</span></div>
+        <div class="kv"><span>จะลองใหม่ครั้งที่</span><span class="num">2 จาก 3</span></div></div>`))}
+      <p class="misc">ระบบไม่แสดง “โควตาคงเหลือ” เพราะผู้ให้บริการไม่ได้ส่งตัวเลขนั้นมา</p>`,live:null};
+  }},
+
+/* ============================ 4. โหมดเสียง ============================ */
+voice_live:{group:'voice',label:'สถานะเสียง (ฟัง/คิด/พูด)',variants:['กำลังฟัง','กำลังคิด + กิจกรรมย่อ','กำลังพูด'],future:true,
+  appbar:{title:'โหมดเสียง',state:['working','โหมดเสียง · เตรียมไว้'],left:'back',right:'none',tabs:'chat'},
+  render(v){
+    const st = v===0?['กำลังฟัง…','พูดได้เลยครับ ผมจะตอบกลับด้วยเสียง', 'idle','wave']
+             : v===1?['กำลังคิด…','กำลังอ่านใบแจ้งหนี้ 2 จาก 3 ไฟล์', 'idle','shimmer']
+             : ['กำลังพูด…','“เดือนตุลาคมใช้ไฟมากที่สุด เพิ่มขึ้น 16.9%…”', 'speaking','wave'];
+    return {content:`<div class="voice">
+      <div class="orb ${st[2]}">${I.mic.replace('width="22" height="22"','width="52" height="52"')}</div>
+      ${st[3]==='wave'?`<div class="wave" aria-hidden="true">${Array.from({length:9}).map(()=>'<i></i>').join('')}</div>`:`<div class="shimmer" style="width:200px;height:14px"></div>`}
+      <div class="voice-state" role="status" aria-live="polite">${st[0]}</div>
+      <div class="voice-detail">${st[1]}</div>
+      <div class="voice-acts">
+        <button class="roundbtn" aria-label="ปิดไมค์" onclick="toast('สาธิต: ปิดไมค์')">${I.micSmall}</button>
+        <button class="roundbtn end" aria-label="วางสาย" onclick="toast('สาธิต: ออกจากโหมดเสียง')">${I.stop}</button>
+        <button class="roundbtn" aria-label="สลับไปพิมพ์" onclick="toast('สาธิต: สลับไปพิมพ์แทน')">${I.task}</button>
+      </div>
+      ${card(`<div class="card-head" style="min-height:44px"><span class="row-main"><span class="row-s">กิจกรรมระหว่างคุยจะแสดงแบบย่อบรรทัดเดียว — ไม่กวนบทสนทนา แต่ยังรู้ว่า Agent ทำอะไรอยู่</span></span></div>`)}
+      ${banner('info',I.info,'โหมดเสียง — เตรียมไว้ ยังไม่มีในแอป','หน้านี้เป็นสเปกสำหรับเฟส 5 · จะใช้ไมโครโฟนของระบบ (ต้องขอสิทธิ์เพิ่ม ซึ่งต้องให้คุณอนุญาตก่อน)')}
+      </div>`,live:null,tight:true};
+  }},
+
+voice_handoff:{group:'voice',label:'ขออนุญาตระหว่างคุยเสียง',variants:['การ์ดย่อ + ตอบด้วยเสียง'],future:true,
+  appbar:{title:'โหมดเสียง',state:['waiting','รอคุณอนุญาต'],left:'back',right:'none',tabs:'chat'},
+  render(){
+    return {content:`<div style="padding:16px">
+      ${banner('warn',I.warn,'งานนี้ต้องอนุญาตก่อนทำต่อ','“บันทึกไฟล์สรุปค่าไฟ” — เขียนไฟล์ใหม่ 1 ไฟล์ใน Documents/Agent · ยังไม่มีอะไรถูกเขียน')}
+      ${card(`<div class="card-body pt" style="padding-top:12px">
+        <div class="small" style="color:var(--t1)">พูดตอบได้เลยว่า “อนุญาต” หรือ “ไม่อนุญาต” — แต่ถ้าเป็นการกระทำที่ย้อนกลับยาก (เช่นลบไฟล์) แอปจะบังคับให้ยืนยันบนหน้าจอ</div>
+        <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+          <button class="btn sm primary" onclick="toast('สาธิต: ยืนยันบนหน้าจอแล้วจึงอนุญาต')">ยืนยันบนหน้าจอ</button>
+          <button class="btn sm" onclick="toast('สาธิต: พูดว่า “ไม่อนุญาต”')">ไม่อนุญาต</button>
+          <button class="btn sm ghost" onclick="toast('สาธิต: ออกจากโหมดเสียงไปดูรายละเอียด')">ดูรายละเอียดแบบเต็ม</button>
+        </div></div>`)}
+      ${banner('info',I.shield,'กติกาความปลอดภัยของโหมดเสียง',
+        'การกระทำที่ย้อนกลับยาก (ลบ/ย้าย/รันคำสั่งเสี่ยง) ต้องยืนยันด้วยการแตะบนหน้าจอเสมอ ไม่รับการอนุมัติด้วยเสียงเพียงอย่างเดียว · คำสั่งเสียงจะถูกถอดเสียงเป็นข้อความและแสดงบนจอให้ตรวจ')}
+      </div>`,live:null};
+  }},
+
+/* ============================== 5. หน้ารอง ============================== */
+page_onboarding:{group:'pages',label:'Onboarding 3 หน้า',variants:['1 เห็นทุกขั้นตอน','2 ควบคุมได้ทุกเมื่อ','3 ทำงานยาวให้','4 ตั้งค่าให้พร้อมใช้'],
+  appbar:null,noTabs:true,
+  render(v){
+    const pages=[
+      {t:'เห็นทุกอย่างที่ Agent ทำ',b:'ทุกขั้นตอน — อ่านไฟล์ ค้นเว็บ เขียนไฟล์ รันคำสั่ง — ปรากฏเป็นไทม์ไลน์ที่คุณตรวจย้อนหลังได้เสมอ แตะขั้นไหนก็ดูรายละเอียดได้',art:`
+        <div style="width:78%;display:flex;flex-direction:column;gap:9px">
+          ${[['อ่านไฟล์ 3 ไฟล์','ok'],['วางแผน 4 ขั้น','ok'],['ค้นหาสาเหตุค่าไฟ','run']].map(r=>`<div class="card" style="display:flex;gap:9px;align-items:center;padding:9px 11px">
+            <span class="row-ico ${r[1]==='ok'?'ok':'run'}" style="width:22px;height:22px;border-radius:50%" aria-hidden="true">${r[1]==='ok'?I.check:I.clock}</span>
+            <span class="row-t" style="font-size:13px">${r[0]}</span></div>`).join('')}
+        </div>`},
+      {t:'คุณควบคุมได้ทุกเมื่อ',b:'หยุดได้ทันที และทุกการกระทำที่เปลี่ยนเครื่องคุณต้องได้รับการอนุญาตก่อนเสมอ — เลือกได้ว่าจะอนุญาตครั้งเดียว หรืออนุญาตแบบมีขอบเขต',art:`
+        <div style="width:80%;display:flex;flex-direction:column;gap:9px">
+          <div class="card" style="padding:11px">
+            <div class="row-t" style="font-size:13px">กำลังจะบันทึกทับไฟล์</div>
+            <div class="row-s">สรุปค่าไฟ-3-เดือน.md · 4 KB</div>
+            <div style="display:flex;gap:7px;margin-top:10px"><span class="chip ok">อนุญาตครั้งนี้</span><span class="chip">อนุญาตเสมอ…</span><span class="chip">ไม่อนุญาต</span></div>
+          </div>
+          <div class="card" style="display:flex;gap:9px;align-items:center;padding:9px 11px">
+            <span class="row-ico warn" style="width:22px;height:22px;border-radius:50%" aria-hidden="true">${I.warn}</span>
+            <span class="row-t" style="font-size:13px">หยุดได้ทุกเมื่อ</span></div>
+        </div>`},
+      {t:'ทำงานยาว ๆ ให้ได้',b:'งานที่ใช้เวลาหลายนาทีจะทำต่อแม้คุณออกจากแอป (เท่าที่ iOS อนุญาต) และแจ้งเตือนเมื่อเสร็จ ต้องการคำตอบ หรือล้มเหลว',art:`
+        <div style="width:80%">
+          <div class="notif" style="box-shadow:none;border:1px solid var(--border)">
+            <div class="notif-top"><span class="row-ico run" style="width:22px;height:22px;border-radius:7px" aria-hidden="true">${I.task}</span><span class="notif-app">Agent Sandbox</span></div>
+            <div class="notif-t">สรุปค่าไฟเสร็จแล้ว</div><div class="notif-b">ใช้เวลา 42 วินาที · ได้ไฟล์ 1 ไฟล์</div>
+            <div class="notif-acts"><button class="primary">ดูผลลัพธ์</button><button>ปิด</button></div>
+          </div>
+        </div>`},
+      {t:'ตั้งค่าให้พร้อมใช้',b:'อีก 3 อย่างก็เริ่มได้แล้ว — คีย์ของคุณเก็บใน Keychain ของเครื่อง ไม่ถูกส่งออกไปไหน',art:`
+        <div style="width:80%;display:flex;flex-direction:column;gap:8px">
+          <div class="card" style="padding:11px"><div class="row-t" style="font-size:13px">คีย์ OpenRouter</div><div class="row-s">เก็บใน Keychain · แสดงเฉพาะ 4 ตัวท้าย</div></div>
+          <div class="card" style="padding:11px"><div class="row-t" style="font-size:13px">โมเดลเริ่มต้น</div><div class="row-s">เลือกโมเดลที่จะใช้บ่อย</div></div>
+          <div class="card" style="padding:11px"><div class="row-t" style="font-size:13px">โหมดขออนุมัติ</div><div class="row-s">แนะนำ: เปิดไว้ก่อน</div></div>
+        </div>`}
+    ];
+    const p=pages[v];
+    return {onb:`<div class="onb-dots" aria-hidden="true">${pages.map((_,i)=>`<i class="${i===v?'on':''}"></i>`).join('')}</div>
+      <div class="onb-art">${p.art}</div>
+      <div><div class="onb-title">${p.t}</div><div class="onb-body">${p.b}</div></div>
+      ${v===3?`<div class="card pad" style="display:flex;flex-direction:column;gap:9px">
+          <div class="field">${I.lock}<input placeholder="วางคีย์ OpenRouter ที่นี่" aria-label="คีย์ OpenRouter"></div>
+          <div class="btn" style="justify-content:space-between" onclick="toast('สาธิต: เลือกโมเดล')">เลือกโมเดล<span class="chip">โมเดลฟรี</span></div>
+          <div class="row" style="padding:0;border:0"><span class="row-main"><span class="row-t">ถามอนุมัติทุกครั้ง</span><span class="row-s">แนะนำให้เปิดไว้ก่อน</span></span>
+          <span class="row-right"><button class="toggle acc" aria-pressed="true" aria-label="ถามอนุมัติทุกครั้ง" onclick="flip(this)"></button></span></div>
+        </div>`:''}
+      <div class="onb-foot">
+        ${v>0?`<button class="btn ghost" onclick="toast('สาธิต: ย้อนกลับ')" style="min-height:44px">ย้อนกลับ</button>`:''}
+        <button class="btn wide ${v===3?'primary':''}" onclick="toast('สาธิต: ไปหน้าถัดไป')">${v===3?'เริ่มใช้งาน':'ถัดไป'}</button>
+      </div>
+      <div style="text-align:center"><button class="btn ghost sm" onclick="toast('สาธิต: ข้ามการแนะนำ')">ข้าม</button></div>`};
+  }},
+
+page_history:{group:'pages',label:'ประวัติแชท',variants:['มีปักหมุด+กลุ่ม','ผลการค้นหา'],future:true,
+  appbar:{title:'ประวัติแชท',state:['idle','18 ห้องสนทนา'],left:'back',right:'new',tabs:'tasks'},
+  render(v){
+    if (v===1) return {content:`
+      <div class="search">${I.search}<input value="ค่าไฟ" aria-label="ค้นหาในทุกห้อง"></div>
+      ${sect('พบ 6 ผลลัพธ์ใน 4 ห้อง',card(
+        row({ico:I.doc,title:'…เดือนตุลาคมใช้ไฟมากที่สุด 512 หน่วย…',sub:'สรุปค่าไฟ 3 เดือนย้อนหลัง · 14:12',chevron:true,btn:true,onclick:"toast('สาธิต: ข้ามไปข้อความนั้นในห้อง')"})+
+        row({ico:I.doc,title:'…ยอดค่าไฟรวม 3 เดือน 6,137.80 บาท…',sub:'สรุปค่าไฟ 3 เดือนย้อนหลัง · 14:11',chevron:true,btn:true,onclick:"toast('สาธิต: ข้ามไปข้อความนั้นในห้อง')"})+
+        row({ico:I.globe,title:'…ค่า Ft รอบ ต.ค. 2568 ปรับขึ้น 0.12 บาทต่อหน่วย…',sub:'ค้นข้อมูลค่า Ft ล่าสุด · 13:40',chevron:true,btn:true,onclick:"toast('สาธิต: ข้ามไปข้อความนั้นในห้อง')"})))}
+      ${banner('info',I.info,'ค้นได้ทั้งข้อความและไฟล์ในเครื่อง','ผลลัพธ์จะบอกว่าเจอในห้องไหน และกดแล้วข้ามไปตรงข้อความนั้นทันที (ของเดิมในแอป)')}`,live:null};
+    return {content:`
+      <div class="search">${I.search}<input placeholder="ค้นหาในทุกห้อง" aria-label="ค้นหาในทุกห้อง"></div>
+      ${sect('ปักหมุด',card(
+        row({ico:I.pin,tone:'run',title:'สรุปค่าไฟ 3 เดือนย้อนหลัง',sub:'6 ข้อความ · อัปเดต 14:12 · ปักหมุดไว้',chevron:true,btn:true,onclick:"toast('สาธิต: เปิดห้อง')"})+
+        row({ico:I.pin,tone:'run',title:'คู่มือตั้งค่าโมเดล',sub:'12 ข้อความ · ปักหมุดไว้',chevron:true,btn:true,onclick:"toast('สาธิต: เปิดห้อง')"})))}
+      ${sect('วันนี้',card(
+        row({ico:I.globe,title:'ค้นข้อมูลค่า Ft ล่าสุด',sub:'8 ข้อความ · 13:40 · สำเร็จบางส่วน',chevron:true,btn:true,onclick:"toast('สาธิต: เปิดห้อง')"})+
+        row({ico:I.folder,title:'จัดระเบียบไฟล์ใน Downloads',sub:'24 ข้อความ · 11:05',chevron:true,btn:true,onclick:"toast('สาธิต: เปิดห้อง')"})))}
+      ${sect('เมื่อวาน',card(
+        row({ico:I.mail,title:'เขียนอีเมลถึงการไฟฟ้า',sub:'5 ข้อความ · รอคุณอนุญาต',chevron:true,btn:true,onclick:"toast('สาธิต: เปิดห้อง')"})))}
+      ${banner('info',I.info,'ปักหมุด/จัดกลุ่ม — เตรียมไว้','ของเดิมมีสร้าง/ลบห้องและค้นหาแล้ว · การปักหมุดและจัดกลุ่มต้องเพิ่มฟิลด์ในฐานข้อมูลห้อง (เล็กน้อย ไม่กระทบของเดิม)')}`,live:null};
+  }},
+
+page_connectors:{group:'pages',label:'เครื่องมือและสิทธิ์',variants:['ความสามารถในเครื่อง','เชื่อมต่อบริการภายนอก'],
+  appbar:{title:'เครื่องมือและสิทธิ์',state:['idle','ความสามารถและสิทธิ์'],left:'back',right:'none',tabs:'settings'},
+  render(v){
+    if (v===1) return {content:`
+      ${banner('info',I.info,'บริการภายนอก — เตรียมไว้','ยังไม่มีในแอป · เมื่อมีแล้ว ต้องขออนุญาตเชื่อมต่อเป็นรายบริการ และแสดงสิทธิ์ที่ขอเป็นภาษาคนเสมอ')}
+      ${sect('เชื่อมต่อไว้แล้ว',card(
+        row({ico:I.cal,tone:'run',title:'ปฏิทิน',sub:'สิทธิ์: อ่าน + สร้างนัด · ไม่ลบ ไม่แก้ของเดิม',right:'เชื่อมแล้ว',chevron:true,btn:true,onclick:"toast('สาธิต: ดูสิทธิ์ของปฏิทิน')"})+
+        row({ico:I.mail,title:'อีเมล',sub:'สิทธิ์: ร่างข้อความเท่านั้น (ยังไม่ส่ง)',right:'เชื่อมแล้ว',chevron:true,btn:true,onclick:"toast('สาธิต: ดูสิทธิ์ของอีเมล')"})))}
+      ${sect('ยังไม่ได้เชื่อมต่อ',card(
+        row({ico:I.folder,title:'จัดเก็บไฟล์บนคลาวด์',sub:'ให้ Agent อ่าน/เขียนไฟล์บนคลาวด์ของคุณ',right:'เชื่อมต่อ',chevron:true,btn:true,onclick:"toast('สาธิต: เริ่มเชื่อมต่อ (ต้องอนุญาตก่อน)')"})+
+        row({ico:I.globe,title:'เว็บเบราว์เซอร์ที่ล็อกอินไว้',sub:'ให้ Agent อ่านหน้าเว็บที่ต้องล็อกอิน (ยังไม่รองรับ)',right:'ยังไม่รองรับ',chevron:true,btn:true,onclick:"toast('สาธิต: ดูคำอธิบาย')"})))}
+      <p class="misc">ทุกบริการที่เชื่อมจะอยู่ในหน้านี้ และเพิกถอนได้ทุกเมื่อ · Agent ไม่เห็นรหัสผ่านของคุณ เพราะการล็อกอินทำในหน้าของบริการนั้นเอง</p>`,live:null};
+    return {content:`
+      ${banner('info',I.info,'สวิตช์กลุ่มนี้ทำงานจริงในแอป','ปรับแล้วมีผลทันที · ทุกอย่างเกี่ยวกับการเปลี่ยนเครื่องยังต้องขออนุญาตเสมอ')}
+      ${sect('การใช้งาน',card(
+        toggle('c1',true,'ให้ Agent ใช้อินเทอร์เน็ต','ค้นเว็บ เปิดหน้าเว็บ และดาวน์โหลดไฟล์','acc')+
+        toggle('c2',false,'ใช้เฉพาะ Wi-Fi','กันการใช้ข้อมูลมือถือโดยไม่ตั้งใจ')+
+        toggle('c3',false,'ถามอนุมัติทุกครั้ง (แนะนำให้เปิด)','ปิดแล้ว Agent จะแก้ไฟล์ได้เองทันที — การกระทำระดับเสี่ยงสูงยังถามเสมอ')))}
+      ${sect('ขอบเขตการทำงานในเครื่อง',card(
+        row({ico:I.folder,title:'โฟลเดอร์ทำงาน',sub:'Documents/Agent',right:'เปลี่ยน',chevron:true,btn:true,onclick:"toast('สาธิต: เลือกโฟลเดอร์ทำงาน')"})+
+        row({ico:I.doc,title:'เพดานไฟล์ที่ดาวน์โหลด',sub:'200 MB ต่อไฟล์ (ค่าเริ่มต้นของแอป)',right:'แก้ไข',chevron:true,btn:true,onclick:"toast('สาธิต: ตั้งเพดานขนาดไฟล์')"})+
+        row({ico:I.layers,title:'หน้าต่างบริบทของโมเดล',sub:'32,768 โทเคน · ใช้ไป 58%',right:'แก้ไข',chevron:true,btn:true,onclick:"toast('สาธิต: ปรับขนาดบริบท')"})))}
+      ${banner('warn',I.warn,'คำเตือนเมื่อปิด “ถามอนุมัติ”','ถ้าปิด แอปจะแสดงแบนเนอร์สีส้มในหน้าแชทตลอดเวลา เพื่อให้คุณรู้ตัวว่าโหมดไม่ถามเปิดอยู่ และสวิตช์นี้จะรีเซ็ตกลับเป็น “ถาม” ทุกครั้งที่เปิดแอปใหม่')}
+      ${sect('ความสามารถของ Agent',card(
+        row({ico:I.layers,title:'รายการเครื่องมือที่ Agent ใช้ได้',sub:'15 รายการ · อ่าน/เขียนไฟล์ ค้นเว็บ รันคำสั่ง ฯลฯ',chevron:true,btn:true,onclick:"toast('สาธิต: ดูรายการเครื่องมือ')"})+
+        row({ico:I.task,title:'สิทธิ์ที่อนุญาตไว้',sub:'ดูและเพิกถอนได้ทุกเมื่อ',right:'3 รายการ',chevron:true,btn:true,onclick:"toast('สาธิต: เปิดหน้าจัดการสิทธิ์')"})))}`,live:null};
+  }},
+
+page_artifacts:{group:'pages',label:'ไฟล์และผลงาน',variants:['ทั้งหมด','เฉพาะที่แก้ไข'],
+  appbar:{title:'ไฟล์และผลงาน',state:['idle','ไฟล์ที่ Agent สร้าง/แก้'],left:'back',right:'filter',tabs:'files'},
+  render(v){
+    const files=[['สรุปค่าไฟ-3-เดือน.md','สร้างใหม่ · 4 KB · จากงาน “สรุปค่าไฟ”','14:12','run','สร้าง'],
+      ['ตารางเปรียบเทียบ-ค่าไฟ.csv','สร้างใหม่ · 2 KB · จากงาน “สรุปค่าไฟ”','14:12','run','สร้าง'],
+      ['บันทึกที่ประชุม.md','แก้ไข · +24 −6 บรรทัด','13:05','','แก้'],
+      ['ข้อมูลดิบ-ค่าไฟ.csv','สำเนาสำรอง · 128 KB','11:40','','สำรอง']];
+    const list=files.filter(f=>v===1?f[5]==='แก้':true).map(f=>`<div class="card" style="margin-top:8px">
+      <div class="card-head"><span class="row-ico ${f[3]}" aria-hidden="true">${I.doc}</span>
+      <span class="row-main"><span class="row-t">${f[0]}</span><span class="row-s">${f[1]}</span></span>
+      <span class="row-right"><span class="chip">${f[5]}</span><span class="num">${f[2]}</span></span></div>
+      <div class="card-body pt" style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn sm" onclick="toast('สาธิต: เปิดไฟล์')">เปิด</button>
+        <button class="btn sm" onclick="toast('สาธิต: แชร์ไฟล์')">แชร์</button>
+        <button class="btn sm ghost" onclick="toast('สาธิต: ไปที่โฟลเดอร์ของไฟล์นี้')">ไปที่โฟลเดอร์</button>
+      </div></div>`).join('');
+    return {content:`
+      <div class="search">${I.search}<input placeholder="ค้นไฟล์ที่ Agent สร้าง/แก้" aria-label="ค้นไฟล์"></div>
+      ${banner('info',I.info,'แยกเฉพาะไฟล์ที่ Agent แตะ','ไฟล์ทั้งหมดในเครื่องยังดูได้ที่แท็บ “ไฟล์” ตามเดิม — หน้านี้ช่วยหา “ผลงานของ Agent” ได้เร็วขึ้น')}
+      ${list}
+      <p class="misc">ทุกไฟล์ที่ Agent สร้าง ลบ ย้าย จะมีบันทึกไว้ในไทม์ไลน์ของงานนั้นด้วย เพื่อให้ตรวจย้อนหลังได้ว่ามาจากไหน</p>`,live:null};
+  }},
+
+page_export:{group:'pages',label:'แชร์/ส่งออกบทสนทนา',variants:['ตั้งค่าก่อนส่งออก','คำเตือนข้อมูลอ่อนไหว'],future:true,
+  appbar:{title:'แชร์บทสนทนา',state:['idle','ส่งออกจากห้องนี้'],left:'back',right:'none',tabs:'chat'},
+  render(v){
+    const warn = v===1;
+    return {content:`
+      ${warn?banner('warn',I.warn,'พบข้อมูลที่อาจเป็นส่วนตัว 3 จุดในบทสนทนานี้','เช่น เลขผู้ใช้บริการ ค่าไฟบ้าน และชื่อไฟล์ส่วนตัว · ถ้าเปิด “ปิดข้อมูลอ่อนไหว” ระบบจะแทนด้วยเครื่องหมายกลมก่อนส่งออก',
+        `<button class="btn sm primary" onclick="toast('สาธิต: ปิดข้อมูลอ่อนไหวให้แล้ว')">ปิดข้อมูลอ่อนไหวให้</button>
+         <button class="btn sm ghost" onclick="toast('สาธิต: ส่งออกตามจริง (ไม่มีอะไรถูกปิด)')">ส่งออกตามจริง</button>`):''}
+      ${sect('รูปแบบไฟล์',card(
+        `<div style="padding:2px 12px 12px"><div class="swatchrow">
+          <button class="pill-choice" aria-pressed="true" onclick="toast('สาธิต: เลือก Markdown')">Markdown (.md)</button>
+          <button class="pill-choice" aria-pressed="false" onclick="toast('สาธิต: เลือก JSON')">JSON (.json)</button>
+        </div>
+        <p class="preview-note">ทั้งสองแบบมีอยู่แล้วในแอป · Markdown เหมาะกับการอ่าน ส่วน JSON เหมาะกับการสำรองข้อมูล</p></div>`))}
+      ${sect('สิ่งที่รวมไปด้วย',card(
+        toggle('e1',true,'ข้อความทั้งหมดในห้องนี้','รวมคำถาม คำตอบ และไฟล์ที่แนบ')+
+        toggle('e2',false,'ขั้นตอนกิจกรรมของ Agent','ถ้าเปิด จะได้ไทม์ไลน์ว่าทำอะไรไปบ้าง (ไฟล์จะใหญ่ขึ้น)')+
+        toggle('e3',true,'แหล่งข้อมูลและลิงก์อ้างอิง','ให้ตรวจย้อนหลังได้ว่าข้อมูลมาจากไหน')+
+        toggle('e4',warn,'ปิดข้อมูลอ่อนไหว (เลขบัญชี/รหัส/ที่อยู่)','แทนด้วยเครื่องหมายกลม · แนะนำให้เปิดถ้าจะส่งต่อให้คนอื่น')))}
+      ${banner('info',I.shield,'ไฟล์ที่ส่งออกจะอยู่ในเครื่องคุณ','เมื่อคุณกดแชร์ต่อ (เช่นส่งในแชท) ไฟล์นั้นจะออกจากแอป — ตรวจก่อนส่งเสมอ · ระบบไม่เคยส่งข้อมูลของคุณออกไปเอง')}
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn primary wide" onclick="toast('สาธิต: สร้างไฟล์และเปิดหน้าต่างแชร์')">สร้างไฟล์และแชร์</button>
+        <button class="btn wide" onclick="toast('สาธิต: บันทึกไฟล์ไว้ในเครื่อง')">บันทึกไว้ในเครื่อง</button></div>`,live:null};
+  }},
+
+page_settings:{group:'pages',label:'ตั้งค่า (หลัก)',variants:['การแสดงผลและภาษา'],
+  appbar:{title:'ตั้งค่า',state:['idle','แอปและความสะดวก'],left:'back',right:'none',tabs:'settings'},
+  render(){
+    return {content:`
+      ${sect('การแสดงผล',card(
+        row({title:'ธีม',sub:'ตามระบบ · สว่าง · มืด',right:'ตามระบบ',chevron:true,btn:true,onclick:"toast('สาธิต: เลือกธีม')"})+
+        row({title:'ขนาดตัวอักษร',sub:'มีผลทั้งแอป รวมไทม์ไลน์และปุ่ม',right:'100%',chevron:true,btn:true,onclick:"toast('สาธิต: ปรับขนาดตัวอักษร')"})))}
+      <div class="card pad" style="margin-top:8px">
+        <div class="small muted">ตัวอย่างขนาดตัวอักษร</div>
+        <div class="row-t" style="margin-top:4px">กำลังอ่านใบแจ้งหนี้ 2 จาก 3 ไฟล์</div>
+        <div class="row-s">ใช้เวลา 2.6 วินาที · พบตัวเลข 6 รายการ</div>
+      </div>
+      ${sect('ภาษาและรูปแบบ',card(
+        row({title:'ภาษา',sub:'ไทย (ค่าเริ่มต้น) · อังกฤษ',right:'ไทย',chevron:true,btn:true,onclick:"toast('สาธิต: เลือกภาษา')"})+
+        row({title:'รูปแบบวันที่',sub:'28 ก.ย. 2568 (พ.ศ.)',right:'พ.ศ.',chevron:true,btn:true,onclick:"toast('สาธิต: เลือก พ.ศ./ค.ศ.')"})+
+        row({title:'รูปแบบเวลา',sub:'24 ชั่วโมง · 14:12',right:'24 ชม.',chevron:true,btn:true,onclick:"toast('สาธิต: เลือก 12/24 ชั่วโมง')"})))}
+      ${sect('บริบทและความจำ',card(
+        row({title:'จำนวนข้อความที่โหลดในห้อง',sub:'เริ่มที่ 120 รายการล่าสุด (เหมาะกับเครื่อง RAM 2GB)',right:'120',chevron:true,btn:true,onclick:"toast('สาธิต: ปรับจำนวนข้อความ')"})))}
+      <p class="misc">การตั้งค่าเดิมของแอป (คีย์ โมเดล โฟลเดอร์ทำงาน เพดานดาวน์โหลด) ยังอยู่ครบในหมวด “เครื่องมือและสิทธิ์” และ “โมเดล”</p>`,live:null};
+  }},
+
+page_activity:{group:'pages',label:'ระดับกิจกรรม + ความเป็นส่วนตัว',variants:['ระดับกิจกรรม','ความเป็นส่วนตัว'],
+  appbar:{title:'ตั้งค่า › รายละเอียดกิจกรรม',state:['idle','ควบคุมสิ่งที่เห็นในไทม์ไลน์'],left:'back',right:'none',tabs:'settings'},
+  render(v){
+    if (v===1) return {content:`
+      ${sect('ความเป็นส่วนตัว',card(
+        toggle('p1',true,'ปิดบังข้อมูลอ่อนไหวในไทม์ไลน์','เช่น เลขบัญชี รหัสผ่าน ที่อยู่ — ปิดไว้ก่อนเสมอ')+
+        toggle('p2',true,'ไม่เก็บเนื้อหาเว็บที่ Agent อ่าน','เก็บเฉพาะสรุปและลิงก์ ไม่เก็บข้อความทั้งหน้า')+
+        toggle('p3',false,'ส่งข้อมูลไฟล์เข้าโมเดล','เปิดเฉพาะเมื่อจำเป็นต้องวิเคราะห์ไฟล์')+
+        toggle('p4',true,'ลบสำเนาสำรองอัตโนมัติเมื่อเกิน 7 วัน','สำเนามีไว้เพื่อให้ย้อนกลับได้ทันที')))}
+      ${banner('info',I.shield,'บันทึกการเรียกใช้เก็บในเครื่องเท่านั้น','ไม่ถูกส่งออกไปไหน · ล้างได้ทุกเมื่อจากปุ่มด้านล่าง')}
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn wide dangerline" onclick="toast('สาธิต: ล้างบันทึกการเรียกใช้ทั้งหมด')">ล้างบันทึกการเรียกใช้</button>
+        <button class="btn wide" onclick="toast('สาธิต: ดูบันทึกก่อนล้าง')">ดูบันทึกก่อน</button></div>`,live:null};
+    return {content:`
+      ${banner('info',I.info,'3 ระดับนี้เปลี่ยนแค่ “สิ่งที่เห็น”','ไม่เปลี่ยนข้อมูลที่ถูกเก็บหรือส่งไปโมเดล — สลับได้ทุกเมื่อโดยไม่สูญเสียไทม์ไลน์')}
+      ${['น้อย','ปกติ (แนะนำ)','ละเอียด'].map((n,i)=>`<div class="card" style="margin-top:10px">
+        <div class="row" style="border:0">
+          <span class="row-ico ${i===1?'run':''}" aria-hidden="true">${i===0?I.layers:i===1?I.layers:I.task}</span>
+          <span class="row-main"><span class="row-t">${n}</span>
+          <span class="row-s">${i===0?'เห็นเฉพาะผลลัพธ์และข้อผิดพลาด — ซ่อนไทม์ไลน์ทั้งหมด'
+            : i===1?'เห็นไทม์ไลน์แบบพับ กดกางได้ — โค้ดและคำสั่งอยู่ใน “รายละเอียดเทคนิค”'
+            : 'กางไทม์ไลน์อัตโนมัติ แสดงเนื้อคิดและโค้ดตรง ๆ'}</span></span>
+          <span class="row-right"><button class="toggle ${i===1?'acc':''}" aria-pressed="${i===1?'true':'false'}" aria-label="เลือกระดับ ${n}" onclick="pick(this)"></button></span>
+        </div></div>`).join('')}
+      ${sect('ตัวอย่างที่ระดับ “ละเอียด”',card(`<div class="card pad">
+        <div class="small muted">รันคำสั่ง</div>
+        <div class="code" style="background:var(--surface-2);border-radius:10px;padding:9px 11px;font-family:var(--font-mono);font-size:11.5px;white-space:pre;overflow-x:auto;margin-top:6px">units = [412, 438, 512]\nprint(units[-1] - units[-2])   ->   74</div></div>`))}
+      ${sect('หมวดที่เกี่ยวข้อง',card(
+        row({ico:I.shield,title:'สิทธิ์ที่อนุญาตไว้',sub:'ดู/เพิกถอนสิทธิ์ที่ Agent ได้รับ',right:'3 รายการ',chevron:true,btn:true,onclick:"toast('สาธิต: เปิดหน้าจัดการสิทธิ์')"})+
+        row({ico:I.lock,title:'ความเป็นส่วนตัว',sub:'ปิดบังข้อมูลอ่อนไหว สำเนาสำรอง บันทึกการเรียกใช้',chevron:true,btn:true,onclick:"toast('สาธิต: ไปหน้าความเป็นส่วนตัว')"})))}`,live:null};
+  }}
+};
+
+const GROUPS=[{id:'bg',label:'งานเบื้องหลัง/แจ้งเตือน'},{id:'tasks',label:'งานของฉัน'},
+  {id:'usage',label:'ต้นทุน/โควตา'},{id:'voice',label:'โหมดเสียง'},{id:'pages',label:'หน้ารอง'}];
+
+const TABS=[{id:'chat',label:'แชท',icon:I.task},{id:'tasks',label:'งานของฉัน',icon:I.layers},
+  {id:'files',label:'ไฟล์',icon:I.folder},{id:'settings',label:'ตั้งค่า',icon:I.gear}];
+
+/* ============================================================================
+   เรนเดอร์
+   ========================================================================== */
+function renderTabs(){
+  const s=SCENES[UI.scene];
+  document.getElementById('groupSeg').innerHTML=GROUPS.map(g=>`<button id="g_${g.id}" aria-pressed="${UI.group===g.id}" onclick="setGroup('${g.id}')">${g.label}</button>`).join('');
+  document.getElementById('sceneSeg').innerHTML=Object.entries(SCENES).filter(([k,v])=>v.group===UI.group)
+    .map(([k,v])=>`<button id="sc_${k}" aria-pressed="${UI.scene===k}" onclick="setScene('${k}')">${v.label}${v.future?' *':''}</button>`).join('');
+  document.getElementById('variantSeg').innerHTML=s.variants.map((v,i)=>`<button aria-pressed="${UI.variant===i}" onclick="setVariant(${i})">${v}</button>`).join('');
+}
+
+function render(){
+  const s=SCENES[UI.scene];
+  const out=s.render(UI.variant)||{};
+  const ab=document.getElementById('appbar');
+  const tabsEl=document.getElementById('tabbar');
+  const content=document.getElementById('content');
+  const composer=document.getElementById('composerSlot');
+
+  // หน้าจอล็อก/ออนบอร์ด: ไม่มีแถบหัวเรื่อง ไม่มีแท็บ
+  ab.style.display = (out.lock||out.onb) ? 'none' : '';
+
+  if (out.lock){
+    content.className='lock'; content.innerHTML=out.lock;
+    content.style.padding=''; tabsEl.style.display='none'; composer.innerHTML='';
+  } else if (out.onb){
+    content.className='content tight'; content.innerHTML=out.onb;
+    content.style.padding='0'; tabsEl.style.display='none'; composer.innerHTML='';
+  } else {
+    content.className='content'+(out.tight?' tight':'');
+    content.style.padding='';
+    content.innerHTML=out.content||'';
+    // แถบหัวเรื่อง
+    const a=s.appbar||{title:'—',state:['idle',''],left:'back',right:'dots',tabs:null};
+    document.getElementById('abTitle').textContent=a.title;
+    document.getElementById('abState').dataset.state=a.state[0];
+    document.getElementById('abStateText').textContent=a.state[1];
+    const left=document.getElementById('abLeft');
+    left.style.visibility = a.left==='none' ? 'hidden' : 'visible';
+    left.setAttribute('aria-label', a.left==='menu' ? 'รายการห้องสนทนา' : 'ย้อนกลับ');
+    const right=document.getElementById('abRight');
+    right.style.visibility = a.right==='none' ? 'hidden' : 'visible';
+    right.setAttribute('aria-label', a.right==='new' ? 'สร้างห้องใหม่' : a.right==='filter' ? 'ตัวกรอง' : a.right==='reset' ? 'รีเซ็ตตัวนับ' : 'เมนูเพิ่มเติม');
+    // แท็บล่าง
+    if (a.tabs){
+      tabsEl.style.display='flex';
+      tabsEl.innerHTML=TABS.map(t=>`<button aria-pressed="${a.tabs===t.id}" onclick="toast('สาธิต: ไปแท็บ ${t.label}')" aria-label="แท็บ ${t.label}">
+        <span aria-hidden="true">${t.icon}</span><span>${t.label}</span></button>`).join('');
+    } else tabsEl.style.display='none';
+    composer.innerHTML='';
+  }
+  renderTabs();
+  content.scrollTop=0;
+}
+
+function setGroup(id){UI.group=id;const f=Object.entries(SCENES).find(([k,v])=>v.group===id);UI.scene=f[0];UI.variant=0;render();}
+function setScene(k){UI.scene=k;UI.variant=0;render();}
+function setVariant(i){UI.variant=i;render();}
+function setTheme(v){UI.theme=v;document.documentElement.dataset.theme=v;
+  document.getElementById('tLight').setAttribute('aria-pressed',String(v==='light'));
+  document.getElementById('tDark').setAttribute('aria-pressed',String(v==='dark'));}
+function setDevice(v){UI.device=v;document.getElementById('device').dataset.device=v;
+  document.getElementById('d14').setAttribute('aria-pressed',String(v==='ios'));
+  document.getElementById('d7').setAttribute('aria-pressed',String(v==='i7'));}
+function setMotion(v){UI.motion=v;document.documentElement.dataset.motion=v;
+  document.getElementById('mOn').setAttribute('aria-pressed',String(v==='on'));
+  document.getElementById('mOff').setAttribute('aria-pressed',String(v==='off'));}
+function flip(el){el.setAttribute('aria-pressed', el.getAttribute('aria-pressed')==='true'?'false':'true');}
+function pick(el){
+  el.closest('.content').querySelectorAll('.toggle').forEach(t=>t.setAttribute('aria-pressed','false'));
+  el.setAttribute('aria-pressed','true');
+  toast('เลือกระดับแล้ว');
+}
+let toastT=null;
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
+  clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2300);}
+render();
+</script>
 </body>
 </html>
