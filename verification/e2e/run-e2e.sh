@@ -17,19 +17,57 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$HERE/../.." && pwd)"
+WORK="${E2E_WORK_DIR:-/tmp/e2e-build}"
 # shellcheck source=../hash.sh
 source "$HERE/../hash.sh"
-WORK="/tmp/e2e-build"
-PORT="${E2E_PORT:-8123}"
 
+# ---- หา swift ----
 if ! command -v swift >/dev/null 2>&1; then
   if [ -x "$HOME/.local/swift/usr/bin/swift" ]; then
     export PATH="$HOME/.local/swift/usr/bin:$PATH"
   else
-    echo "❌ ไม่พบ swift"
+    echo "❌ ไม่พบ swift (บน macOS: ติดตั้ง Xcode / บน Linux: ใช้ toolchain ที่สคริปต์ติดตั้งให้)"
     exit 1
   fi
 fi
+
+# ---- หา python เพื่อรันเซิร์ฟเวอร์จำลอง (ชื่อคำสั่งและตำแหน่งต่างกันในแต่ละเครื่อง) ----
+PY_BIN="${PYTHON_BIN:-}"
+if [ -z "$PY_BIN" ]; then
+  for candidate in python3 python /opt/homebrew/bin/python3 /usr/local/bin/python3 /usr/bin/python3; do
+    if command -v "$candidate" >/dev/null 2>&1 && "$candidate" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 7) else 1)' >/dev/null 2>&1; then
+      PY_BIN="$candidate"
+      break
+    fi
+  done
+fi
+if [ -z "$PY_BIN" ]; then
+  echo "❌ ไม่พบ python3 (>= 3.7) สำหรับรันเซิร์ฟเวอร์จำลอง"
+  echo "   บน macOS: brew install python3   |   หรือตั้งค่า PYTHON_BIN=/path/to/python3"
+  exit 1
+fi
+echo "== ใช้ python: $PY_BIN ($("$PY_BIN" --version 2>&1)) =="
+
+# ---- เลือกพอร์ตว่าง (กันพอร์ตชนกันบน runner) ----
+PORT=""
+for candidate in "${E2E_PORT:-8123}" 18123 28123 38123 48123 58123; do
+  if "$PY_BIN" - "$candidate" <<'PY' >/dev/null 2>&1
+import socket, sys
+port = int(sys.argv[1])
+probe = socket.socket()
+try:
+    probe.bind(("127.0.0.1", port))
+except OSError:
+    sys.exit(1)
+finally:
+    probe.close()
+PY
+  then
+    PORT="$candidate"
+    break
+  fi
+done
+[ -n "$PORT" ] || { echo "❌ ไม่พบพอร์ตว่างสำหรับเซิร์ฟเวอร์จำลอง"; exit 1; }
 
 rm -rf "$WORK"
 mkdir -p "$WORK"
@@ -52,7 +90,7 @@ for rel in "${FILES[@]}"; do
 done
 
 echo "== เริ่มเซิร์ฟเวอร์จำลอง OpenRouter (พอร์ต $PORT) =="
-python3 "$HERE/mock_openrouter_server.py" "$PORT" > "$WORK/server.log" 2>&1 &
+"$PY_BIN" -u "$HERE/mock_openrouter_server.py" "$PORT" > "$WORK/server.log" 2>&1 &
 SERVER_PID=$!
 cleanup() {
   kill "$SERVER_PID" 2>/dev/null || true
@@ -60,11 +98,28 @@ cleanup() {
 }
 trap cleanup EXIT
 
-for ((attempt = 0; attempt < 50; attempt++)); do
-  if grep -q "listening" "$WORK/server.log" 2>/dev/null; then break; fi
+SERVER_READY=0
+for ((attempt = 0; attempt < 100; attempt++)); do
+  if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+    break   # เซิร์ฟเวอร์ออกไปแล้ว — ออก loop ไปรายงาน error
+  fi
+  if grep -q "listening" "$WORK/server.log" 2>/dev/null; then
+    SERVER_READY=1
+    break
+  fi
   sleep 0.1
 done
-grep -q "listening" "$WORK/server.log" || { echo "❌ เซิร์ฟเวอร์จำลองไม่เริ่มทำงาน"; cat "$WORK/server.log"; exit 1; }
+
+if [ "$SERVER_READY" -ne 1 ]; then
+  echo "❌ เซิร์ฟเวอร์จำลองไม่เริ่มทำงาน — ข้อมูลวินิจฉัย:"
+  echo "   python : $PY_BIN ($("$PY_BIN" --version 2>&1))"
+  echo "   พอร์ต  : $PORT"
+  echo "   สถานะ  : $(kill -0 "$SERVER_PID" 2>/dev/null && echo 'โปรเซสยังอยู่แต่ไม่ตอบ' || echo 'โปรเซสออกไปแล้ว')"
+  echo "   --- server.log ---"
+  cat "$WORK/server.log" 2>/dev/null || echo "   (ไม่มีไฟล์ log)"
+  echo "   ------------------"
+  exit 1
+fi
 echo "  ✓ เซิร์ฟเวอร์พร้อม"
 
 echo "== คอมไพล์ไคลเอนต์ทดสอบ (ใช้ไฟล์จริงของแอป) =="
