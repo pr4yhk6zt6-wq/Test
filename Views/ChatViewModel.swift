@@ -344,8 +344,10 @@ final class ChatViewModel: ObservableObject {
 
     /// สร้างบทสนทนาที่จะส่งให้โมเดล (system prompt + ประวัติที่กรองข้อความว่างออก)
     private func makeConversationPayload() -> [ChatMessage] {
-        let privilegeContext = PrivilegeService.cachedPromptContext(workspacePath: settings.workspacePath,
-                                                                    preferRootShell: settings.preferRootShell)
+        // สถานะสิทธิ์จริงของเครื่องนี้ (แคชไว้ ไม่สแกนไบนารีทุกครั้งที่ส่งข้อความ)
+        let appSettings = AppSettings.shared
+        let privilegeContext = PrivilegeService.cachedPromptContext(workspacePath: appSettings.workspacePath,
+                                                                    preferRootShell: appSettings.preferRootShell)
         var conversation: [ChatMessage] = [.system(SystemPrompt.build(tools: registry.definitions,
                                                                      privilegeContext: privilegeContext))]
         for message in messages {
