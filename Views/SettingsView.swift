@@ -57,6 +57,7 @@ struct SettingsView: View {
             apiKeySection
             modelSection
             agentSection
+            voiceSection
             connectionSection
             usageSection
             toolsSection
@@ -301,6 +302,24 @@ struct SettingsView: View {
             Text("Agent ทำงานเป็นรอบ (คิด → เรียก tool → อ่านผล) สูงสุด \(AgentEngine.maximumToolRounds) รอบต่อหนึ่งคำสั่ง • " +
                  "เมื่อบทสนทนาใช้เกิน 80% ของขอบเขต context ระบบจะตัดผลลัพธ์ tool ที่เก่าที่สุดออกก่อน เพื่อให้คุยต่อได้ • " +
                  "โฟลเดอร์ทำงานของ Agent: \(settings.workspacePath)")
+        }
+    }
+
+    // MARK: - Section: โหมดเสียง
+
+    private var voiceSection: some View {
+        Section {
+            Toggle("โหมดเสียง (พูดแทนพิมพ์)", isOn: $settings.voiceInputEnabled)
+            Text("เปิดแล้วจะมีปุ่มไมโครโฟนในช่องพิมพ์ — คำพูดถูกถอดเป็นข้อความและรอให้คุณตรวจก่อนส่งเสมอ")
+                .font(.footnote)
+                .foregroundColor(.secondary)
+            Text("เสียงถูกใช้เฉพาะตอนคุณกดปุ่มพูด และแอปไม่เก็บไฟล์เสียงไว้ในเครื่อง ถ้าเครื่องถอดเสียงในตัวไม่ได้ ระบบจะบอกก่อนว่าเสียงจะถูกส่งไปประมวลผลออนไลน์")
+                .font(.footnote)
+                .foregroundColor(.secondary)
+        } header: {
+            Text("โหมดเสียง")
+        } footer: {
+            Text("ปิดไว้เป็นค่าเริ่มต้น เพราะเป็นสิทธิ์ของไมโครโฟน — ปิดคืนได้ทุกเมื่อ")
         }
     }
 

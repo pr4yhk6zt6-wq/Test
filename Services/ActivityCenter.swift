@@ -60,6 +60,9 @@ final class ActivityCenter: ObservableObject {
     @Published private(set) var finishedSummary: String?
     @Published private(set) var finishedAt: Date?
 
+    /// ทะเบียนงานถาวร (ใหม่สุดอยู่บนสุด) — งานที่ปิดแอปไปแล้วยังดูย้อนหลังได้
+    @Published private(set) var tasks: [TaskRecord] = []
+
     // MARK: - ภายใน
 
     /// ตัวบอกว่ากำลังทำงานอยู่ในห้องไหน (ตั้งค่าโดยหน้าแชท) — ใช้ผูกการแจ้งเตือนกับห้องที่ถูกต้อง
@@ -68,8 +71,15 @@ final class ActivityCenter: ObservableObject {
     private var timer: Timer?
     private var engineStatus: String = ""
     private var nextSeq: Int = 1
+    private var currentTaskID: String?
     private let maxEvents: Int = 120
     private let maxDetailCharacters: Int = 4_000
+
+    init() {
+        // งานที่ค้างอยู่จากรอบก่อน = แอปถูกปิดกลางทาง (บอกตามจริง ไม่ปล่อยให้ขึ้นว่า "กำลังทำอยู่")
+        TaskRegistry.shared.markInterruptedFromPreviousSessions()
+        tasks = TaskRegistry.shared.all
+    }
 
     deinit {
         timer?.invalidate()
@@ -78,7 +88,8 @@ final class ActivityCenter: ObservableObject {
     // MARK: - เริ่ม/จบงาน
 
     /// เรียกก่อนส่งข้อความใหม่ทุกครั้ง (ล้างไทม์ไลน์ของงานก่อนหน้า)
-    func beginRun() {
+    /// - Parameter title: คำสั่งของผู้ใช้ (ใช้เป็นชื่อในทะเบียนงาน — เว้นว่างได้)
+    func beginRun(title: String = "") {
         events = []
         nextSeq = 1
         engineStatus = ""
@@ -90,6 +101,8 @@ final class ActivityCenter: ObservableObject {
         elapsed = 0
         isRunning = true
         startTimer()
+        currentTaskID = TaskRegistry.shared.start(title: title, roomID: roomIDProvider?()).id
+        tasks = TaskRegistry.shared.all
     }
 
     /// ล้างไทม์ไลน์ด้วยมือ (ปุ่ม "ล้างไทม์ไลน์")
@@ -371,6 +384,7 @@ final class ActivityCenter: ObservableObject {
         }
         finishedAt = Date()
         liveLabel = ""
+        closeTask(outcome: outcome(for: reason), summary: finishedSummary)
     }
 
     /// เรียกเมื่อพบว่าแอปถูก iOS ระงับงานกลางทาง (กลับมาแล้ว engine ไม่ทำงานต่อ แต่ไทม์ไลน์ยังค้างว่ากำลังทำ)
@@ -396,13 +410,62 @@ final class ActivityCenter: ObservableObject {
         finishedSummary = "ระบบหยุดงานชั่วคราว — ทำต่อจากจุดเดิมได้เลย"
         finishedAt = now
         liveLabel = ""
+        closeTask(outcome: .systemPaused, summary: finishedSummary)
         DSHaptic.warning()
+    }
+
+    // MARK: - ทะเบียนงานถาวร (ดีไซน์ v2)
+
+    /// เก็บความคืบหน้าลงทะเบียนทันทีที่เกิดขั้นใหม่ — ถ้าแอปถูกฆ่ากลางทาง ตัวเลขจะไม่หาย
+    func syncTaskProgress() {
+        guard let id = currentTaskID else { return }
+        TaskRegistry.shared.updateProgress(id: id,
+                                           stepCount: events.count,
+                                           lastStepTitle: events.last?.title,
+                                           fileChangeCount: events.filter { $0.artifactPath != nil }.count)
+        tasks = TaskRegistry.shared.all
+    }
+
+    func deleteTask(id: String) {
+        TaskRegistry.shared.delete(id: id)
+        tasks = TaskRegistry.shared.all
+    }
+
+    func clearFinishedTasks() {
+        TaskRegistry.shared.clearFinished()
+        tasks = TaskRegistry.shared.all
+    }
+
+    func reloadTasks() {
+        tasks = TaskRegistry.shared.all
+    }
+
+    private func closeTask(outcome: TaskOutcome, summary: String?) {
+        guard let id = currentTaskID else { return }
+        TaskRegistry.shared.finish(id: id,
+                                   outcome: outcome,
+                                   summary: summary,
+                                   stepCount: events.count,
+                                   lastStepTitle: events.last?.title,
+                                   fileChangeCount: events.filter { $0.artifactPath != nil }.count)
+        currentTaskID = nil
+        tasks = TaskRegistry.shared.all
+    }
+
+    private func outcome(for reason: AgentStopReason) -> TaskOutcome {
+        switch reason {
+        case .answered: return .done
+        case .cancelled: return .cancelled
+        case .roundLimitReached: return .needsAnswer
+        case .failed: return .failed
+        }
     }
 
     // MARK: - ตัวช่วย
 
     private func takeSeq() -> Int {
         nextSeq += 1
+        syncTaskProgress()
         return nextSeq
     }
 

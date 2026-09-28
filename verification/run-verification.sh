@@ -59,6 +59,9 @@ ORIGINALS=(
   "Services/Tools/ContentSearchTool.swift"
   # เฟส 6 — ดัชนีค้นข้อความย้อนหลังในทุกห้อง
   "Services/ChatSearchIndex.swift"
+  # ดีไซน์ v2 ส่วนที่ 8 — ทะเบียนงานถาวร + คิวข้อความ (Foundation ล้วน ทดสอบได้ทุกแพลตฟอร์ม)
+  "Services/TaskRegistry.swift"
+  "Services/PendingMessageQueue.swift"
   # ดีไซน์ v2 — สำเนาสำรองก่อนแก้ไฟล์ (ทำให้ปุ่มย้อนกลับทำงานจริง) และต้องทดสอบว่าไม่กระทบเครื่องมือเดิม
   "Services/WorkspaceBackup.swift"
 )

@@ -37,6 +37,9 @@ enum SettingsKeys {
     static let activityLevel = "settings.activityLevel"
     /// เปิด/ปิดการแจ้งเตือนเมื่องานเสร็จ/ต้องตอบ/ล้มเหลว (ค่าเริ่มต้น: ปิด — ขออนุญาตเฉพาะเมื่อผู้ใช้เปิดเอง)
     static let agentNotifications = "settings.agentNotifications"
+
+    /// โหมดเสียง (พูดแทนพิมพ์) — ปิดไว้ก่อนเสมอ ผู้ใช้ต้องเปิดเอง
+    static let voiceInput = "settings.voiceInput"
 }
 
 /// ค่าเริ่มต้นของตัวเลือกที่เพิ่มในเฟส 2
@@ -102,6 +105,12 @@ final class AppSettings: ObservableObject {
     /// ถ้าสลับ persona ไม่สำเร็จ ระบบจะรันในนามผู้ใช้ปัจจุบันให้อัตโนมัติ
     @Published var preferRootShell: Bool {
         didSet { defaults.set(preferRootShell, forKey: SettingsKeys.preferRootShell) }
+    }
+
+    /// โหมดเสียง (พูดแทนพิมพ์) — ค่าเริ่มต้น: ปิด
+    /// เปิดแล้วจึงมีปุ่มไมโครโฟนในช่องพิมพ์ และระบบจะขออนุญาตไมโครโฟนพร้อมเหตุผล
+    @Published var voiceInputEnabled: Bool {
+        didSet { defaults.set(voiceInputEnabled, forKey: SettingsKeys.voiceInput) }
     }
 
     /// โฟลเดอร์ทำงานเริ่มต้นของ Agent
@@ -170,6 +179,8 @@ final class AppSettings: ObservableObject {
         self.useNewChatUI = defaults.object(forKey: SettingsKeys.newChatUI) as? Bool ?? true
         self.activityLevelRaw = defaults.string(forKey: SettingsKeys.activityLevel)
             ?? ActivityDetailLevel.normal.rawValue
+        // ดีไซน์ v2 — โหมดเสียงปิดไว้ก่อนเสมอ (เป็นสิทธิ์ไมโครโฟน ผู้ใช้ต้องเปิดเอง)
+        self.voiceInputEnabled = defaults.object(forKey: SettingsKeys.voiceInput) as? Bool ?? false
 
         refreshAPIKeyState()
     }

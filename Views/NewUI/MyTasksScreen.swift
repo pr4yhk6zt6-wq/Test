@@ -14,6 +14,7 @@ struct MyTasksScreen: View {
     @ObservedObject private var router: AppRouter = .shared
     @ObservedObject private var connectivity: ConnectivityMonitor = .shared
     @ObservedObject private var notifier: AgentNotifier = .shared
+    @ObservedObject private var queue: PendingMessageQueue = .shared
 
     @AppStorage(SettingsKeys.chatFontScale) private var fontScale: Double = 1.0
     @State private var rooms: [ChatRoom] = []
@@ -22,8 +23,11 @@ struct MyTasksScreen: View {
         ScrollView {
             VStack(alignment: .leading, spacing: DSMetrics.groupSpacing) {
                 connectionBanner
+                notificationHint
                 currentSection
+                queuedSection
                 waitingSection
+                registrySection
                 recentRoomsSection
                 scheduledSection
                 logSection
@@ -35,7 +39,10 @@ struct MyTasksScreen: View {
         .background(DSColor.bg)
         .navigationTitle("งานของฉัน")
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear { rooms = ChatRoomStore().loadRooms() }
+        .onAppear {
+            rooms = ChatRoomStore().loadRooms()
+            center.reloadTasks()
+        }
     }
 
     // MARK: - ส่วนต่าง ๆ
@@ -133,6 +140,184 @@ struct MyTasksScreen: View {
                 }
             }
         }
+    }
+
+    // MARK: - แจ้งเตือน (ดีไซน์ v2 ส่วนที่ 5 — ชี้ชวนอย่างมีบริบท ไม่กดดัน)
+
+    @ViewBuilder
+    private var notificationHint: some View {
+        if !notifier.isEnabled {
+            DSCardContainer(tone: .accent) {
+                Text("อยากให้ระบบบอกคุณเมื่องานเสร็จ หรือตอนที่ Agent รอคำตอบ?")
+                    .font(DSFont.font(DSFont.sSub, weight: .semibold, scale: fontScale))
+                    .foregroundColor(DSColor.t1)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text("ตอนนี้การแจ้งเตือนยังปิดอยู่ — เปิดได้จากปุ่มด้านล่าง โดยไม่มีการแจ้งเตือนที่มีปุ่มอนุมัติ เพราะการอนุมัติต้องทำในแอปเสมอ")
+                    .font(DSFont.font(DSFont.sCap, scale: fontScale))
+                    .foregroundColor(DSColor.t2)
+                    .fixedSize(horizontal: false, vertical: true)
+                DSButton(title: "เปิดการแจ้งเตือน", icon: "bell", kind: .primary, scale: fontScale) {
+                    notifier.setEnabled(true)
+                }
+            }
+        }
+    }
+
+    // MARK: - ข้อความรอส่ง (ดีไซน์ v2 ส่วนที่ 8)
+
+    @ViewBuilder
+    private var queuedSection: some View {
+        if !queue.items.isEmpty {
+            VStack(alignment: .leading, spacing: DSMetrics.s2) {
+                sectionTitle("ข้อความรอส่ง")
+                ForEach(queue.items) { item in
+                    DSCardContainer(tone: .accent) {
+                        HStack(alignment: .top, spacing: DSMetrics.s3) {
+                            DSStatusGlyph(status: .pending, scale: fontScale)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(item.preview)
+                                    .font(DSFont.font(DSFont.sSub, scale: fontScale))
+                                    .foregroundColor(DSColor.t1)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                Text("พิมพ์ไว้ระหว่าง Agent ทำงาน — จะถูกส่งให้อัตโนมัติเมื่องานก่อนหน้าจบ")
+                                    .font(DSFont.font(DSFont.sCap, scale: fontScale))
+                                    .foregroundColor(DSColor.t2)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                            Spacer(minLength: 0)
+                        }
+                        HStack(spacing: DSMetrics.s3) {
+                            DSButton(title: "ไปที่แชท", icon: "bubble.left", kind: .primary, scale: fontScale) {
+                                if let roomID = item.roomID {
+                                    router.openRoom(roomID)
+                                } else {
+                                    router.selectedTab = .chat
+                                }
+                            }
+                            DSButton(title: "ยกเลิกข้อความนี้", icon: "xmark", kind: .ghost, scale: fontScale) {
+                                queue.remove(id: item.id)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - ทะเบียนงานถาวร (ดีไซน์ v2 ส่วนที่ 8)
+
+    @ViewBuilder
+    private var registrySection: some View {
+        let recent = Array(center.tasks.prefix(12))
+        if !recent.isEmpty {
+            VStack(alignment: .leading, spacing: DSMetrics.s2) {
+                HStack(spacing: DSMetrics.s2) {
+                    sectionTitle("ประวัติงานล่าสุด")
+                    Spacer(minLength: 0)
+                    if recent.contains(where: { $0.outcome.isFinished }) {
+                        Button(action: {
+                            DSHaptic.light()
+                            center.clearFinishedTasks()
+                        }) {
+                            Text("ล้างงานที่จบแล้ว")
+                                .font(DSFont.font(DSFont.sCap, weight: .medium, scale: fontScale))
+                                .foregroundColor(DSColor.t2)
+                                .frame(minHeight: DSMetrics.touchSmall)
+                        }
+                        .buttonStyle(DSPressableStyle())
+                        .accessibilityLabel(Text("ล้างรายการงานที่จบแล้วออกจากประวัติ"))
+                    }
+                }
+                Text("งานที่ปิดแอปไปแล้วยังอยู่ที่นี่ — งานที่ค้างอยู่ตอนปิดแอปจะขึ้นว่า \"ถูกปิดกลางทาง\" ตามจริง")
+                    .font(DSFont.font(DSFont.sCap, scale: fontScale))
+                    .foregroundColor(DSColor.t2)
+                    .fixedSize(horizontal: false, vertical: true)
+                ForEach(recent) { task in
+                    taskCard(task)
+                }
+            }
+        }
+    }
+
+    private func taskCard(_ task: TaskRecord) -> some View {
+        DSCardContainer(tone: task.outcome == .failed ? .warning : .surface) {
+            HStack(alignment: .top, spacing: DSMetrics.s3) {
+                DSStatusGlyph(status: glyph(for: task.outcome), scale: fontScale)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(task.title)
+                        .font(DSFont.font(DSFont.sSub, weight: .semibold, scale: fontScale))
+                        .foregroundColor(DSColor.t1)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(taskLine(task))
+                        .font(DSFont.font(DSFont.sCap, scale: fontScale))
+                        .foregroundColor(DSColor.t2)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if let summary = task.summary, !summary.isEmpty {
+                        Text(summary)
+                            .font(DSFont.font(DSFont.sCap, scale: fontScale))
+                            .foregroundColor(DSColor.t2)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    if let lastStep = task.lastStepTitle, !lastStep.isEmpty {
+                        Text("ขั้นล่าสุด: \(lastStep)")
+                            .font(DSFont.font(DSFont.sMicro, scale: fontScale))
+                            .foregroundColor(DSColor.t3)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+            if task.roomID != nil || task.outcome.canContinue {
+                HStack(spacing: DSMetrics.s3) {
+                    if let roomID = task.roomID {
+                        DSButton(title: "เปิดห้องนี้", icon: "bubble.left", kind: .secondary, scale: fontScale) {
+                            router.openRoom(roomID)
+                        }
+                    }
+                    if task.outcome.canContinue {
+                        DSButton(title: "ทำต่อจากจุดเดิม", icon: "arrow.clockwise", kind: .primary, scale: fontScale) {
+                            continueTask(task)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func taskLine(_ task: TaskRecord) -> String {
+        var parts: [String] = [task.outcome.thaiLabel]
+        if task.stepCount > 0 { parts.append("\(task.stepCount) ขั้น") }
+        if let duration = task.duration { parts.append("ใช้เวลา \(DSFormat.duration(duration))") }
+        if task.touchedFiles { parts.append("แตะไฟล์ \(task.fileChangeCount) ไฟล์") }
+        parts.append(MyTasksScreen.timeText(task.startedAt))
+        return parts.joined(separator: " · ")
+    }
+
+    private static func timeText(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "th_TH")
+        formatter.dateFormat = "d MMM HH:mm"
+        return formatter.string(from: date)
+    }
+
+    /// แปลงผลลัพธ์งานเป็นสถานะที่ไอคอน/สีของดีไซน์รองรับ (ไอคอนคู่ข้อความเสมอ)
+    private func glyph(for outcome: TaskOutcome) -> ActivityStatus {
+        switch outcome {
+        case .running: return .running
+        case .done: return .succeeded
+        case .needsAnswer: return .waitingUser
+        case .failed: return .failed
+        case .cancelled, .interrupted, .systemPaused: return .cancelled
+        }
+    }
+
+    /// ให้ Agent ทำต่อจากจุดเดิมในห้องที่งานนี้เกิดขึ้น (ไม่เริ่มใหม่ทั้งหมด)
+    private func continueTask(_ task: TaskRecord) {
+        DSHaptic.medium()
+        if let roomID = task.roomID {
+            router.pendingRoomID = roomID
+        }
+        router.sendToAgent("งานก่อนหน้า (\(task.title)) หยุดกลางทาง — ช่วยทำต่อจากจุดเดิม โดยใช้ผลที่ทำเสร็จแล้ว ไม่ต้องเริ่มใหม่ทั้งหมด")
     }
 
     private var recentRoomsSection: some View {

@@ -41,6 +41,7 @@ struct ChatScreenNew: View {
     @State private var showClearConfirmation: Bool = false
     @State private var showContextSheet: Bool = false
     @State private var showExportSheet: Bool = false
+    @State private var showVoiceSheet: Bool = false
     @State private var showSystemPausedBanner: Bool = false
     @State private var wasRunningWhenBackgrounded: Bool = false
     @Environment(\.scenePhase) private var scenePhase
@@ -123,6 +124,14 @@ struct ChatScreenNew: View {
         .sheet(isPresented: $showContextSheet) {
             ContextCostSheet(viewModel: viewModel)
         }
+        .sheet(isPresented: $showVoiceSheet) {
+            VoiceInputSheet { text in
+                inputText = text
+                composerHeight = 38
+                DSHaptic.success()
+            }
+            .environmentObject(settings)
+        }
         .sheet(isPresented: $showExportSheet) {
             ExportSheet(viewModel: viewModel)
         }
@@ -150,10 +159,15 @@ struct ChatScreenNew: View {
             center.roomIDProvider = { [weak viewModel] in
                 viewModel?.currentRoomID
             }
+            viewModel.refreshQueue()
             openPendingRoomIfNeeded()
+            handlePendingPromptIfNeeded()
         }
         .onChange(of: router.pendingRoomID) { _ in
             openPendingRoomIfNeeded()
+        }
+        .onChange(of: router.pendingPrompt) { _ in
+            handlePendingPromptIfNeeded()
         }
         .onChange(of: scenePhase) { phase in
             if phase != .active {
@@ -497,6 +511,9 @@ struct ChatScreenNew: View {
                     .padding(.vertical, DSMetrics.s2)
                 }
             }
+            if !viewModel.queuedMessages.isEmpty {
+                queueArea
+            }
             HStack(alignment: .bottom, spacing: DSMetrics.s2) {
                 Button(action: {
                     DSHaptic.light()
@@ -522,7 +539,9 @@ struct ChatScreenNew: View {
                         .padding(.horizontal, DSFont.size(4, scale: fontScale))
 
                     if inputText.isEmpty {
-                        Text(viewModel.isBusy ? "Agent กำลังทำงาน — กดหยุดได้ทุกเมื่อ" : "พิมพ์บอก Agent ว่าจะให้ทำอะไร")
+                        Text(viewModel.isBusy
+                             ? "พิมพ์ได้ — ข้อความจะต่อคิวส่งหลังงานนี้จบ"
+                             : "พิมพ์บอก Agent ว่าจะให้ทำอะไร")
                             .font(DSFont.font(DSFont.sBody, scale: fontScale))
                             .foregroundColor(DSColor.t3)
                             .padding(.horizontal, DSFont.size(4, scale: fontScale) + 5)
@@ -542,7 +561,35 @@ struct ChatScreenNew: View {
                         .stroke(DSColor.border, lineWidth: 1)
                 )
 
+                if settings.voiceInputEnabled && !viewModel.isBusy {
+                    Button(action: {
+                        DSHaptic.light()
+                        showVoiceSheet = true
+                    }) {
+                        Image(systemName: "mic.fill")
+                            .font(DSFont.font(DSFont.sHead, scale: fontScale))
+                            .foregroundColor(DSColor.t1)
+                            .frame(width: DSMetrics.touch, height: DSMetrics.touch)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(DSPressableStyle())
+                    .accessibilityLabel(Text("พูดแทนการพิมพ์"))
+                    .accessibilityHint(Text("เปิดชีตโหมดเสียง แล้วนำข้อความมาใส่ในช่องพิมพ์"))
+                }
+
                 if viewModel.isBusy {
+                    if canSend {
+                        Button(action: send) {
+                            Image(systemName: "text.badge.plus")
+                                .font(DSFont.font(DSFont.sHead, scale: fontScale))
+                                .foregroundColor(DSColor.onAccent)
+                                .frame(width: DSMetrics.touch, height: DSMetrics.touch)
+                                .background(Circle().fill(DSColor.accent))
+                        }
+                        .buttonStyle(DSPressableStyle())
+                        .accessibilityLabel(Text("ต่อคิวข้อความนี้"))
+                        .accessibilityHint(Text("ข้อความจะถูกส่งให้ Agent ทันทีที่งานนี้จบ"))
+                    }
                     Button(action: {
                         DSHaptic.medium()
                         viewModel.stop()
@@ -588,8 +635,103 @@ struct ChatScreenNew: View {
         .background(DSColor.surface)
     }
 
+    /// ดีไซน์ v2: ส่งได้เสมอ — ถ้า Agent กำลังทำงาน ข้อความจะเข้าคิว (ไม่ปิดช่องพิมพ์)
     private var canSend: Bool {
-        !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !viewModel.isBusy
+        !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    /// แถวคิวข้อความ — มองเห็นได้ตลอด ยกเลิกได้ทีละข้อความ และกด "ส่งเลย" ได้เมื่อไม่ได้ทำงานอยู่
+    private var queueArea: some View {
+        VStack(alignment: .leading, spacing: DSMetrics.s2) {
+            HStack(spacing: DSMetrics.s2) {
+                Image(systemName: "clock")
+                    .font(DSFont.font(DSFont.sCap, scale: fontScale))
+                    .foregroundColor(DSColor.accentInk)
+                    .accessibilityHidden(true)
+                Text(viewModel.isBusy
+                     ? "รอส่งหลังงานนี้จบ (\(viewModel.queuedMessages.count))"
+                     : "มีข้อความรอส่ง (\(viewModel.queuedMessages.count))")
+                    .font(DSFont.font(DSFont.sCap, weight: .semibold, scale: fontScale))
+                    .foregroundColor(DSColor.t1)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+                if !viewModel.isBusy {
+                    Button(action: {
+                        DSHaptic.medium()
+                        viewModel.flushQueue()
+                    }) {
+                        Text("ส่งเลย")
+                            .font(DSFont.font(DSFont.sCap, weight: .semibold, scale: fontScale))
+                            .foregroundColor(DSColor.accentInk)
+                            .frame(minHeight: DSMetrics.touchSmall)
+                    }
+                    .buttonStyle(DSPressableStyle())
+                    .accessibilityLabel(Text("ส่งข้อความที่รออยู่ตอนนี้"))
+                }
+            }
+
+            ForEach(viewModel.queuedMessages) { item in
+                HStack(alignment: .top, spacing: DSMetrics.s2) {
+                    Text(item.preview)
+                        .font(DSFont.font(DSFont.sCap, scale: fontScale))
+                        .foregroundColor(DSColor.t2)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 0)
+                    Button(action: {
+                        DSHaptic.light()
+                        viewModel.removeQueuedMessage(id: item.id)
+                    }) {
+                        Image(systemName: "xmark")
+                            .font(DSFont.font(DSFont.sMicro, weight: .semibold, scale: fontScale))
+                            .foregroundColor(DSColor.t3)
+                            .frame(width: DSMetrics.touchSmall, height: DSMetrics.touchSmall)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(DSPressableStyle())
+                    .accessibilityLabel(Text("ยกเลิกข้อความนี้จากคิว"))
+                }
+                .padding(.horizontal, DSMetrics.s3)
+                .padding(.vertical, DSMetrics.s1)
+                .background(RoundedRectangle(cornerRadius: DSMetrics.rChip, style: .continuous).fill(DSColor.surface2))
+            }
+        }
+        .padding(.horizontal, DSMetrics.screenPadding)
+        .padding(.top, DSMetrics.s2)
+    }
+
+    /// รับคำสั่ง/ไฟล์ที่ส่งมาจากแท็บอื่น (เช่น "ให้ Agent แก้ไฟล์นี้" จากหน้าดูไฟล์)
+    private func handlePendingPromptIfNeeded() {
+        guard let pending = router.consumePendingPrompt() else { return }
+        if let path = pending.attachmentPath {
+            attachFile(atPath: path)
+        }
+        guard !pending.prompt.isEmpty else { return }
+        if viewModel.isBusy {
+            viewModel.queueMessage(pending.prompt)
+        } else if !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            inputText += "\n" + pending.prompt
+        } else {
+            center.beginRun(title: pending.prompt)
+            viewModel.send(pending.prompt)
+        }
+    }
+
+    /// แนบไฟล์ที่มีอยู่แล้วบนเครื่อง (ใช้กับ "ให้ Agent แก้ไฟล์นี้")
+    private func attachFile(atPath path: String) {
+        let store = AttachmentStore(rootPath: settings.uploadsPath)
+        let maxBytes = Int(settings.maxDownloadBytes)
+        DispatchQueue.global(qos: .userInitiated).async {
+            do {
+                let attachment = try store.importFile(at: URL(fileURLWithPath: path), maxBytes: maxBytes)
+                DispatchQueue.main.async {
+                    viewModel.addAttachments([attachment])
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    viewModel.showNotice("แนบไฟล์ไม่สำเร็จ: \(error.localizedDescription)")
+                }
+            }
+        }
     }
 
     private var emptySuggestions: some View {
@@ -647,11 +789,16 @@ struct ChatScreenNew: View {
 
     private func send() {
         let text = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty, !viewModel.isBusy else { return }
+        guard !text.isEmpty else { return }
         inputText = ""
         composerHeight = 38
         expandedEventID = nil
-        center.beginRun()
+        if viewModel.isBusy {
+            // กำลังทำงานอยู่ → ต่อคิว (ไทม์ไลน์รอบใหม่จะเริ่มเองเมื่อข้อความถูกส่งจริง)
+            viewModel.queueMessage(text)
+            return
+        }
+        center.beginRun(title: text)
         viewModel.send(text)
     }
 
