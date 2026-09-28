@@ -403,10 +403,10 @@ enum EventStatus {
 
 | เฟส | หัวข้อ | สถานะ |
 |---|---|---|
-| 1 | รากฐาน + หน้าแชทหลัก + ระบบกิจกรรม (A/B/C) | ✅ เสร็จ + Push (`15cf888`) |
-| 2 | การ์ด + การควบคุม + ความปลอดภัย + สถานะผิดปกติ | ✅ เสร็จ + Push (`15cf888`) |
-| 3 | งานเบื้องหลัง + หน้ารอง (งานของฉัน, โควตา, Voice, Onboarding, ประวัติ, เชื่อมต่อ, ไฟล์, ส่งออก, ตั้งค่า) | ✅ เสร็จ + Push (`d80476a`) |
-| 4 | Component Library + Design Tokens + Prototype Spec + Status Copy + Data Structure + Edge Cases + Decisions + สรุปรวม | ✅ เสร็จ (ไฟล์นี้) + รอ Push |
+| 1 | รากฐาน + หน้าแชทหลัก + ระบบกิจกรรม (A/B/C) | เสร็จแล้ว เสร็จ + Push (`15cf888`) |
+| 2 | การ์ด + การควบคุม + ความปลอดภัย + สถานะผิดปกติ | เสร็จแล้ว เสร็จ + Push (`15cf888`) |
+| 3 | งานเบื้องหลัง + หน้ารอง (งานของฉัน, โควตา, Voice, Onboarding, ประวัติ, เชื่อมต่อ, ไฟล์, ส่งออก, ตั้งค่า) | เสร็จแล้ว เสร็จ + Push (`d80476a`) |
+| 4 | Component Library + Design Tokens + Prototype Spec + Status Copy + Data Structure + Edge Cases + Decisions + สรุปรวม | เสร็จแล้ว เสร็จ (ไฟล์นี้) + รอ Push |
 
 **แผนต่อไป (หลังเฟส 4):**
 1. Push ไฟล์เฟส 4 เข้า repo (`git add -A`, `commit`, `push`)
