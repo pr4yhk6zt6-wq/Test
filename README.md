@@ -255,3 +255,21 @@ bash Scripts/check-ios15-compat.sh .         # ห้ามใช้ API ขอ�
 
 * การรันเป็น root ต้องติดตั้งผ่าน TrollStore (หรือรันแบบ rootful ด้วย palera1n) เท่านั้น — ถ้าติดตั้งด้วย Sideloadly จะได้แค่สิทธิ์ผู้ใช้ปัจจุบัน
 * การอ่าน/เขียนนอก `/var/mobile` (เช่น `/System`, `/private/var`) ต้องมีสิทธิ์จาก entitlements ที่ให้มาแล้วเท่านั้น; ถ้าระบบไฟล์อ่านไม่ได้ แอปจะบอกเหตุผลเป็นภาษาไทย
+
+---
+
+## หน้าจอดีไซน์ใหม่ (ดีไซน์ v2) — บิลด์ทดลองบนสาขา `redesign/agent-ui`
+
+สาขานี้เพิ่ม **หน้าจอใหม่ทั้งชุด** ที่ทำงานอยู่บน engine เดิม (ไม่แตะ `AgentEngine`, เครื่องมือ, หรือข้อมูลเดิม)
+เปิดเป็นค่าเริ่มต้น และปิดกลับไปใช้หน้าจอเดิมได้ทุกเมื่อที่ **ตั้งค่า → หน้าจอ → ใช้หน้าจอดีไซน์ใหม่**
+
+| อยากทำอะไร | เปิดไฟล์ |
+|---|---|
+| ติดตั้งบิลด์นี้บนเครื่อง (มี 3 วิธี + แก้ปัญหาที่พบบ่อย) | [`INSTALL-TH.md`](INSTALL-TH.md) |
+| ดูว่าทำอะไรเสร็จแล้ว/เหลืออะไร และทำไมบางอย่างยังไม่ทำ | [`phase5-implementation-status.md`](phase5-implementation-status.md) |
+| ดูดีไซน์ที่กดได้จริง (ก่อนเป็นโค้ด) | `design-phase1.html` → `design-phase2.html` → `phase3-prototype.html` → `phase4-prototype.html` |
+| สเปกสำหรับนักพัฒนา (โทเคน/คอมโพเนนต์/แอนิเมชัน/ข้อความ/โครง event) | [`phase4-component-library.md`](phase4-component-library.md) |
+| สรุปทั้งหมดในหน้าเดียว | [`summary.md`](summary.md) |
+
+โค้ดของหน้าจอใหม่อยู่ใน `Views/NewUI/` (โทเคน คอมโพเนนต์ หน้าแชท ไทม์ไลน์ หน้าต่างขออนุญาต)
+พร้อม `Models/ActivityModels.swift`, `Services/ActivityCenter.swift`, `Services/SensitiveMask.swift`
