@@ -31,6 +31,9 @@ struct SettingsView: View {
     // สิทธิ์การเข้าถึง
     @State private var accessReport: SystemAccessReport = SystemAccessChecker.check()
 
+    // เฟส 2 — สถานะการเชื่อมต่อเครือข่าย (ใช้กับตัวเลือก "ใช้เฉพาะ Wi-Fi")
+    @ObservedObject private var connectivity = ConnectivityMonitor.shared
+
     // แจ้งเตือน
     @State private var alertTitle: String = ""
     @State private var alertMessage: String = ""
@@ -40,6 +43,7 @@ struct SettingsView: View {
         Form {
             apiKeySection
             modelSection
+            agentSection
             connectionSection
             usageSection
             accessSection
@@ -171,6 +175,80 @@ struct SettingsView: View {
         }
     }
 
+    // MARK: - Section: Agent (เฟส 2)
+
+    private var agentSection: some View {
+        Section {
+            Toggle(isOn: $settings.requireApproval) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("ขออนุมัติก่อนทำสิ่งที่เปลี่ยนเครื่อง")
+                    Text("ถามก่อนรันคำสั่ง shell ทุกครั้ง และก่อนเขียนทับไฟล์ที่มีอยู่แล้ว")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .frame(minHeight: 44)
+
+            Toggle(isOn: $settings.allowInternet) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("อนุญาตให้ใช้ internet")
+                    Text("ให้ Agent เรียก HTTP, ค้นหาเว็บ, ดึงหน้าเว็บ และดาวน์โหลดไฟล์")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .frame(minHeight: 44)
+
+            Toggle(isOn: $settings.wifiOnly) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("ใช้เฉพาะ Wi-Fi")
+                    Text("บล็อกการใช้เครือข่ายเมื่อต่อผ่านเซลลูลาร์ (กันดาต้าหมด)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .frame(minHeight: 44)
+
+            HStack {
+                Label("เครือข่ายตอนนี้", systemImage: connectivity.symbolName)
+                    .font(.footnote)
+                Spacer()
+                Text(connectivity.statusText)
+                    .font(.caption)
+                    .foregroundColor(settings.wifiOnly && !connectivity.isWiFi ? .orange : .secondary)
+            }
+            .frame(minHeight: 32)
+
+            Stepper(value: $settings.maxDownloadMegabytes, in: 10...2_000, step: 10) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("ขนาดดาวน์โหลดสูงสุด: \(settings.maxDownloadMegabytes) MB")
+                    Text("ถ้าไฟล์ใหญ่กว่านี้ Agent จะไม่ดาวน์โหลด (ตรวจจาก Content-Length ก่อน)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .frame(minHeight: 44)
+
+            Picker(selection: $settings.contextLengthTokens) {
+                Text("8K").tag(8_192)
+                Text("16K").tag(16_384)
+                Text("32K (ค่าเริ่มต้น)").tag(32_768)
+                Text("64K").tag(65_536)
+                Text("128K").tag(131_072)
+                Text("200K").tag(200_000)
+            } label: {
+                Text("ขอบเขต context")
+            }
+            .frame(minHeight: 44)
+        } header: {
+            Text("Agent")
+        } footer: {
+            Text("Agent ทำงานเป็นรอบ (คิด → เรียก tool → อ่านผล) สูงสุด \(AgentEngine.maximumToolRounds) รอบต่อหนึ่งคำสั่ง • " +
+                 "เมื่อบทสนทนาใช้เกิน 80% ของขอบเขต context ระบบจะตัดผลลัพธ์ tool ที่เก่าที่สุดออกก่อน เพื่อให้คุยต่อได้ • " +
+                 "โฟลเดอร์ทำงานของ Agent: \(settings.workspacePath)")
+        }
+    }
+
     // MARK: - Section: ทดสอบการเชื่อมต่อ
 
     private var connectionSection: some View {
@@ -291,7 +369,7 @@ struct SettingsView: View {
         } header: {
             Text("สิทธิ์การเข้าถึงไฟล์")
         } footer: {
-            Text("ถ้า /var/mobile อ่านไม่ได้ แปลว่าแอปยังถูก sandbox อยู่ ต้องติดตั้งผ่าน TrollStore (มี entitlements no-sandbox) หรือเจลเบรคด้วย palera1n • การอ่านไฟล์ได้จริงจะเริ่มใช้ในเฟส 3")
+            Text("ถ้า /var/mobile อ่านไม่ได้ แปลว่าแอปยังถูก sandbox อยู่ ต้องติดตั้งผ่าน TrollStore (มี entitlements no-sandbox) หรือเจลเบรคด้วย palera1n • ถ้าอ่านได้ tools ฝั่งไฟล์และ shell ของ Agent จะทำงานเต็มรูปแบบ (เฟส 2)")
         }
     }
 
@@ -330,14 +408,15 @@ struct SettingsView: View {
             HStack {
                 Text("เฟสที่ทำเสร็จ")
                 Spacer()
-                Text("1 – Settings + OpenRouterService")
+                Text("2 – AgentEngine + tools")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
         } header: {
             Text("เกี่ยวกับแอป")
         } footer: {
-            Text("Phase 1: ตั้งค่า + บริการ OpenRouter (streaming, tool_calls delta, retry/error handling, token usage)")
+            Text("Phase 2: ReAct loop + tools 9 ตัว (อ่าน/เขียนไฟล์, ดูโฟลเดอร์, ค้นหาไฟล์, รันคำสั่ง shell, HTTP, ดาวน์โหลด, ค้นหาเว็บ, ดึงหน้าเว็บ) " +
+                 "พร้อมโหมดอนุมัติ เพดานเวลา 30 วินาที ผลลัพธ์จำกัด 10,000 ตัวอักษร และการตัด context อัตโนมัติ")
         }
     }
 

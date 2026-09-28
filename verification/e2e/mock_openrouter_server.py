@@ -8,6 +8,8 @@
   • ส่ง tool_calls ที่ arguments ถูกแบ่งเป็นหลาย chunk + usage chunk ท้ายสุด + [DONE]
   • ตอบ 429 หนึ่งครั้งแล้วค่อยสำเร็จ (ทดสอบ retry + backoff)
   • ตอบ 404 / 401 (ต้องไม่ retry)
+  • /react/ และ /react-shell/: จำลอง ReAct 2 รอบ (รอบแรกขอเรียก tool, รอบสองตอบด้วยข้อความสุดท้าย)
+  • /loop-forever/: ขอเรียก tool ทุกรอบ เพื่อทดสอบเพดาน 20 รอบ
 
 นับจำนวนคำขอไว้ที่ /tmp/mock_openrouter_counts.json เพื่อให้การทดสอบยืนยันได้ว่า
 ไคลเอนต์ "ลองซ้ำ" หรือ "ไม่ลองซ้ำ" ตามที่ควร
@@ -40,6 +42,56 @@ def bump(path: str) -> int:
 
 def sse(payload: str) -> bytes:
     return ("data: " + payload + "\n\n").encode("utf-8")
+
+
+def react_tool_call_chunks(tool_name: str, arguments_json: str, call_id: str = "call_react_1"):
+    """tool_call ที่ arguments ถูกหั่นเป็น 3 chunk (จำลองการสตรีมของจริง)"""
+    half = len(arguments_json) // 2
+    parts = [arguments_json[:half], arguments_json[half:]]
+    chunks = [
+        '{"id":"gen-react","object":"chat.completion.chunk","model":"mock/tool-model",'
+        '"choices":[{"index":0,"delta":{"role":"assistant","content":"ผมจะเรียก tool ให้ครับ "},'
+        '"finish_reason":null}]}',
+        '{"id":"gen-react","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"' + call_id + '",'
+        '"type":"function","function":{"name":"' + tool_name + '","arguments":""}}]},"finish_reason":null}]}',
+        '{"id":"gen-react","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,'
+        '"function":{"arguments":' + json.dumps(parts[0]) + '}}]},"finish_reason":null}]}',
+        '{"id":"gen-react","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,'
+        '"function":{"arguments":' + json.dumps(parts[1]) + '}}]},"finish_reason":null}]}',
+        '{"id":"gen-react","choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}]}',
+        sse_usage(prompt_tokens=120, completion_tokens=30, total=150),
+    ]
+    return chunks
+
+
+def sse_usage(prompt_tokens: int, completion_tokens: int, total: int) -> str:
+    return ('{"object":"chat.completion.chunk","usage":{"prompt_tokens":' + str(prompt_tokens) +
+            ',"completion_tokens":' + str(completion_tokens) + ',"total_tokens":' + str(total) +
+            ',"cost":0.0},"choices":[]}')
+
+
+def conversation_has_tool_result(body) -> bool:
+    """ตรวจว่าคำขอนี้มีผลลัพธ์ของ tool แนบมาหรือยัง (แปลว่าเป็นรอบที่สองของ ReAct)"""
+    try:
+        messages = body.get("messages") or []
+    except AttributeError:
+        return False
+    for message in messages:
+        if isinstance(message, dict) and message.get("role") == "tool":
+            return True
+    return False
+
+
+def last_tool_result_text(body) -> str:
+    """ดึงข้อความผลลัพธ์ของ tool ล่าสุดในคำขอ (ใช้ยืนยันว่าผลไหลกลับไปถึงเซิร์ฟเวอร์)"""
+    try:
+        messages = body.get("messages") or []
+    except AttributeError:
+        return ""
+    for message in reversed(messages):
+        if isinstance(message, dict) and message.get("role") == "tool":
+            return str(message.get("content") or "")
+    return ""
 
 
 def tool_call_chunks():
@@ -187,6 +239,36 @@ class Handler(BaseHTTPRequestHandler):
             self._stream_tool_calls()
             return
 
+        if "/react-shell/" in path:
+            # รอบแรก: ขอเรียก execute_shell / รอบสอง: ตอบด้วยข้อความสุดท้าย
+            bump("/react-shell")
+            if conversation_has_tool_result(body):
+                self._stream_final_reply("คำสั่งทำงานเสร็จแล้วครับ ผลลัพธ์คือ: " + last_tool_result_text(body)[:200])
+            else:
+                self._stream_react_tool_call("execute_shell",
+                                             json.dumps({"command": "echo e2e-shell-ok", "timeout_seconds": 15}),
+                                             call_id="call_shell_1")
+            return
+
+        if "/react/" in path:
+            # ReAct สองรอบ: อ่านไฟล์จริงบนเครื่องแล้วสรุป — ใช้ทดสอบว่า tool ทำงานจริง
+            bump("/react")
+            if conversation_has_tool_result(body):
+                self._stream_final_reply("อ่านไฟล์เรียบร้อยครับ สรุปว่า: " + last_tool_result_text(body)[:200])
+            else:
+                self._stream_react_tool_call("read_file",
+                                             json.dumps({"path": "/tmp/e2e-react-note.txt"}),
+                                             call_id="call_read_1")
+            return
+
+        if "/loop-forever/" in path:
+            # ขอเรียก tool ทุกรอบ — ใช้ทดสอบเพดาน 20 รอบของ ReAct loop
+            bump("/loop-forever")
+            self._stream_react_tool_call("list_directory",
+                                         json.dumps({"path": "/tmp"}),
+                                         call_id="call_loop")
+            return
+
         if "/slowfail/" in path:
             bump("/slowfail")
             self._send_json(503, {"error": {"message": "Upstream provider unavailable"}})
@@ -228,6 +310,30 @@ class Handler(BaseHTTPRequestHandler):
         self._write_raw(sse('{"object":"chat.completion.chunk","usage":{"prompt_tokens":77,'
                             '"completion_tokens":12,"total_tokens":89,"cost":0.00031},'
                             '"choices":[]}'))
+        self._write_raw(b"data: [DONE]\n\n")
+        self._end_stream()
+
+    def _stream_react_tool_call(self, tool_name: str, arguments_json: str, call_id: str):
+        self._start_stream()
+        for index, payload in enumerate(react_tool_call_chunks(tool_name, arguments_json, call_id)):
+            self._write_raw(sse(payload))
+            if index == 1:
+                self._write_raw(b": keep-alive\n\n")
+            time.sleep(0.004)
+        self._write_raw(b"data: [DONE]\n\n")
+        self._end_stream()
+
+    def _stream_final_reply(self, text: str):
+        self._start_stream()
+        # แบ่งข้อความสุดท้ายเป็น 2 chunk เพื่อยืนยันว่าการสตรีมยังทำงานในรอบสุดท้าย
+        head, tail = text[:len(text) // 2], text[len(text) // 2:]
+        for piece in (head, tail):
+            payload = ('{"id":"gen-final","choices":[{"index":0,"delta":{"content":' +
+                       json.dumps(piece, ensure_ascii=False) + '},"finish_reason":null}]}')
+            self._write_raw(sse(payload))
+            time.sleep(0.004)
+        self._write_raw(sse('{"id":"gen-final","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}'))
+        self._write_raw(sse(sse_usage(150, 40, 190)))
         self._write_raw(b"data: [DONE]\n\n")
         self._end_stream()
 

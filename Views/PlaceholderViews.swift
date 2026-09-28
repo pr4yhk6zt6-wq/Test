@@ -85,18 +85,18 @@ struct FileBrowserPlaceholderView: View {
     }
 }
 
-/// บันทึกการทำงานของ Agent: เฟส 2 (AgentLogStore) + เฟส 4 (AgentLogView)
+/// บันทึกการทำงานของ Agent: เฟส 4 (AgentLogView) — ระหว่างนี้ดูผล tool ได้จากการ์ดในหน้าแชท
 struct AgentLogPlaceholderView: View {
     var body: some View {
         PhasePendingView(
             title: "บันทึก Agent",
             systemImage: "list.bullet.rectangle",
-            phase: "จะเปิดใช้งานในเฟส 2–4",
+            phase: "จะเปิดใช้งานในเฟส 4",
             detail: "ทุก tool call (ชื่อ, arguments, ผลลัพธ์, เวลา) จะถูกบันทึกไว้ที่นี่ พร้อมปุ่มคัดลอกและล้าง",
             bullets: [
-                "เฟส 2: AgentEngine + tools (read_file, write_file, list_directory, execute_shell, search_files, http_request, download_file, web_search, fetch_webpage)",
-                "เฟส 2: โหมดขออนุมัติก่อนรันคำสั่งเสี่ยง และตัวนับโทเคน/ลิมิต 20 รอบต่อคำสั่ง",
-                "เฟส 4: หน้าจอบันทึกพร้อมปุ่มคัดลอก/ล้าง และการเก็บประวัติแชทเป็น JSON"
+                "เสร็จแล้วในเฟส 2: AgentEngine + tools ทั้ง 9 ตัว (read_file, write_file, list_directory, execute_shell, search_files, http_request, download_file, web_search, fetch_webpage)",
+                "เสร็จแล้วในเฟส 2: โหมดขออนุมัติก่อนรันคำสั่งเสี่ยง เพดาน 20 รอบต่อคำสั่ง และการบันทึกประวัติแชทเป็น JSON",
+                "เฟส 4: หน้าจอบันทึกพร้อมปุ่มคัดลอก/ล้าง (ระหว่างนี้ดูผลของแต่ละ tool ได้จากการ์ดในหน้าแชท)"
             ]
         )
     }

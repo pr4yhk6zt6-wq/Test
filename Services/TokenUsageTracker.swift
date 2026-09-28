@@ -8,7 +8,7 @@
 
 import Foundation
 
-final class TokenUsageTracker: ObservableObject {
+final class TokenUsageTracker: ObservableObject, UsageRecording {
 
     static let shared = TokenUsageTracker()
 

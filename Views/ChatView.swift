@@ -2,8 +2,10 @@
 //  ChatView.swift
 //  iOS Agent Sandbox
 //
-//  เฟส 1: แชทกับโมเดลผ่าน OpenRouter แบบ streaming
-//  - bubble ข้อความ, สถานะ "กำลังคิด", ปุ่มส่ง/หยุด, Token Usage
+//  เฟส 2: แชทกับ Agent ที่ใช้ tools ได้จริง
+//  - bubble ข้อความ, สถานะ "กำลังคิด/กำลังใช้ tool", ปุ่มส่ง/หยุด, Token Usage
+//  - การ์ดแสดงการทำงานของ tool 9 ตัว (อ่าน/เขียนไฟล์, shell, ค้นหาเว็บ, ดาวน์โหลด ฯลฯ)
+//  - หน้าต่างขออนุมัติก่อน Agent รันคำสั่ง shell หรือเขียนทับไฟล์สำคัญ
 //  - ตรวจสิทธิ์การเข้าถึงไฟล์ตอนเปิดแอป และแจ้งถ้าต้อง TrollStore/palera1n
 //
 
@@ -27,6 +29,7 @@ struct ChatView: View {
     @State private var showAccessNotice: Bool = false
     @State private var autoScrollEnabled: Bool = true
     @State private var composerHeight: CGFloat = 38
+    @Environment(\.scenePhase) private var scenePhase
 
     private let bottomAnchorID = "chat-bottom-anchor"
 
@@ -56,6 +59,12 @@ struct ChatView: View {
                         Label("แชร์บทสนทนา", systemImage: "square.and.arrow.up")
                     }
                     .disabled(viewModel.messages.isEmpty)
+                    Button {
+                        viewModel.stop()
+                    } label: {
+                        Label("หยุดงานที่กำลังทำ", systemImage: "stop.circle")
+                    }
+                    .disabled(!viewModel.isBusy)
                 } label: {
                     Image(systemName: "ellipsis.circle")
                         .frame(minWidth: 44, minHeight: 44)
@@ -67,13 +76,24 @@ struct ChatView: View {
         .sheet(item: $shareText) { item in
             ShareSheet(items: [item.text])
         }
+        .sheet(item: approvalBinding) { request in
+            ApprovalSheetView(request: request) { decision in
+                viewModel.resolveApproval(decision)
+            }
+        }
+        .onChange(of: scenePhase) { phase in
+            // แอปถูกพัก → บันทึกประวัติทันที (ไม่รอ debounce)
+            if phase != .active {
+                viewModel.persistNow()
+            }
+        }
         .confirmationDialog("ล้างการสนทนาทั้งหมด?", isPresented: $showClearConfirmation, titleVisibility: .visible) {
             Button("ล้างทั้งหมด", role: .destructive) {
                 viewModel.clearConversation()
             }
             Button("ยกเลิก", role: .cancel) { }
         } message: {
-            Text("ข้อความทั้งหมดในเซสชันนี้จะถูกลบ (เฟส 2 จะมีการบันทึกประวัติลงเครื่อง)")
+            Text("ข้อความทั้งหมดจะถูกลบทั้งจากหน้าจอและจากไฟล์ประวัติที่บันทึกไว้บนเครื่อง")
         }
     }
 
@@ -88,11 +108,18 @@ struct ChatView: View {
                             emptyState
                         }
                         ForEach(viewModel.messages) { message in
-                            MessageBubbleView(message: message,
-                                              fontScale: chatFontScale,
-                                              onDelete: { delete(message) },
-                                              onShare: { text in shareText = ShareableText(text: text) })
-                                .id(message.id)
+                            if message.isToolResult {
+                                ToolActivityView(message: message,
+                                                 fontScale: chatFontScale,
+                                                 onShare: { text in shareText = ShareableText(text: text) })
+                                    .id(message.id)
+                            } else {
+                                MessageBubbleView(message: message,
+                                                  fontScale: chatFontScale,
+                                                  onDelete: { delete(message) },
+                                                  onShare: { text in shareText = ShareableText(text: text) })
+                                    .id(message.id)
+                            }
                         }
                         statusRow
                         noticeRow
@@ -148,7 +175,7 @@ struct ChatView: View {
         VStack(alignment: .leading, spacing: 10) {
             Label("เริ่มสนทนากับ Agent", systemImage: "sparkles")
                 .font(.headline)
-            Text("Agent ตอบตามภาษาที่คุณพิมพ์ • เฟส 1 นี้คุยกับโมเดลผ่าน OpenRouter ได้แล้ว ส่วนการอ่านไฟล์ทั้งเครื่อง รันคำสั่ง shell และการเข้าถึงอินเทอร์เน็ตจะมาในเฟส 2–3")
+            Text("Agent ตอบตามภาษาที่คุณพิมพ์ และทำงานได้จริงบนเครื่อง: อ่าน/เขียนไฟล์, สำรวจโฟลเดอร์, ค้นหาไฟล์, รันคำสั่ง shell, เรียก HTTP, ดาวน์โหลดไฟล์, ค้นหาเว็บ และดึงเนื้อหาหน้าเว็บ • โหมดอนุมัติเปิดอยู่ ค่าเริ่มต้นจะถามก่อนทำสิ่งที่เปลี่ยนเครื่อง")
                 .font(.footnote)
                 .foregroundColor(.secondary)
             if !settings.hasAPIKey || settings.modelID.isEmpty {
@@ -258,6 +285,12 @@ struct ChatView: View {
                 .font(.caption2.monospacedDigit())
                 .foregroundColor(.secondary)
                 .lineLimit(1)
+            if viewModel.usedRounds > 0 {
+                Text("• รอบ \(viewModel.usedRounds)/\(AgentEngine.maximumToolRounds)")
+                    .font(.caption2.monospacedDigit())
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+            }
             Spacer(minLength: 0)
             Text(settings.modelID.isEmpty ? "ยังไม่เลือกโมเดล" : settings.modelID)
                 .font(.caption2)

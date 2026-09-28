@@ -31,13 +31,30 @@ struct ChatMessage: Identifiable, Codable, Equatable {
     var name: String?
     var createdAt: Date
 
+    // MARK: ข้อมูลเพิ่มเติมสำหรับแสดงผล (ไม่ถูกส่งไป API — payload() ไม่ใช้ฟิลด์เหล่านี้)
+    //
+    // ใช้กับการ์ด tool ในหน้าแชท (เฟส 2) และการบันทึกประวัติลงเครื่อง
+
+    /// arguments ที่โมเดลส่งมา (ข้อความ JSON แบบอ่านง่าย)
+    var toolArguments: String?
+    /// ชื่อไทยของ tool ที่ใช้แสดงบนการ์ด
+    var toolThaiLabel: String?
+    /// เวลาที่ tool ใช้จริง (วินาที)
+    var toolDuration: TimeInterval?
+    /// true = tool นี้ทำงานไม่สำเร็จ
+    var toolIsError: Bool?
+
     init(id: UUID = UUID(),
          role: ChatRole,
          text: String,
          toolCalls: [ToolCall]? = nil,
          toolCallID: String? = nil,
          name: String? = nil,
-         createdAt: Date = Date()) {
+         createdAt: Date = Date(),
+         toolArguments: String? = nil,
+         toolThaiLabel: String? = nil,
+         toolDuration: TimeInterval? = nil,
+         toolIsError: Bool? = nil) {
         self.id = id
         self.role = role
         self.text = text
@@ -45,6 +62,10 @@ struct ChatMessage: Identifiable, Codable, Equatable {
         self.toolCallID = toolCallID
         self.name = name
         self.createdAt = createdAt
+        self.toolArguments = toolArguments
+        self.toolThaiLabel = toolThaiLabel
+        self.toolDuration = toolDuration
+        self.toolIsError = toolIsError
     }
 
     // MARK: ตัวสร้างสำเร็จรูป
@@ -61,8 +82,32 @@ struct ChatMessage: Identifiable, Codable, Equatable {
         ChatMessage(role: .assistant, text: text, toolCalls: toolCalls)
     }
 
-    static func toolResult(_ text: String, toolCallID: String, name: String) -> ChatMessage {
-        ChatMessage(role: .tool, text: text, toolCallID: toolCallID, name: name)
+    static func toolResult(_ text: String,
+                           toolCallID: String,
+                           name: String,
+                           argumentsText: String? = nil,
+                           thaiLabel: String? = nil,
+                           duration: TimeInterval? = nil,
+                           isError: Bool = false) -> ChatMessage {
+        ChatMessage(role: .tool,
+                    text: text,
+                    toolCallID: toolCallID,
+                    name: name,
+                    toolArguments: argumentsText,
+                    toolThaiLabel: thaiLabel,
+                    toolDuration: duration,
+                    toolIsError: isError)
+    }
+
+    /// ชื่อที่ใช้แสดงบนการ์ด tool (ชื่อไทยถ้ามี ไม่งั้นใช้ชื่อจริง)
+    var toolDisplayName: String {
+        if let thai = toolThaiLabel, !thai.isEmpty { return thai }
+        return name ?? "tool"
+    }
+
+    /// true = ข้อความนี้เป็นผลลัพธ์ของ tool
+    var isToolResult: Bool {
+        role == .tool
     }
 
     // MARK: ตัวช่วย

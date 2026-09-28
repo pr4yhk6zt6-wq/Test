@@ -255,6 +255,204 @@ do {
     expect("โหลดรายการโมเดลได้", false, error.localizedDescription)
 }
 
+// MARK: - 9) ReAct loop จริง: โมเดลขอเรียก read_file → tool อ่านไฟล์จริง → ส่งผลกลับ → ได้คำตอบสุดท้าย
+
+print("\n[9] ReAct loop กับ tool จริง (read_file)")
+
+// เตรียมไฟล์ให้ tool อ่าน (จำลองไฟล์ของผู้ใช้บนเครื่อง)
+let reactNotePath = "/tmp/e2e-react-note.txt"
+let reactNoteContent = "E2E-REACT-CONTENT-42"
+try? FileManager.default.removeItem(atPath: reactNotePath)
+try? reactNoteContent.write(toFile: reactNotePath, atomically: true, encoding: .utf8)
+
+final class ApprovalCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private(set) var count = 0
+    private(set) var lastRequest: ApprovalRequest?
+    func record(_ request: ApprovalRequest) {
+        lock.lock(); count += 1; lastRequest = request; lock.unlock()
+    }
+}
+
+func makeConfiguration(baseSuffix: String,
+                       requireApproval: Bool = true,
+                       maxRounds: Int = AgentEngine.maximumToolRounds) -> AgentConfiguration {
+    AgentConfiguration(modelID: "mock/tool-model",
+                       apiKey: apiKey,
+                       workspacePath: "/tmp/e2e-workspace",
+                       allowInternet: false,
+                       wifiOnly: false,
+                       isWiFiConnected: false,
+                       requireApproval: requireApproval,
+                       maxDownloadBytes: NetworkPolicy.maxDownloadBytes(megabytes: 200),
+                       contextLengthTokens: 32_768,
+                       maxToolRounds: maxRounds,
+                       baseURLString: base + baseSuffix)
+}
+
+func runEngine(_ engine: AgentEngine,
+               text: String,
+               approval: @escaping (ApprovalRequest) async -> ApprovalDecision) async -> (events: [AgentEvent], finalText: String) {
+    var events: [AgentEvent] = []
+    var finalText = ""
+    let userMessage = ChatMessage.user(text)
+    let history: [ChatMessage] = [.system("system prompt ทดสอบ")]
+    let stream = engine.run(userMessage: userMessage, history: history, approvalHandler: approval)
+    for await event in stream {
+        events.append(event)
+        if case .assistantFinished(_, let message) = event, let message = message, !message.hasToolCalls {
+            finalText = message.text
+        }
+    }
+    return (events, finalText)
+}
+
+let readToolRegistry = ToolRegistry(tools: [ReadFileTool(), WriteFileTool(), ListDirectoryTool(), SearchFilesTool()])
+let reactEngine = AgentEngine(configuration: makeConfiguration(baseSuffix: "/react"),
+                              registry: readToolRegistry)
+let reactApprovals = ApprovalCounter()
+let reactRun = await runEngine(reactEngine, text: "ช่วยอ่านไฟล์ e2e-react-note.txt ให้หน่อย") { request in
+    reactApprovals.record(request)
+    return .allowOnce
+}
+
+let toolStartedCount = reactRun.events.filter { if case .toolStarted = $0 { return true } else { return false } }.count
+let toolFinishedCount = reactRun.events.filter { if case .toolFinished = $0 { return true } else { return false } }.count
+
+var readToolResultText = ""
+for event in reactRun.events {
+    if case .toolFinished(let invocation, let result, _) = event, invocation.toolName == "read_file" {
+        readToolResultText = result.text
+    }
+}
+
+expect("เรียก tool 1 ครั้ง (toolStarted)", toolStartedCount == 1, "ได้: \(toolStartedCount)")
+expect("ได้ผลลัพธ์ของ tool 1 ครั้ง (toolFinished)", toolFinishedCount == 1, "ได้: \(toolFinishedCount)")
+expect("tool อ่านเนื้อหาไฟล์จริงได้", readToolResultText.contains(reactNoteContent),
+       readToolResultText.isEmpty ? "(ไม่มีผลลัพธ์)" : String(readToolResultText.prefix(120)))
+expect("ผลลัพธ์ถูกเก็บเป็นข้อความ role = tool (ไม่ใช่ข้อความ assistant)",
+       reactRun.events.contains { event in
+           if case .toolFinished(_, let result, _) = event { return !result.isError }
+           return false
+       })
+expect("ไม่ต้องขออนุมัติสำหรับ read_file (งานอ่านล้วน)", reactApprovals.count == 0, "คำขออนุมัติ: \(reactApprovals.count)")
+expect("ยิง API 2 รอบ (รอบ tool + รอบคำตอบสุดท้าย)", (readCounts()["/react"] ?? 0) == 2,
+       "จำนวนคำขอ: \(readCounts()["/react"] ?? 0)")
+expect("คำตอบสุดท้ายมาจากเซิร์ฟเวอร์หลังอ่านไฟล์", reactRun.finalText.contains("อ่านไฟล์เรียบร้อย"),
+       reactRun.finalText.isEmpty ? "(ว่าง)" : String(reactRun.finalText.prefix(120)))
+expect("จบงานด้วยสถานะ answered", reactEngine.lastStopReason == .answered,
+       String(describing: reactEngine.lastStopReason))
+expect("นับรอบที่ใช้จริงได้", reactEngine.lastUsedRounds == 2, "รอบ: \(reactEngine.lastUsedRounds)")
+
+// MARK: - 10) โหมดอนุมัติ: อนุญาต → shell รันจริง / ไม่อนุญาต → ไม่รันและแจ้งโมเดล
+
+print("\n[10] โหมดอนุมัติ + execute_shell จริง")
+
+let shellRegistry = ToolRegistry(tools: [ExecuteShellTool()])
+
+let shellEngine = AgentEngine(configuration: makeConfiguration(baseSuffix: "/react-shell"),
+                              registry: shellRegistry)
+let shellApprovals = ApprovalCounter()
+let approvedRun = await runEngine(shellEngine, text: "รันคำสั่ง echo e2e-shell-ok ให้หน่อย") { request in
+    shellApprovals.record(request)
+    return .allowOnce
+}
+
+var shellResultText = ""
+var shellResultIsError = true
+for event in approvedRun.events {
+    if case .toolFinished(let invocation, let result, _) = event, invocation.toolName == "execute_shell" {
+        shellResultText = result.text
+        shellResultIsError = result.isError
+    }
+}
+
+expect("มีการขออนุมัติก่อนรัน execute_shell", shellApprovals.count == 1, "คำขออนุมัติ: \(shellApprovals.count)")
+expect("หน้าขออนุมัติได้รับ arguments ของคำสั่ง", shellApprovals.lastRequest?.argumentsText.contains("echo e2e-shell-ok") ?? false,
+       shellApprovals.lastRequest?.argumentsText ?? "(nil)")
+expect("ตรวจความเสี่ยงคำสั่ง echo ว่าเป็นคำสั่งอ่านข้อมูล", shellApprovals.lastRequest?.risk.level == RiskLevel.normal,
+       String(describing: shellApprovals.lastRequest?.risk.level))
+expect("shell รันจริงและได้ผลลัพธ์", shellResultText.contains("e2e-shell-ok") && !shellResultIsError,
+       String(shellResultText.prefix(160)))
+expect("exit code 0 ถูกรายงาน", shellResultText.contains("exit code: 0"), String(shellResultText.prefix(120)))
+expect("คำตอบสุดท้ายอ้างถึงผลลัพธ์ของ shell", approvedRun.finalText.contains("e2e-shell-ok"),
+       String(approvedRun.finalText.prefix(160)))
+
+let denyEngine = AgentEngine(configuration: makeConfiguration(baseSuffix: "/react-shell"),
+                             registry: shellRegistry)
+var deniedResultText = ""
+var deniedResultIsError = false
+let deniedRun = await runEngine(denyEngine, text: "รันคำสั่งเดิมอีกครั้ง") { _ in
+    return .deny
+}
+for event in deniedRun.events {
+    if case .toolFinished(let invocation, let result, _) = event, invocation.toolName == "execute_shell" {
+        deniedResultText = result.text
+        deniedResultIsError = result.isError
+    }
+}
+expect("เมื่อผู้ใช้ไม่อนุมัติ คำสั่งต้องไม่ถูกเรียกใช้", !deniedResultText.contains("e2e-shell-ok"),
+       String(deniedResultText.prefix(160)))
+expect("แจ้งผลกลับโมเดลว่าไม่ได้รับอนุมัติ", deniedResultIsError && deniedResultText.contains("ไม่อนุมัติ"),
+       String(deniedResultText.prefix(160)))
+expect("ลูปยังทำงานต่อและได้คำตอบสุดท้าย", !deniedRun.finalText.isEmpty,
+       String(deniedRun.finalText.prefix(120)))
+expect("ผู้ใช้ไม่ต้องอนุมัติซ้ำในรอบเดิม", deniedRun.events.contains { event in
+    if case .completed = event { return true }
+    return false
+})
+
+// MARK: - 11) เพดาน 20 รอบ (กันการวนไม่จบ)
+
+print("\n[11] เพดานรอบของ ReAct loop")
+
+let beforeLoopCount = readCounts()["/loop-forever"] ?? 0
+let loopEngine = AgentEngine(configuration: makeConfiguration(baseSuffix: "/loop-forever"),
+                             registry: ToolRegistry(tools: [ListDirectoryTool()]))
+let loopRun = await runEngine(loopEngine, text: "เรียก tool ซ้ำไปเรื่อย ๆ") { _ in .allowOnce }
+let loopRequests = (readCounts()["/loop-forever"] ?? 0) - beforeLoopCount
+
+expect("หยุดที่ 20 รอบตามเพดาน", loopEngine.lastUsedRounds == AgentEngine.maximumToolRounds,
+       "รอบที่ใช้: \(loopEngine.lastUsedRounds)")
+expect("ยิง API เท่ากับจำนวนรอบ (20)", loopRequests == AgentEngine.maximumToolRounds, "คำขอ: \(loopRequests)")
+expect("แจ้งเหตุผลว่าครบเพดานรอบ", loopRun.events.contains { event in
+    if case .notice(let text) = event { return text.contains("ครบ") && text.contains("รอบ") }
+    return false
+})
+expect("จบงานด้วยสถานะ roundLimitReached", loopEngine.lastStopReason == .roundLimitReached,
+       String(describing: loopEngine.lastStopReason))
+
+// MARK: - 12) ยกเลิกงานกลางทาง (ปุ่มหยุด)
+
+print("\n[12] การยกเลิกงาน (stop)")
+
+let beforeCancelCount = readCounts()["/loop-forever"] ?? 0
+let cancelEngine = AgentEngine(configuration: makeConfiguration(baseSuffix: "/loop-forever"),
+                               registry: ToolRegistry(tools: [ListDirectoryTool()]))
+let cancelStream = cancelEngine.run(userMessage: ChatMessage.user("ทำงานยาว ๆ"),
+                                    history: [.system("system prompt ทดสอบ")],
+                                    approvalHandler: { _ in .allowOnce })
+let cancelTask = Task { () -> Int in
+    var finishedTools = 0
+    for await event in cancelStream {
+        if case .toolFinished = event {
+            finishedTools += 1
+            if finishedTools == 2 {
+                cancelEngine.cancel()
+            }
+        }
+    }
+    return finishedTools
+}
+let finishedBeforeCancel = await cancelTask.value
+let cancelRequests = (readCounts()["/loop-forever"] ?? 0) - beforeCancelCount
+
+expect("ยกเลิกหลัง tool ทำงานเสร็จ 2 ครั้ง", finishedBeforeCancel == 2, "ได้: \(finishedBeforeCancel)")
+expect("หยุดยิงคำขอหลังถูกยกเลิก (ไม่ครบ 20 รอบ)", cancelRequests < AgentEngine.maximumToolRounds,
+       "คำขอหลังยกเลิก: \(cancelRequests)")
+expect("รายงานสถานะว่าถูกยกเลิก", cancelEngine.lastStopReason == .cancelled,
+       String(describing: cancelEngine.lastStopReason))
+
 // MARK: - 8) ตรวจว่าไม่ได้ใช้ API ของ iOS 16+ ในเส้นทางที่ทดสอบ
 
 print("\n[8] สรุปผล")

@@ -12,6 +12,9 @@
 #   • 429 → retry ด้วย backoff แล้วสำเร็จ (ยิง 2 ครั้ง) ; 503 → ลองใหม่ครบ 3 ครั้งแล้วหยุด
 #   • 404/401 → ไม่ retry (ยิงครั้งเดียว) พร้อมข้อความที่ถูกต้อง
 #   • GET /models กรองรายการที่เสียออกโดยไม่ทำให้ทั้งลิสต์พัง
+#   • เฟส 2: ReAct loop จริง 2 รอบ (อ่านไฟล์จริง → ส่งผลกลับ → ได้คำตอบสุดท้าย)
+#   • เฟส 2: โหมดอนุมัติ (อนุญาต → shell ทำงานจริง / ไม่อนุญาต → ไม่รันและแจ้งโมเดล)
+#   • เฟส 2: เพดาน 20 รอบ และการยกเลิกงานกลางทาง
 #
 set -euo pipefail
 
@@ -80,6 +83,22 @@ FILES=(
   "Models/OpenRouterModels.swift"
   "Services/OpenRouterCore.swift"
   "Services/OpenRouterService.swift"
+  # เฟส 2 — engine + tools ทั้งชุด (รันจริงบนเครื่องผู้ทดสอบ: อ่าน/เขียนไฟล์, shell, เครือข่าย)
+  "Services/ShellService.swift"
+  "Services/AgentEngine.swift"
+  "Services/Tools/ToolCore.swift"
+  "Services/Tools/ToolArguments.swift"
+  "Services/Tools/PathGuard.swift"
+  "Services/Tools/RiskyCommandDetector.swift"
+  "Services/Tools/ToolOutputLimiter.swift"
+  "Services/Tools/GlobMatcher.swift"
+  "Services/Tools/HTMLTextExtractor.swift"
+  "Services/Tools/NetworkPolicy.swift"
+  "Services/Tools/ContextTrimmer.swift"
+  "Services/Tools/FileTools.swift"
+  "Services/Tools/ShellTool.swift"
+  "Services/Tools/HttpTools.swift"
+  "Services/Tools/ToolRegistry.swift"
 )
 for rel in "${FILES[@]}"; do
   cp "$PROJECT_ROOT/$rel" "$WORK/$(basename "$rel")"

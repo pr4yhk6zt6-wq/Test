@@ -28,6 +28,16 @@ ORIGINALS=(
   "Models/ChatModels.swift"
   "Models/OpenRouterModels.swift"
   "Services/OpenRouterCore.swift"
+  # เฟส 2 — แกนกลางของ tools ที่ทดสอบได้โดยไม่ต้องมี iOS SDK
+  "Services/Tools/ToolCore.swift"
+  "Services/Tools/ToolArguments.swift"
+  "Services/Tools/PathGuard.swift"
+  "Services/Tools/RiskyCommandDetector.swift"
+  "Services/Tools/ToolOutputLimiter.swift"
+  "Services/Tools/GlobMatcher.swift"
+  "Services/Tools/HTMLTextExtractor.swift"
+  "Services/Tools/NetworkPolicy.swift"
+  "Services/Tools/ContextTrimmer.swift"
 )
 
 echo "== คัดลอกไฟล์ต้นฉบับที่ต้องทดสอบ =="
@@ -57,7 +67,7 @@ swift test --scratch-path /tmp/swiftpm-build 2>&1 | tee /tmp/swift-test-output.l
 echo ""
 if grep -qE "[0-9]+ tests?, with 0 failures" /tmp/swift-test-output.log; then
   TOTAL="$(grep -oE "Executed [0-9]+ tests" /tmp/swift-test-output.log | tail -1 | grep -oE "[0-9]+")"
-  echo "✓ รันทดสอบแกนกลางเฟส 1 ผ่านทั้งหมด ${TOTAL:-?} เคส"
+  echo "✓ รันทดสอบแกนกลาง (เฟส 1 + 2) ผ่านทั้งหมด ${TOTAL:-?} เคส"
 else
   echo "⚠️ มีเคสที่ไม่ผ่าน:"
   grep -E "error:" /tmp/swift-test-output.log | sed 's/^/   /' | head -20
