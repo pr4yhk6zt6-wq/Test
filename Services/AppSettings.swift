@@ -35,6 +35,8 @@ enum SettingsKeys {
     static let newChatUI = "settings.newChatUI"
     /// ระดับรายละเอียดกิจกรรม: concise / normal / detailed
     static let activityLevel = "settings.activityLevel"
+    /// เปิด/ปิดการแจ้งเตือนเมื่องานเสร็จ/ต้องตอบ/ล้มเหลว (ค่าเริ่มต้น: ปิด — ขออนุญาตเฉพาะเมื่อผู้ใช้เปิดเอง)
+    static let agentNotifications = "settings.agentNotifications"
 }
 
 /// ค่าเริ่มต้นของตัวเลือกที่เพิ่มในเฟส 2

@@ -40,6 +40,7 @@ struct SettingsView: View {
 
     // เฟส 2 — สถานะการเชื่อมต่อเครือข่าย (ใช้กับตัวเลือก "ใช้เฉพาะ Wi-Fi")
     @ObservedObject private var connectivity = ConnectivityMonitor.shared
+    @ObservedObject private var notifier: AgentNotifier = .shared
 
     // แจ้งเตือน
     @AppStorage(SettingsKeys.appearance) private var appearanceRawValue: String = AppAppearance.system.rawValue
@@ -62,6 +63,7 @@ struct SettingsView: View {
             attachmentSection
             appearanceSection
             screenSection
+            notificationSection
             accessSection
             privilegeSection
             aboutSection
@@ -509,6 +511,30 @@ struct SettingsView: View {
     }
 
     // MARK: - Section: รูปลักษณ์ (เฟส 5)
+
+    /// ส่วน "การแจ้งเตือน" — ขออนุญาตจาก iOS เฉพาะเมื่อผู้ใช้เปิดสวิตช์เอง (เฟส 5 ส่วนที่ 6)
+    private var notificationSection: some View {
+        Section {
+            Toggle("แจ้งเตือนเมื่องานเสร็จหรือต้องตอบ", isOn: Binding(
+                get: { notifier.isEnabled },
+                set: { newValue in notifier.setEnabled(newValue) }
+            ))
+            .frame(minHeight: 44)
+
+            Text(notifier.statusExplanation)
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            NavigationLink(destination: AgentCapabilitiesScreen()) {
+                Label("เครื่องมือและบริการของ Agent", systemImage: "wrench.and.screwdriver")
+                    .frame(minHeight: 44)
+            }
+        } header: {
+            Text("การแจ้งเตือนและความสามารถ")
+        } footer: {
+            Text("แจ้งเตือนของแอปนี้ไม่มีปุ่มอนุมัติ และไม่แสดงรายละเอียดงานบนหน้าจอล็อก — ต้องเปิดแอปเพื่อดูบริบทให้ครบก่อนตัดสินใจ")
+        }
+    }
 
     /// ส่วน "หน้าจอ" — สวิตช์ระหว่างหน้าจอใหม่/เดิม และระดับรายละเอียดกิจกรรม (ดีไซน์ v2)
     private var screenSection: some View {

@@ -62,6 +62,9 @@ final class ActivityCenter: ObservableObject {
 
     // MARK: - ภายใน
 
+    /// ตัวบอกว่ากำลังทำงานอยู่ในห้องไหน (ตั้งค่าโดยหน้าแชท) — ใช้ผูกการแจ้งเตือนกับห้องที่ถูกต้อง
+    var roomIDProvider: (() -> UUID?)?
+
     private var timer: Timer?
     private var engineStatus: String = ""
     private var nextSeq: Int = 1
@@ -258,7 +261,14 @@ final class ActivityCenter: ObservableObject {
 
         trimIfNeeded()
         refreshLiveLabel()
-        if result.isError { DSHaptic.warning() } else { DSHaptic.light() }
+        if result.isError {
+            DSHaptic.warning()
+            AgentNotifier.shared.notify(kind: .failed,
+                                        roomID: roomIDProvider?(),
+                                        detail: "\(invocation.thaiLabel) ไม่สำเร็จ — เปิดแอปเพื่อดูสาเหตุและลองใหม่")
+        } else {
+            DSHaptic.light()
+        }
     }
 
     private func appendPermissionRequest(_ request: ApprovalRequest) {
@@ -289,6 +299,9 @@ final class ActivityCenter: ObservableObject {
         trimIfNeeded()
         liveLabel = ActivityKind.permission.runningPhraseTH
         DSHaptic.medium()
+        AgentNotifier.shared.notify(kind: .needsAnswer,
+                                    roomID: roomIDProvider?(),
+                                    detail: "Agent รอให้คุณอนุญาตก่อนทำต่อ")
     }
 
     private func closePermission(id: String, decision: ApprovalDecision, autoApproved: Bool) {
@@ -338,15 +351,50 @@ final class ActivityCenter: ObservableObject {
         case .answered:
             finishedSummary = "ทำเสร็จแล้ว ใช้เวลา \(DSFormat.duration(elapsed))"
             DSHaptic.success()
+            AgentNotifier.shared.notify(kind: .finished,
+                                        roomID: roomIDProvider?(),
+                                        detail: finishedSummary)
         case .cancelled:
             finishedSummary = "ยกเลิกตามที่คุณสั่ง — ผลที่ทำไว้แล้วยังอยู่ครบ"
         case .roundLimitReached:
             finishedSummary = "หยุดเพราะครบเพดานรอบต่อคำสั่ง — พิมพ์บอกต่อได้เลยว่าจะให้ทำอะไร"
+            AgentNotifier.shared.notify(kind: .needsAnswer,
+                                        roomID: roomIDProvider?(),
+                                        detail: "งานยาวเกินเพดานต่อคำสั่ง — เปิดแอปเพื่อสั่งทำต่อ")
         case .failed:
             finishedSummary = "งานนี้ไม่สำเร็จ — ผลที่ทำไว้แล้วยังอยู่ครบ ลองใหม่ได้"
+            AgentNotifier.shared.notify(kind: .failed,
+                                        roomID: roomIDProvider?(),
+                                        detail: "เปิดแอปเพื่อดูสาเหตุของขั้นที่ล้มเหลวและลองใหม่")
         }
         finishedAt = Date()
         liveLabel = ""
+    }
+
+    /// เรียกเมื่อพบว่าแอปถูก iOS ระงับงานกลางทาง (กลับมาแล้ว engine ไม่ทำงานต่อ แต่ไทม์ไลน์ยังค้างว่ากำลังทำ)
+    /// รายงานตามจริงว่า "ถูกระบบระงับ" ไม่ใช่ "เสร็จ" และไม่ลบข้อมูลที่ทำไว้แล้ว
+    func markSystemPaused() {
+        guard isRunning else { return }
+        stopTimer()
+        isRunning = false
+        if let start = startedAt {
+            elapsed = Date().timeIntervalSince(start)
+        }
+        let now = Date()
+        events.append(ActivityEvent(id: "system-paused-\(takeSeq())",
+                                    seq: takeSeq(),
+                                    kind: .other,
+                                    status: .cancelled,
+                                    title: "ระบบหยุดงานชั่วคราว",
+                                    detail: "iOS ไม่ให้แอปทำงานเบื้องหลังได้นาน — งานหยุดที่ขั้นล่าสุด ผลที่ทำไว้แล้วยังอยู่ครบ",
+                                    startedAt: now,
+                                    endedAt: now,
+                                    duration: 0,
+                                    note: "ใช้ปุ่ม \"ให้ Agent ทำต่อจากจุดนี้\" เพื่อทำงานต่อ"))
+        finishedSummary = "ระบบหยุดงานชั่วคราว — ทำต่อจากจุดเดิมได้เลย"
+        finishedAt = now
+        liveLabel = ""
+        DSHaptic.warning()
     }
 
     // MARK: - ตัวช่วย

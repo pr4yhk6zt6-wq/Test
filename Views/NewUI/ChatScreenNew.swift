@@ -24,6 +24,7 @@ struct ChatScreenNew: View {
     @EnvironmentObject private var settings: AppSettings
     @ObservedObject private var usage: TokenUsageTracker = .shared
     @ObservedObject private var center: ActivityCenter = .shared
+    @ObservedObject private var router: AppRouter = .shared
 
     @AppStorage(SettingsKeys.chatFontScale) private var fontScale: Double = 1.0
     @AppStorage(SettingsKeys.activityLevel) private var activityLevelRaw: String = ActivityDetailLevel.normal.rawValue
@@ -38,6 +39,10 @@ struct ChatScreenNew: View {
     @State private var showRooms: Bool = false
     @State private var showAttachmentPicker: Bool = false
     @State private var showClearConfirmation: Bool = false
+    @State private var showContextSheet: Bool = false
+    @State private var showExportSheet: Bool = false
+    @State private var showSystemPausedBanner: Bool = false
+    @State private var wasRunningWhenBackgrounded: Bool = false
     @Environment(\.scenePhase) private var scenePhase
 
     private let bottomAnchorID = "ds-chat-bottom"
@@ -48,6 +53,9 @@ struct ChatScreenNew: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            if showSystemPausedBanner {
+                systemPausedBanner
+            }
             if let notice = viewModel.lastNotice {
                 noticeBanner(text: notice)
             }
@@ -71,6 +79,12 @@ struct ChatScreenNew: View {
                 Menu {
                     Button(action: { showRooms = true }) {
                         Label("ห้องสนทนา", systemImage: "bubble.left.and.bubble.right")
+                    }
+                    Button(action: { showContextSheet = true }) {
+                        Label("ต้นทุนและบริบท", systemImage: "chart.bar.doc.horizontal")
+                    }
+                    Button(action: { showExportSheet = true }) {
+                        Label("ส่งออกการสนทนา", systemImage: "square.and.arrow.up")
                     }
                     Button(action: { center.clear(); timelineExpanded = false }) {
                         Label("ล้างไทม์ไลน์ของงานนี้", systemImage: "clock.arrow.circlepath")
@@ -106,6 +120,12 @@ struct ChatScreenNew: View {
                 viewModel.resolveApproval(decision)
             }
         }
+        .sheet(isPresented: $showContextSheet) {
+            ContextCostSheet(viewModel: viewModel)
+        }
+        .sheet(isPresented: $showExportSheet) {
+            ExportSheet(viewModel: viewModel)
+        }
         .dsBottomSheet(isPresented: $showDetailSheet, title: "รายละเอียดขั้นตอน") {
             if let event = detailEvent {
                 DSActivityDetailView(event: event)
@@ -126,10 +146,26 @@ struct ChatScreenNew: View {
             viewModel.activityObserver = { event in
                 center.consume(event)
             }
+            // ให้การแจ้งเตือนผูกกับห้องที่กำลังเปิดอยู่
+            center.roomIDProvider = { [weak viewModel] in
+                viewModel?.currentRoomID
+            }
+            openPendingRoomIfNeeded()
+        }
+        .onChange(of: router.pendingRoomID) { _ in
+            openPendingRoomIfNeeded()
         }
         .onChange(of: scenePhase) { phase in
             if phase != .active {
                 viewModel.persistNow()
+                // จำไว้ว่ากำลังทำงานอยู่ตอนแอปถูกพัก — เพื่อแยกแยะ "งานถูกระบบระงับ" จาก "งานจบเอง"
+                wasRunningWhenBackgrounded = viewModel.isBusy
+            } else if wasRunningWhenBackgrounded {
+                wasRunningWhenBackgrounded = false
+                if !viewModel.isBusy && center.isRunning {
+                    center.markSystemPaused()
+                    withAnimation(DSMotion.card) { showSystemPausedBanner = true }
+                }
             }
         }
     }
@@ -617,6 +653,56 @@ struct ChatScreenNew: View {
         expandedEventID = nil
         center.beginRun()
         viewModel.send(text)
+    }
+
+    /// เปิดห้องตามคำขอจากที่อื่น (แตะการแจ้งเตือน หรือกดจากหน้า "งานของฉัน")
+    private func openPendingRoomIfNeeded() {
+        guard let roomID = router.pendingRoomID else { return }
+        router.consumePendingRoom()
+        guard viewModel.currentRoomID != roomID,
+              let room = viewModel.rooms.first(where: { $0.id == roomID }) else { return }
+        viewModel.selectRoom(room)
+    }
+
+    private var systemPausedBanner: some View {
+        DSBanner(tone: .warning,
+                 title: "ระบบหยุดงานชั่วคราว",
+                 message: "iOS ไม่ให้แอปทำงานเบื้องหลังได้นาน งานจึงหยุดที่ขั้นล่าสุด — ผลที่ทำไว้แล้วยังอยู่ครบ",
+                 scale: fontScale) {
+            HStack(spacing: DSMetrics.s3) {
+                Button(action: continueAfterSystemPause) {
+                    Text("ให้ Agent ทำต่อจากจุดนี้")
+                        .font(DSFont.font(DSFont.sCap, weight: .semibold, scale: fontScale))
+                        .foregroundColor(DSColor.warning)
+                        .frame(minHeight: DSMetrics.touchSmall)
+                }
+                .buttonStyle(DSPressableStyle())
+
+                Button(action: {
+                    DSHaptic.light()
+                    withAnimation(DSMotion.card) { showSystemPausedBanner = false }
+                }) {
+                    Text("ไว้ก่อน")
+                        .font(DSFont.font(DSFont.sCap, weight: .medium, scale: fontScale))
+                        .foregroundColor(DSColor.t2)
+                        .frame(minHeight: DSMetrics.touchSmall)
+                }
+                .buttonStyle(DSPressableStyle())
+                Spacer(minLength: 0)
+            }
+        }
+        .padding(.horizontal, DSMetrics.screenPadding)
+        .padding(.top, DSMetrics.s3)
+    }
+
+    private func continueAfterSystemPause() {
+        DSHaptic.medium()
+        withAnimation(DSMotion.card) { showSystemPausedBanner = false }
+        guard !viewModel.isBusy else { return }
+        center.beginRun()
+        inputText = ""
+        composerHeight = 38
+        viewModel.send("งานก่อนหน้าถูก iOS ระงับกลางทาง ช่วยทำต่อจากจุดที่ค้างไว้ โดยใช้ผลลัพธ์ที่ทำเสร็จแล้ว ไม่ต้องเริ่มใหม่ทั้งหมด")
     }
 
     private func scrollToBottom(proxy: ScrollViewProxy, animated: Bool) {

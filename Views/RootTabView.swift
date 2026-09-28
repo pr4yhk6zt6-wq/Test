@@ -48,11 +48,11 @@ struct RootTabView: View {
             .tag(RootTab.files)
 
             NavigationView {
-                AgentLogView()
+                MyTasksScreen()
             }
             .navigationViewStyle(.stack)
             .tabItem {
-                Label("บันทึก", systemImage: "list.bullet.rectangle")
+                Label("งานของฉัน", systemImage: "square.stack.3d.up")
             }
             .tag(RootTab.log)
 

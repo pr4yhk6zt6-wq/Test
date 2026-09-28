@@ -30,11 +30,25 @@ final class AppRouter: ObservableObject {
     /// ไฟล์ที่รอให้แชทแนบให้ Agent (ใช้กับ "ให้ Agent แก้ไฟล์นี้")
     @Published var pendingAttachmentPath: String?
 
+    /// ห้องที่รอให้หน้าแชทเปิด (ใช้เมื่อผู้ใช้แตะการแจ้งเตือน หรือกด "เปิดห้องนี้" ในหน้างานของฉัน)
+    @Published var pendingRoomID: UUID?
+
     /// สลับไปแท็บแชทและส่งคำสั่งให้ Agent
     func sendToAgent(_ prompt: String, attachmentPath: String? = nil) {
         pendingPrompt = prompt
         pendingAttachmentPath = attachmentPath
         selectedTab = .chat
+    }
+
+    /// สลับไปแท็บแชทและเปิดห้องที่ระบุ
+    func openRoom(_ roomID: UUID) {
+        pendingRoomID = roomID
+        selectedTab = .chat
+    }
+
+    /// เรียกโดยหน้าแชทเมื่อเปิดห้องตามคำขอแล้ว
+    func consumePendingRoom() {
+        pendingRoomID = nil
     }
 
     /// เรียกโดยหน้าแชทเมื่อรับคำสั่งไปใช้แล้ว
