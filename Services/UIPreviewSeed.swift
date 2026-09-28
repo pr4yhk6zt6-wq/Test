@@ -102,6 +102,9 @@ enum UIPreview {
                                 thaiLabel: "เขียนไฟล์สรุป", duration: 2.2))
         if finished {
             list.append(.assistant(assistantAnswer))
+        } else {
+            // ระหว่างทำงาน: ข้อความที่ Agent พิมพ์ไปแล้วบางส่วน (แบบเดียวกับหน้าจอจริง)
+            list.append(.assistant("สรุปให้แล้วครับ — เดือนนี้ค่าไฟสูงกว่าเดือนก่อนประมาณ 18% \n\nรายละเอียดที่พบ:"))
         }
         return list
     }

@@ -653,17 +653,38 @@ struct ChatScreenNew: View {
         return steps.last?.id == message.id
     }
 
+    /// บรรทัดย่อยของขั้นตอน: บอก "สิ่งที่เกิดขึ้นจริง" สั้น ๆ
+    /// — ไม่ซ้ำเวลาที่แสดงอยู่ทางขวาแล้ว และไม่ใส่คำว่า "แตะเพื่อดูรายละเอียด" ทุกแถวให้รก
     private func historySubtitle(_ message: ChatMessage) -> String {
-        if message.toolIsError == true { return "ขั้นนี้ไม่สำเร็จ — แตะเพื่อดูสาเหตุ" }
-        if let duration = message.toolDuration, duration >= 1 {
-            return "ใช้เวลา \(Int(duration.rounded())) วินาที — แตะเพื่อดูรายละเอียด"
+        if message.toolIsError == true { return "ไม่สำเร็จ — แตะเพื่อดูสาเหตุ" }
+        if let artifact = firstArtifactName(message) { return "ไฟล์: \(artifact)" }
+        return ActivityKind.from(toolName: message.name ?? "").donePhraseTH
+    }
+
+    /// ชื่อไฟล์แรกที่ขั้นนี้แตะ (อ่านจากอาร์กิวเมนต์จริง) — nil = ไม่ใช่ขั้นที่แตะไฟล์
+    private func firstArtifactName(_ message: ChatMessage) -> String? {
+        guard let raw = message.toolArguments,
+              let data = raw.data(using: .utf8),
+              let object = try? JSONSerialization.jsonObject(with: data, options: []),
+              let dictionary = object as? [String: Any] else { return nil }
+        for key in ["path", "file_path", "source", "target", "directory"] {
+            if let value = dictionary[key] as? String, !value.isEmpty {
+                return (value as NSString).lastPathComponent
+            }
         }
-        return "สำเร็จ — แตะเพื่อดูรายละเอียด"
+        return nil
     }
 
     private func accessibilityForHistory(_ message: ChatMessage) -> String {
-        let status = message.toolIsError == true ? "ไม่สำเร็จ" : "สำเร็จ"
-        return "\(message.toolDisplayName) สถานะ\(status)"
+        var parts: [String] = [message.toolDisplayName]
+        parts.append(message.toolIsError == true ? "ไม่สำเร็จ" : "สำเร็จ")
+        if let duration = message.toolDuration, duration >= 0.5 {
+            parts.append("ใช้เวลา \(DSFormat.durationShort(duration))")
+        }
+        if let artifact = firstArtifactName(message) {
+            parts.append("ไฟล์ \(artifact)")
+        }
+        return parts.joined(separator: " ")
     }
 
     // MARK: - ไทม์ไลน์ที่กางอยู่
