@@ -63,6 +63,9 @@ final class ActivityCenter: ObservableObject {
     /// ทะเบียนงานถาวร (ใหม่สุดอยู่บนสุด) — งานที่ปิดแอปไปแล้วยังดูย้อนหลังได้
     @Published private(set) var tasks: [TaskRecord] = []
 
+    /// หัวข้อสั้นสำหรับแถบสถานะสด (ตรงกับแบบ: บรรทัดเดียว ไม่ใช่ประโยคยาว)
+    @Published private(set) var finishedTitle: String = ""
+
     // MARK: - ภายใน
 
     /// ตัวบอกว่ากำลังทำงานอยู่ในห้องไหน (ตั้งค่าโดยหน้าแชท) — ใช้ผูกการแจ้งเตือนกับห้องที่ถูกต้อง
@@ -96,6 +99,7 @@ final class ActivityCenter: ObservableObject {
         liveLabel = ""
         notice = nil
         finishedSummary = nil
+        finishedTitle = ""
         finishedAt = nil
         startedAt = Date()
         elapsed = 0
@@ -112,6 +116,7 @@ final class ActivityCenter: ObservableObject {
         liveLabel = ""
         notice = nil
         finishedSummary = nil
+        finishedTitle = ""
         finishedAt = nil
         if !isRunning {
             startedAt = nil
@@ -364,19 +369,23 @@ final class ActivityCenter: ObservableObject {
 
         switch reason {
         case .answered:
+            finishedTitle = "ทำเสร็จแล้ว"
             finishedSummary = "ทำเสร็จแล้ว ใช้เวลา \(DSFormat.duration(elapsed))"
             DSHaptic.success()
             AgentNotifier.shared.notify(kind: .finished,
                                         roomID: roomIDProvider?(),
                                         detail: finishedSummary)
         case .cancelled:
+            finishedTitle = "ยกเลิกตามที่คุณสั่ง"
             finishedSummary = "ยกเลิกตามที่คุณสั่ง — ผลที่ทำไว้แล้วยังอยู่ครบ"
         case .roundLimitReached:
+            finishedTitle = "หยุดเพราะครบเพดานรอบ"
             finishedSummary = "หยุดเพราะครบเพดานรอบต่อคำสั่ง — พิมพ์บอกต่อได้เลยว่าจะให้ทำอะไร"
             AgentNotifier.shared.notify(kind: .needsAnswer,
                                         roomID: roomIDProvider?(),
                                         detail: "งานยาวเกินเพดานต่อคำสั่ง — เปิดแอปเพื่อสั่งทำต่อ")
         case .failed:
+            finishedTitle = "งานนี้ไม่สำเร็จ"
             finishedSummary = "งานนี้ไม่สำเร็จ — ผลที่ทำไว้แล้วยังอยู่ครบ ลองใหม่ได้"
             AgentNotifier.shared.notify(kind: .failed,
                                         roomID: roomIDProvider?(),
@@ -407,12 +416,34 @@ final class ActivityCenter: ObservableObject {
                                     endedAt: now,
                                     duration: 0,
                                     note: "ใช้ปุ่ม \"ให้ Agent ทำต่อจากจุดนี้\" เพื่อทำงานต่อ"))
+        finishedTitle = "ระบบหยุดงานชั่วคราว"
         finishedSummary = "ระบบหยุดงานชั่วคราว — ทำต่อจากจุดเดิมได้เลย"
         finishedAt = now
         liveLabel = ""
         closeTask(outcome: .systemPaused, summary: finishedSummary)
         DSHaptic.warning()
     }
+
+#if DEBUG
+    // MARK: - เครื่องมือตรวจงานออกแบบ (มีเฉพาะบิลด์ Debug)
+    /// ใส่ข้อมูลตัวอย่างเพื่อถ่ายภาพหน้าจอใน iOS Simulator — ไม่ทำงานในบิลด์ Release
+    func previewSeed(events newEvents: [ActivityEvent],
+                     running: Bool,
+                     liveLabel label: String,
+                     finishedTitle title: String,
+                     startedAt start: Date?,
+                     elapsed seconds: TimeInterval) {
+        stopTimer()
+        events = newEvents
+        isRunning = running
+        liveLabel = label
+        finishedTitle = title
+        finishedSummary = nil
+        startedAt = start
+        elapsed = seconds
+        notice = nil
+    }
+#endif
 
     // MARK: - ทะเบียนงานถาวร (ดีไซน์ v2)
 

@@ -90,20 +90,39 @@ enum DSFont {
     static let lineTight: CGFloat = 1.45
     static let lineCaption: CGFloat = 1.55
 
-    /// ชื่อตระกูลฟอนต์ที่โปรเจกต์รองรับ — ถ้าเพิ่มไฟล์ .ttf ใน Resources แล้วจะถูกใช้ทันที
-    private static let familyCandidates = ["Anuphan", "Anuphan-Regular", "IBM Plex Sans Thai"]
+    /// ฟอนต์ของดีไซน์ v2 — IBM Plex Sans Thai (OFL) ฝังมากับแอปใน Resources/Fonts
+    /// ใช้ชื่อ PostScript เพราะไฟล์ Medium/SemiBold/Bold มีชื่อตระกูลคนละชื่อ (ต้องเลือกให้ตรงน้ำหนัก)
+    static let regularName = "IBMPlexSansThai-Regular"
+    static let mediumName = "IBMPlexSansThai-Medium"
+    static let semiboldName = "IBMPlexSansThai-SemiBold"
+    static let boldName = "IBMPlexSansThai-Bold"
 
-    /// ชื่อฟอนต์ที่พร้อมใช้จริงบนเครื่องนี้ (nil = ใช้ฟอนต์ระบบ)
-    static var availableFamilyName: String? {
-        for name in familyCandidates where UIFont(name: name, size: 12) != nil {
-            return name
+    /// ฟอนต์ดีไซน์พร้อมใช้หรือยัง (ถ้าไม่พบจะถอยไปใช้ฟอนต์ระบบโดยไม่ล้ม)
+    static let isDesignFontAvailable: Bool = UIFont(name: DSFont.regularName, size: 12) != nil
+
+    /// เลือกไฟล์ฟอนต์ตามน้ำหนักที่ขอ (SwiftUI Font.Weight)
+    static func postScriptName(for weight: Font.Weight) -> String {
+        switch weight {
+        case .bold, .heavy, .black: return boldName
+        case .semibold: return semiboldName
+        case .medium: return mediumName
+        default: return regularName
         }
-        return nil
     }
 
+    /// เลือกไฟล์ฟอนต์ตามน้ำหนักที่ขอ (UIFont.Weight สำหรับช่องพิมพ์)
+    static func postScriptName(for weight: UIFont.Weight) -> String {
+        if weight == .bold || weight == .heavy || weight == .black { return boldName }
+        if weight == .semibold { return semiboldName }
+        if weight == .medium { return mediumName }
+        return regularName
+    }
+
+    /// เพดานตัวคูณตัวอักษร: จอแคบจำกัดที่ 115% เพื่อไม่ให้ข้อความไทยล้นจอ (ค่าในหน้าตั้งค่ายังอยู่ครบ)
     static func clampScale(_ value: Double) -> CGFloat {
         guard value.isFinite, value > 0 else { return 1.0 }
-        return CGFloat(min(max(value, 0.85), 1.6))
+        let ceiling: Double = DSMetrics.isCompactWidth ? 1.15 : 1.6
+        return CGFloat(min(max(value, 0.85), ceiling))
     }
 
     static func size(_ base: CGFloat, scale: Double = 1.0) -> CGFloat {
@@ -114,8 +133,8 @@ enum DSFont {
                      weight: Font.Weight = .regular,
                      scale: Double = 1.0) -> Font {
         let pointSize = size(base, scale: scale)
-        if let family = availableFamilyName {
-            return Font.custom(family, size: pointSize)
+        if isDesignFontAvailable {
+            return Font.custom(postScriptName(for: weight), size: pointSize)
         }
         return Font.system(size: pointSize, weight: weight)
     }
@@ -125,19 +144,22 @@ enum DSFont {
                        weight: UIFont.Weight = .regular,
                        scale: Double = 1.0) -> UIFont {
         let pointSize = size(base, scale: scale)
-        if let family = availableFamilyName, let font = UIFont(name: family, size: pointSize) {
+        if isDesignFontAvailable, let font = UIFont(name: postScriptName(for: weight), size: pointSize) {
             return font
         }
         return UIFont.systemFont(ofSize: pointSize, weight: weight)
     }
 
-    /// ระยะห่างบรรทัดที่ทำให้ความสูงรวมประมาณ lineBody เท่าของขนาดตัวอักษร
-    /// (ฟอนต์มี line height ธรรมชาติอยู่แล้วประมาณ 1.2 เท่า จึงเติมส่วนที่เหลือด้วย lineSpacing)
+    /// ระยะห่างบรรทัดที่ทำให้ความสูงรวมเท่ากับตัวคูณที่กำหนด (คำนวณจากเมตริกจริงของฟอนต์ที่ใช้)
+    /// สำคัญกับภาษาไทย: สระบน-ล่างและวรรณยุกต์ต้องการระยะบรรทัดมากกว่าภาษาละติน
     static func lineSpacing(_ base: CGFloat,
                            scale: Double = 1.0,
                            multiplier: CGFloat = DSFont.lineBody) -> CGFloat {
-        let extra = max(0, multiplier - 1.2)
-        return (base * clampScale(scale) * extra).rounded()
+        let pointSize = base * clampScale(scale)
+        let resolved = uiFont(base, scale: scale)
+        let natural = resolved.ascender - resolved.descender + resolved.leading
+        let target = pointSize * multiplier
+        return max(0, (target - natural).rounded())
     }
 }
 
@@ -154,7 +176,13 @@ enum DSMetrics {
     static let s6: CGFloat = 24
     static let s8: CGFloat = 32
 
-    static let screenPadding: CGFloat = 16
+    /// จอแคบ (320–360 pt เช่น iPhone SE รุ่นแรก) — ลดขอบข้างและเพดานการขยายตัวอักษร
+    /// เพื่อไม่ให้ข้อความไทยตกบรรทัดหรือถูกตัดขอบจอ ตามเช็กลิสต์ "ข้อความไทยต้องไม่ล้น/ไม่ถูกตัด"
+    static var isCompactWidth: Bool {
+        UIScreen.main.bounds.width < 375
+    }
+
+    static var screenPadding: CGFloat { isCompactWidth ? 12 : 16 }
     static let cardPadding: CGFloat = 14
     static let groupSpacing: CGFloat = 16
 
@@ -305,6 +333,16 @@ enum DSFormat {
         let rest = total % 60
         if rest == 0 { return "\(minutes) นาที" }
         return "\(minutes) นาที \(rest) วินาที"
+    }
+
+    /// เวลาแบบสั้นสำหรับแถบสถานะสด (ตรงกับแบบ) เช่น "39 วิ", "2 นาที 5 วิ"
+    static func durationShort(_ seconds: TimeInterval) -> String {
+        let total = max(0, Int(seconds.rounded()))
+        if total < 60 { return "\(total) วิ" }
+        let minutes = total / 60
+        let rest = total % 60
+        if rest == 0 { return "\(minutes) นาที" }
+        return "\(minutes) นาที \(rest) วิ"
     }
 
     /// นาฬิกาจับเวลาแบบย่อสำหรับแถบสถานะสด เช่น "1:12"

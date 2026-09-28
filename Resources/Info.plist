@@ -54,5 +54,12 @@
 	<string>ใช้ไมโครโฟนเฉพาะตอนคุณกดปุ่มพูดในโหมดเสียง เพื่อถอดคำพูดเป็นข้อความให้คุณตรวจก่อนส่งให้ Agent — ไม่มีการอัดเสียงไว้ในเครื่อง</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>ใช้ระบบถอดเสียงของ iOS แปลงคำพูดภาษาไทยเป็นข้อความ ข้อความที่ได้จะรอให้คุณยืนยันก่อนส่งเสมอ</string>
+	<key>UIAppFonts</key>
+	<array>
+		<string>Fonts/IBMPlexSansThai-Regular.ttf</string>
+		<string>Fonts/IBMPlexSansThai-Medium.ttf</string>
+		<string>Fonts/IBMPlexSansThai-SemiBold.ttf</string>
+		<string>Fonts/IBMPlexSansThai-Bold.ttf</string>
+	</array>
 </dict>
 </plist>

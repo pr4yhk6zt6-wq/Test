@@ -37,35 +37,35 @@ struct DSLiveStatusBar: View {
                 withAnimation(DSMotion.card) { isExpanded.toggle() }
             }) {
                 HStack(alignment: .center, spacing: DSMetrics.s3) {
-                    DSStatusGlyph(status: center.isRunning ? .running : .succeeded, scale: fontScale)
+                    leadingGlyph
 
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: 1) {
                         Text(headline)
-                            .font(DSFont.font(DSFont.sSub, weight: .medium, scale: fontScale))
+                            .font(DSFont.font(DSFont.sSub, weight: .semibold, scale: fontScale))
                             .foregroundColor(DSColor.t1)
-                            .lineLimit(2)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
                             .multilineTextAlignment(.leading)
-                            .fixedSize(horizontal: false, vertical: true)
 
                         Text(subheadline)
-                            .font(DSFont.font(DSFont.sCap, scale: fontScale))
+                            .font(DSFont.font(DSFont.sMicro, scale: fontScale))
                             .foregroundColor(DSColor.t3)
-                            .lineLimit(2)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
                             .multilineTextAlignment(.leading)
-                            .fixedSize(horizontal: false, vertical: true)
                     }
 
-                    Spacer(minLength: DSMetrics.s2)
+                    Spacer(minLength: DSMetrics.s1)
 
-                    if center.isRunning {
-                        Text(DSFormat.clock(center.elapsed))
-                            .font(DSFont.mono(DSFont.sFoot, scale: fontScale))
-                            .foregroundColor(DSColor.t2)
-                            .monospacedDigit()
-                    }
+                    Text(center.isRunning ? DSFormat.clock(center.elapsed) : DSFormat.durationShort(center.elapsed))
+                        .font(DSFont.font(DSFont.sCap, scale: fontScale))
+                        .foregroundColor(DSColor.t2)
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .layoutPriority(1)
 
-                    Image(systemName: "chevron.down")
-                        .font(DSFont.font(DSFont.sCap, weight: .semibold, scale: fontScale))
+                    Image(systemName: "chevron.up")
+                        .font(DSFont.font(DSFont.sMicro, weight: .semibold, scale: fontScale))
                         .foregroundColor(DSColor.t3)
                         .rotationEffect(.degrees(isExpanded ? 0 : 180))
                 }
@@ -90,22 +90,46 @@ struct DSLiveStatusBar: View {
         )
     }
 
+    /// วงกลมนำ: กำลังทำ = จุดเต้น, รอคุณ = วงกลมเตือน, อื่น ๆ = วงกลมสถานะตามจริง
+    @ViewBuilder
+    private var leadingGlyph: some View {
+        if center.isRunning {
+            DSPulseDot(tone: DSColor.accent)
+                .frame(width: 22, height: 22)
+        } else {
+            DSStatusGlyph(status: summaryStatus, scale: fontScale)
+        }
+    }
+
+    /// สถานะสรุปของงานล่าสุด (สี + ไอคอน + ข้อความ ต้องตรงกันเสมอ)
+    private var summaryStatus: ActivityStatus {
+        if center.events.contains(where: { $0.status == .waitingUser }) { return .waitingUser }
+        if center.events.contains(where: { $0.status == .failed }) { return .failed }
+        if center.events.contains(where: { $0.title == "ระบบหยุดงานชั่วคราว" }) { return .cancelled }
+        if center.finishedTitle == "ยกเลิกตามที่คุณสั่ง" { return .cancelled }
+        return .succeeded
+    }
+
     private var headline: String {
         if center.isRunning {
             return center.liveLabel.isEmpty ? ActivityKind.thinking.runningPhraseTH : center.liveLabel
         }
-        return center.finishedSummary ?? "ไทม์ไลน์งานล่าสุด"
+        if !center.finishedTitle.isEmpty { return center.finishedTitle }
+        return "ไทม์ไลน์งานล่าสุด"
     }
 
     private var subheadline: String {
         var parts: [String] = []
-        let done = center.events.filter { $0.status == .succeeded }.count
-        if done > 0 { parts.append("ทำแล้ว \(done) ขั้น") }
+        if center.isRunning {
+            let done = center.events.filter { $0.status == .succeeded }.count
+            if done > 0 { parts.append("ทำแล้ว \(done) ขั้น") }
+            parts.append("แตะเพื่อดูทุกขั้นตอน")
+            return parts.joined(separator: " · ")
+        }
+        let steps = center.events.count
+        if steps > 0 { parts.append("\(steps) ขั้นตอน") }
         if let waiting = center.events.last(where: { $0.status == .waitingUser }) {
             parts.append("รอคุณตอบ: \(waiting.title)")
-        }
-        if !center.isRunning, let start = center.startedAt {
-            parts.append("เริ่ม \(DSFormat.time(start))")
         }
         if parts.isEmpty { parts.append("แตะเพื่อดูว่าระบบทำอะไรไปบ้าง") }
         return parts.joined(separator: " · ")

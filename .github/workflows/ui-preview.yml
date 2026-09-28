@@ -1,0 +1,113 @@
+#
+#  ui-preview.yml — ถ่ายภาพหน้าจอจริงจาก iOS Simulator เพื่อตรวจงานออกแบบ
+#
+#  ทำไมต้องมี: ภาพในแบบ (HTML) กับการเรนเดอร์จริงของแอปแตกต่างกันได้เสมอ
+#  งานนี้จึงสร้างแอปสำหรับ Simulator แล้วถ่ายภาพหน้าจอจริงออกมาเป็น artifact
+#  เพื่อให้ตรวจได้ว่าหน้าจอที่ผู้ใช้เห็นตรงกับแบบหรือไม่ (ไม่ต้องเดา)
+#
+#  ไม่ใช้ความลับใด ๆ · ไม่แตะไฟล์ .ipa · รันเฉพาะเมื่อสั่งเองหรือ push เข้าสาขาที่กำหนด
+#
+name: UI preview (Simulator screenshots)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, redesign/agent-ui ]
+
+permissions:
+  contents: read
+
+jobs:
+  screenshots:
+    name: ถ่ายภาพหน้าจอจาก Simulator
+    runs-on: macos-15
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: เลือก Xcode ใหม่สุดที่ยังรองรับ deployment target iOS 15.0
+        run: |
+          printf 'import UIKit\n' > /tmp/probe.swift
+          python3 Scripts/ci/pick-xcode.py > /tmp/xcode-candidates.txt || true
+          chosen=""
+          while IFS=$'\t' read -r app version; do
+            [ -d "$app" ] || continue
+            if sudo xcode-select -s "$app" >/dev/null 2>&1; then
+              sdk="$(xcrun --sdk iphoneos --show-sdk-path 2>/dev/null || true)"
+              if [ -n "$sdk" ] && swiftc -target arm64-apple-ios15.0 -sdk "$sdk" -typecheck /tmp/probe.swift >/dev/null 2>&1; then
+                chosen="$app"
+                echo "เลือกใช้: $app (Xcode $version)"
+                break
+              fi
+            fi
+          done < /tmp/xcode-candidates.txt
+          if [ -z "$chosen" ]; then
+            echo "::warning title=ไม่พบ Xcode ที่รองรับ iOS 15.0::จะใช้ค่าเริ่มต้นของ runner"
+          fi
+          xcodebuild -version
+
+      - name: ติดตั้ง XcodeGen
+        run: brew install xcodegen || brew upgrade xcodegen || true
+
+      - name: สร้างโปรเจกต์ Xcode
+        run: xcodegen generate
+
+      - name: คอมไพล์แอปสำหรับ Simulator (Debug — โหมดตรวจงานออกแบบมีเฉพาะ Debug)
+        run: |
+          DEVICE="iPhone SE (3rd generation)"
+          xcodebuild \
+            -project iOSAgentSandbox.xcodeproj \
+            -scheme iOSAgentSandbox \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination "platform=iOS Simulator,name=$DEVICE" \
+            -derivedDataPath /tmp/dd \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
+            build | tail -40
+
+      - name: ถ่ายภาพหน้าจอทุกหน้าจอ (Light + Dark)
+        run: |
+          set -euo pipefail
+          mkdir -p shots
+
+          UDID=$(xcrun simctl list devices available -j | python3 -c "
+import json,sys
+data=json.load(sys.stdin)['devices']
+for runtime, devices in data.items():
+    if 'iOS' not in runtime: continue
+    for device in devices:
+        if device['name'] == 'iPhone SE (3rd generation)':
+            print(device['udid']); raise SystemExit
+")
+          echo "UDID=$UDID"
+          xcrun simctl boot "$UDID" 2>/dev/null || true
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl status_bar "$UDID" override --time "9:41" --batteryState charged \
+            --batteryLevel 100 --cellularBars 4 --wifiBars 3 || true
+
+          APP=$(find /tmp/dd/Build/Products -maxdepth 3 -name "iOSAgentSandbox.app" | head -1)
+          echo "APP=$APP"
+          xcrun simctl install "$UDID" "$APP"
+
+          for appearance in light dark; do
+            xcrun simctl ui "$UDID" appearance "$appearance"
+            for screen in chat chat-open running approval detail tasks; do
+              xcrun simctl terminate "$UDID" com.example.iosagentsandbox 2>/dev/null || true
+              sleep 1
+              xcrun simctl launch "$UDID" com.example.iosagentsandbox -uiPreview "$screen" >/dev/null
+              sleep 6
+              xcrun simctl io "$UDID" screenshot "shots/$appearance-$screen.png"
+              echo "ถ่ายแล้ว: $appearance-$screen.png"
+            done
+          done
+
+          ls -la shots
+
+      - name: อัปโหลดภาพหน้าจอ
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-screenshots
+          path: shots/
+          if-no-files-found: error
