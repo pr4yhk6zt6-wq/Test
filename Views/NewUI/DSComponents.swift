@@ -758,6 +758,89 @@ struct DSAttachmentChip: View {
     }
 }
 
+// MARK: - ข้อความคำตอบ (Markdown) ในฟอนต์ของดีไซน์
+
+/// ข้อความ Markdown ที่ใช้ฟอนต์ + ระยะบรรทัดของดีไซน์ v2
+/// ทำไมต้องมีตัวใหม่: ตัวเดิม (MessageContentView) ใช้ฟอนต์ระบบและไม่เว้นระยะบรรทัดสำหรับภาษาไทย
+/// ทำให้ข้อความที่ผู้ใช้เห็นไม่ตรงกับแบบ (สระบน-ล่างชิดกันเกินไป) และไม่ใช้ฟอนต์ที่ฝังมากับแอป
+struct DSMarkdownText: View {
+
+    let markdown: String
+    var color: Color = DSColor.t1
+    var scale: Double = 1.0
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: DSMetrics.s3) {
+            ForEach(MarkdownRenderer.parse(markdown)) { block in
+                switch block.kind {
+                case .text(let text):
+                    Text(MarkdownRenderer.attributedText(from: text))
+                        .font(DSFont.font(DSFont.sBody, scale: scale))
+                        .foregroundColor(color)
+                        .lineSpacing(DSFont.lineSpacing(DSFont.sBody, scale: scale))
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .textSelection(.enabled)
+
+                case .code(let language, let code):
+                    DSCodeBlock(language: language, code: code, scale: scale)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// บล็อกโค้ดแบบเรียบในโทนดีไซน์ (ฟอนต์ mono ของระบบ) — ใช้ DSColor ทุกจุด
+struct DSCodeBlock: View {
+
+    let language: String?
+    let code: String
+    var scale: Double = 1.0
+
+    @State private var copied: Bool = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: DSMetrics.s2) {
+            HStack(spacing: DSMetrics.s2) {
+                Text(language ?? "โค้ด")
+                    .font(DSFont.font(DSFont.sMicro, weight: .medium, scale: scale))
+                    .foregroundColor(DSColor.t3)
+                Spacer(minLength: 0)
+                Button(action: copy) {
+                    HStack(spacing: 4) {
+                        Image(systemName: copied ? "checkmark" : "doc.on.doc")
+                            .font(DSFont.font(DSFont.sMicro, scale: scale))
+                        Text(copied ? "คัดลอกแล้ว" : "คัดลอก")
+                            .font(DSFont.font(DSFont.sMicro, scale: scale))
+                    }
+                    .foregroundColor(DSColor.accentInk)
+                    .frame(minHeight: DSMetrics.touchSmall)
+                }
+                .buttonStyle(DSPressableStyle())
+                .accessibilityLabel(Text(copied ? "คัดลอกโค้ดแล้ว" : "คัดลอกโค้ด"))
+            }
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                Text(code)
+                    .font(.system(size: DSFont.size(DSFont.sFoot, scale: scale), design: .monospaced))
+                    .foregroundColor(DSColor.t1)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .padding(DSMetrics.s3)
+            }
+            .background(RoundedRectangle(cornerRadius: DSMetrics.rField, style: .continuous).fill(DSColor.surface2))
+        }
+    }
+
+    private func copy() {
+        #if canImport(UIKit)
+        UIPasteboard.general.string = code
+        #endif
+        DSHaptic.success()
+        copied = true
+    }
+}
+
 // MARK: - สีและข้อความของสถานะกิจกรรม
 
 extension ActivityStatus {

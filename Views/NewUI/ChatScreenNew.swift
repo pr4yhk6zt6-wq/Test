@@ -96,9 +96,48 @@ struct ChatScreenNew: View {
             composerArea
         }
         .background(DSColor.bg)
-        .navigationTitle("AI Agent")
+        .navigationTitle(currentRoomTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            // ตามแบบ: ซ้าย = รายการห้อง · กลาง = ชื่อห้อง + สถานะ Agent · ขวา = เมนูห้องนี้
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button(action: {
+                    DSHaptic.light()
+                    showRooms = true
+                }) {
+                    Image(systemName: "line.3.horizontal")
+                        .font(DSFont.font(DSFont.sHead, weight: .semibold, scale: fontScale))
+                        .foregroundColor(DSColor.t1)
+                        .frame(width: DSMetrics.touch, height: DSMetrics.touch)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityLabel(Text("รายการห้องสนทนา"))
+            }
+            ToolbarItem(placement: .principal) {
+                VStack(spacing: 1) {
+                    Text(currentRoomTitle)
+                        .font(DSFont.font(DSFont.sHead, weight: .semibold, scale: fontScale))
+                        .foregroundColor(DSColor.t1)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+
+                    if let state = headerAgentState {
+                        HStack(spacing: 5) {
+                            if state.isRunning {
+                                DSPulseDot(tone: DSColor.accent, size: 6)
+                            } else {
+                                Circle().fill(state.tone).frame(width: 6, height: 6)
+                            }
+                            Text(state.text)
+                                .font(DSFont.font(DSFont.sMicro, scale: fontScale))
+                                .foregroundColor(DSColor.t3)
+                                .lineLimit(1)
+                        }
+                    }
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(Text(headerAccessibilityLabel))
+            }
             ToolbarItem(placement: .navigationBarTrailing) {
                 Menu {
                     Button(action: { showRooms = true }) {
@@ -417,9 +456,9 @@ struct ChatScreenNew: View {
             thinkingPlaceholder
         } else if !message.isTextEmpty {
             VStack(alignment: .leading, spacing: DSMetrics.s2) {
-                MessageContentView(markdown: message.text,
-                                   textColor: DSColor.t1,
-                                   fontScale: fontScale)
+                DSMarkdownText(markdown: message.text,
+                               color: DSColor.t1,
+                               scale: fontScale)
                 if isStreaming {
                     HStack(spacing: DSMetrics.s2) {
                         DSStatusGlyph(status: .running, scale: fontScale)
@@ -793,6 +832,40 @@ struct ChatScreenNew: View {
     }
 
     /// ดีไซน์ v2: ส่งได้เสมอ — ถ้า Agent กำลังทำงาน ข้อความจะเข้าคิว (ไม่ปิดช่องพิมพ์)
+    /// ชื่อห้องที่กำลังเปิด (ตามแบบ: หัวจอบอกว่าคุยเรื่องอะไร ไม่ใช่ชื่อแอป)
+    private var currentRoomTitle: String {
+        guard let id = viewModel.currentRoomID,
+              let room = viewModel.rooms.first(where: { $0.id == id }) else {
+            return "AI Agent"
+        }
+        return room.name
+    }
+
+    /// บรรทัดสถานะใต้ชื่อห้อง — แสดงเฉพาะตอนที่มีเรื่องต้องบอก (จริงจาก ActivityCenter เท่านั้น)
+    private var headerAgentState: (text: String, tone: Color, isRunning: Bool)? {
+        if let request = viewModel.pendingApproval {
+            return ("รอคุณอนุญาต: \(request.thaiLabel)", DSColor.warning, false)
+        }
+        if center.isRunning {
+            let label = center.liveLabel.isEmpty ? "กำลังทำงาน" : center.liveLabel
+            return (label, DSColor.accent, true)
+        }
+        if !viewModel.queuedMessages.isEmpty {
+            return ("มีข้อความรอส่ง \(viewModel.queuedMessages.count) ข้อความ", DSColor.accent, false)
+        }
+        if center.events.contains(where: { $0.status == .waitingUser }) {
+            return ("Agent รอคำตอบจากคุณ", DSColor.warning, false)
+        }
+        return nil
+    }
+
+    private var headerAccessibilityLabel: String {
+        if let state = headerAgentState {
+            return "ห้อง \(currentRoomTitle) — \(state.text)"
+        }
+        return "ห้อง \(currentRoomTitle)"
+    }
+
     private var canSend: Bool {
         !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }

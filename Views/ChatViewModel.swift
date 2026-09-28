@@ -539,7 +539,8 @@ final class ChatViewModel: ObservableObject {
                      isBusy busy: Bool,
                      statusText text: String,
                      approval: ApprovalRequest?) {
-        messages = newMessages
+        // แอปจริงลบบับเบิลว่างเมื่อจบงาน — ข้อมูลตัวอย่างต้องสะท้อนแบบเดียวกัน ไม่มีช่องว่างโชว์
+        messages = newMessages.filter { !($0.role == .assistant && $0.isTextEmpty && !$0.hasToolCalls) }
         resetVisibleMessages()
         isBusy = busy
         statusText = text
