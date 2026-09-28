@@ -118,8 +118,8 @@ struct VoiceInputSheet: View {
             DSButton(title: "เปิดใช้โหมดเสียง",
                      icon: "mic",
                      kind: .primary,
-                     scale: fontScale,
-                     accessibilityHint: "iOS จะถามอนุญาตใช้ไมโครโฟนและถอดเสียงเป็นข้อความ") {
+                     accessibilityHint: "iOS จะถามอนุญาตใช้ไมโครโฟนและถอดเสียงเป็นข้อความ",
+                     scale: fontScale) {
                 settings.voiceInputEnabled = true
                 voice.prepare()
             }
@@ -169,8 +169,8 @@ struct VoiceInputSheet: View {
                 DSButton(title: "ใช้ข้อความนี้",
                          icon: "checkmark.circle.fill",
                          kind: .primary,
-                         scale: fontScale,
-                         accessibilityHint: "ข้อความจะถูกใส่ในช่องพิมพ์ ให้คุณตรวจอีกครั้งก่อนส่ง") {
+                         accessibilityHint: "ข้อความจะถูกใส่ในช่องพิมพ์ ให้คุณตรวจอีกครั้งก่อนส่ง",
+                         scale: fontScale) {
                     useTranscript()
                 }
                 DSButton(title: "พูดใหม่",
@@ -214,8 +214,8 @@ struct VoiceInputSheet: View {
             DSButton(title: "หยุดและใช้ข้อความ",
                      icon: "stop.fill",
                      kind: .primary,
-                     scale: fontScale,
-                     accessibilityHint: "หยุดฟัง แล้วนำข้อความที่ได้ไปตรวจในช่องพิมพ์") {
+                     accessibilityHint: "หยุดฟัง แล้วนำข้อความที่ได้ไปตรวจในช่องพิมพ์",
+                     scale: fontScale) {
                 voice.stop()
             }
             DSButton(title: "ยกเลิกการพูด",
