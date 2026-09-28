@@ -1,417 +1,447 @@
-# เฟส 4 — Component Library + สเปกสำหรับนักพัฒนา
+# เฟส 4 — Component Library + สเปกสำหรับนักพัฒนา (v2 · ทับของเดิม)
 
-## ข้อกำหนดต่อเนื่อง
-- ไม่มี emoji ในทุกไฟล์ (ตรวจสอบด้วย grep ก่อน commit)
-- ไม่ดูเป็น AI-template: สี Warm Amber (#B07A2A) ตลอดทุก component, typography IBM Plex Sans Thai + Noto Sans Thai, ไม่มี bubble Agent, ไม่มี gradient ฉูดฉาด (ยกเว้น glass header และ avatar เท่านั้น)
-- ทุกไฟล์ commit และ push เข้า repo `pr4yhk6zt6-wq/Test` ด้วย GitHub token (`ghp_...`)
+ไฟล์คู่กัน: **`phase4-prototype.html`** — คลังคอมโพเนนต์ที่กดได้จริง **7 หมวด · 26 สเปก** (ตรวจอัตโนมัติผ่าน 43/43)
+ใช้คู่กับ: `design-phase1-style.md` (โทเคน) · `design-phase1-activity.md` (ระบบกิจกรรม) · `design-phase2-cards-controls.md` (การ์ด/การอนุมัติ) · `phase3-background-tasks.md` (งานเบื้องหลัง/หน้ารอง)
 
 ---
 
-## 1. Component Library
+## 1. Design Tokens ฉบับเต็ม
 
-### 1.1 Status Line Component
-| Variant | State | Visual | Interaction |
+### 1.1 สี — Light
+
+| Token | ค่า | บทบาท | คอนทราสต์บน `bg` |
 |---|---|---|---|
-| `LiveStatusLine` | `idle` | ไอคอนวงกลม muted + ข้อความ "ว่าง" | แตะเพื่อขยาย Timeline |
-| `LiveStatusLine` | `working` | ไอคอน pulse (accent) + ข้อความ "กำลังทำ..." | แตะเพื่อขยาย/พับ |
-| `LiveStatusLine` | `waiting` | ไอคอน warning + ข้อความ "รอคุณ" | แตะเพื่อดูรายละเอียด |
-| `LiveStatusLine` | `completed` | ไอคอน check (success) + ข้อความสรุป "เสร็จแล้ว — X วินาที" | แตะเพื่อดูผลลัพธ์ |
+| `bg` | `#F7F7F4` | พื้นหน้าแอป | — |
+| `surface` | `#FFFFFF` | การ์ด แถบหัวเรื่อง แผ่นล่าง | — |
+| `surface-2` | `#EFEFEA` | ช่องพิมพ์ ปุ่มรอง โครงร่าง | — |
+| `surface-3` | `#E5E5DF` | ปุ่มที่ปิดใช้งาน | — |
+| `border` | `#E0E0DA` | เส้นคั่น (ไม่ใช้เป็นตัวบ่งชี้สถานะ) | 1.23:1 |
+| `border-strong` | `#C9C9C2` | ขอบช่องติ๊ก/ตัวจับลาก | 1.66:1 |
+| `t1` | `#15181D` | ข้อความหลัก | 16.58:1 |
+| `t2` | `#545B66` | ข้อความรอง meta | 6.38:1 |
+| `t3` | `#646C77` | ข้อความจาง เวลา ป้ายเล็ก | 4.95:1 |
+| `accent` | `#2E4A8A` | ปุ่มหลัก ตัวอักษรเน้น | 7.94:1 |
+| `accent-soft` | `#E8ECF7` | พื้นเน้น (ฟองผู้ใช้ ชิป) | ตัวอักษร accent บนพื้นนี้ 7.22:1 |
+| `on-accent` | `#FFFFFF` | ตัวอักษรบนปุ่มทึบ | 8.53:1 |
+| `success` / `-soft` | `#17683F` / `#E3F0E9` | สำเร็จ | 6.34:1 / คู่ 5.80:1 |
+| `warning` / `-soft` | `#8A5A00` / `#FAF0DA` | รอ/ควรระวัง | 5.52:1 / คู่ 5.23:1 |
+| `error` / `-soft` | `#A3241F` / `#FBE9E7` | ล้มเหลว | 6.91:1 / คู่ 6.33:1 |
 
-- **Touch target**: ความสูง ≥ 52px (≥ 44pt ตามมาตรฐาน)
-- **Animation**: Crossfade ข้อความ 200ms ease-in-out (ไม่กระตุก)
-- **Accessibility**: `aria-expanded`, `aria-controls`, `aria-live="polite"`
+### 1.2 สี — Dark
 
-### 1.2 Timeline Step Component
-| Variant | State | Visual | Behavior |
+| Token | ค่า | บทบาท | คอนทราสต์บน `bg #0F1013` |
 |---|---|---|---|
-| `TimelineStep` | `pending` | ไอคอนวงกลมเล็ก muted + ข้อความรอ | ไม่มี animation |
-| `TimelineStep` | `running` | ไอคอน pulse (accent) + shimmer stroke + ring pulse | Shimmer 1.5s loop |
-| `TimelineStep` | `success` | ไอคอน check (success) + สีเขียวอ่อน | Checkmark draw-in 150ms |
-| `TimelineStep` | `failed` | ไอคอน X (error) + สีแดงอ่อน | ไม่มี animation |
-| `TimelineStep` | `skipped` | ไอคอนขีดเส้น (muted) + จาง (`opacity: 0.7`) | ไม่มี animation |
-| `TimelineStep` | `waiting_user` | ไอคอนรอ (warning) + badge "รอคุณ" | Pulse 2s loop |
+| `surface` | `#17191E` | การ์ด | — |
+| `surface-2` | `#1F2228` | ช่องพิมพ์ | — |
+| `border` | `#2A2E37` | เส้นคั่น | 1.40:1 |
+| `t1` | `#E9EBEF` | ข้อความหลัก | 15.94:1 |
+| `t2` | `#9CA3AF` | ข้อความรอง | 7.49:1 |
+| `t3` | `#8A93A1` | ข้อความจาง | 6.13:1 |
+| `accent` (ตัวเติม) | `#8CA4E8` | ปุ่มทึบ + ตัวอักษร `#0F1013` | 7.78:1 |
+| `accent-ink` | `#A7B8EE` | ตัวอักษร/ไอคอนเน้น | 9.72:1 |
+| `success` / `warning` / `error` | `#6BC08C` / `#DDAE5E` / `#EE8B84` | สถานะ | 8.65 / 9.32 / 7.85 |
 
-- **Connector line**: เส้นแนวตั้ง (`width: 2px`, `background: var(--border)`) เชื่อมระหว่างขั้นตอน — ไม่ใช้สีฉูดฉาด
-- **Vertical spacing**: แต่ละขั้นห่างกัน 0 (แชร์เส้นเชื่อม) แต่มี `padding-top/bottom: 10px` เพื่อให้อ่านสบาย
+**กฎการใช้สี**
+1. สถานะต้องมี **ไอคอน + ข้อความ** เสมอ สีเป็นเพียงตัวช่วย
+2. ปุ่มทึบในโหมดมืด = ตัวเติมสว่าง + ตัวอักษรเข้ม (Material 3) ห้ามใช้สีเข้ม+ตัวอักษรขาว
+3. พื้น `*-soft` ใช้กับตัวอักษรสีเดียวกันเท่านั้น (คู่ที่คำนวณแล้วผ่าน AA)
+4. เงาโหมดมืดเข้มกว่า 50–60% เพราะเงาจางมองไม่เห็นบนพื้นดำ
 
-### 1.3 Card Components (8 ประเภท)
+### 1.3 ตัวอักษร
 
-#### Thinking Card (`ThinkingCard`)
-- **States**: `expanded`, `collapsed`
-- **Visual**: พื้น `surface-2`, ขอบ `border`, ไม่มี shadow (ไม่รบกวนการอ่าน)
-- **Typography**: `font-style: italic` บน title, `font-size: 13px`, `color: var(--text-secondary)`
-- **Animation**: Collapse/expand `max-height` transition 400ms ease
-
-#### Web Search Card (`WebSearchCard`)
-- **Visual**: พื้น `surface`, ขอบ `border`, shadow `shadow-card`
-- **Content**: หัวข้อ + chip แหล่งข้อมูล (เลื่อนแนวนอนได้)
-- **Chip**: `border-radius: 16px`, `padding: 6px 12px`, `font-size: 12px`, `background: surface-2`, `border: 1px solid border`
-- **Icon**: ลูกโลก SVG (`stroke-width: 2`, `fill: none`)
-
-#### Browse / Computer Use Card (`BrowseCard`)
-- **Visual**: `overflow: hidden`, `border-radius: 18px`, `box-shadow: shadow-card`
-- **Thumbnail**: `height: 160px`, `background: linear-gradient(135deg, #3D342E, #5A4F45)` — ไม่ใช้สีฉูดฉาด
-- **Overlay point**: วงกลม `border: 3px solid accent`, `background: rgba(176,122,42,0.15)`, `animation: pulse-ring 2s infinite`
-- **Blur sensitive**: `filter: blur(8px)` + ข้อความ "ข้อมูลอ่อนไหวถูกปิดบัง"
-- **Full-screen**: คลิก thumbnail ขยายเต็มจอ (`position: fixed`, `inset: 0`, `z-index: 200`)
-
-#### File Card (`FileCard`)
-- **Visual**: `display: flex`, `gap: 12px`, `align-items: flex-start`
-- **Icon box**: `width: 40px`, `height: 40px`, `border-radius: 12px`, `background: surface-2`, `border: 1px solid border`
-- **Actions**: ปุ่ม "เปิด", "บันทึก", "แชร์" — ขนาด `padding: 4px 10px`, `font-size: 11px`, `border-radius: 10px`
-
-#### Code Run Card (`CodeRunCard`)
-- **Visual**: พื้น `surface-2` (อ่อนกว่าปกติ), ขอบ `border`
-- **Default state**: แสดงสรุปภาษาไทยเท่านั้น (`font-size: 13px`, `line-height: 1.5`)
-- **Expanded state**: `pre` block (`background: surface`, `border-radius: 12px`, `font-family: ui-monospace`)
-- **Toggle**: ปุ่ม "ดูโค้ดและผลลัพธ์" → สลับ `display: none/block` พร้อมเปลี่ยนข้อความ
-
-#### Connector / App Card (`ConnectorCard`)
-- **Visual**: `display: flex`, `align-items: center`, `gap: 12px`
-- **Logo**: วงกลมหรือสี่เหลี่ยมตามแอป (`border-radius: 10px`, `background: accent-soft`, `border: 1px solid border`)
-- **Action text**: `font-size: 12px`, `color: text-secondary`
-
-#### Sub-agent / Parallel Card (`SubAgentCard`)
-- **Visual**: `display: flex`, `flex-direction: column`
-- **Progress bar**: `height: 6px`, `background: surface-2`, `border-radius: 3px`
-- **Progress fill**: `linear-gradient(90deg, accent, accent-deep)` — ไม่ใช้ rainbow
-- **Collapse**: ปุ่ม "ย่อ/ขยาย" เปิด-ปิดหลายเลน
-
-#### To-do / Plan Card (`TodoCard`)
-- **Visual**: แต่ละข้อ `display: flex`, `gap: 10px`, `padding: 8px 0`, `border-bottom: 1px solid border`
-- **Checkbox**: วงกลม `width: 20px`, `height: 20px`, `border: 2px solid border`
-- **Done state**: `border-color: success`, `background: success-soft`, checkmark SVG (`display: block`)
-- **Text done**: `text-decoration: line-through`, `color: text-muted`, `opacity: 0.7`
-
-### 1.4 Bottom Sheet Component (`BottomSheet`)
-- **Overlay**: `background: var(--overlay)`, `z-index: 200`, `opacity` transition 250ms
-- **Sheet**: `border-top-left-radius: 28px`, `border-top-right-radius: 28px`, `transform: translateY(0)` เมื่อเปิด
-- **Handle**: `width: 36px`, `height: 5px`, `border-radius: 3px`, `background: border`, `margin: 0 auto 16px`
-- **Close**: คลิก overlay (`if (event.target === this) closeDetail()`)
-
-### 1.5 Permission Request Component (`PermissionSheet`)
-- **Header**: `font-size: 16px`, `font-weight: 700`, `color: text-primary`
-- **Sub**: `font-size: 13px`, `line-height: 1.5`, `color: text-secondary`
-- **Risk row**: `dot` วงกลม (`low: success`, `med: warning`, `high: error`) + `label` (`min-width: 80px`) + `desc`
-- **Actions**: 4 ปุ่ม (`flex: 1`, `min-width: 100px`, `border-radius: 14px`)
-  - `btn-allow`: `background: accent`, `color: #fff`
-  - `btn-deny`: `background: error-soft`, `color: error`
-  - `btn-edit`: `background: surface`, `border: 1px solid border`
-
-### 1.6 Input Bar Component (`InputBar`)
-- **Container**: `padding: 10px 14px`, `background: surface`, `border: 1.5px solid border`, `border-radius: 28px`
-- **Focus**: `border-color: accent`, `box-shadow: 0 4px 16px rgba(176,122,42,0.10)`
-- **Textarea**: `flex: 1`, `border: none`, `background: transparent`, `resize: none`, `max-height: 120px`
-- **Buttons**: `icon-btn` (`width: 40px`, `height: 40px`, `border-radius: 50%`) และ `send-btn` (`width: 44px`, `height: 44px`, `background: accent`, `box-shadow: 0 4px 12px rgba(176,122,42,0.25)`)
-- **Stop state**: `send-btn` เปลี่ยนเป็น `stop-btn` (`background: error`, `box-shadow: 0 4px 12px rgba(139,46,46,0.25)`)
-
----
-
-## 2. Design Tokens ฉบับเต็ม + คู่มือสไตล์
-
-### 2.1 Color Tokens (Light / Dark)
-| Token | Light | Dark | Usage |
-|---|---|---|---|
-| `--bg` | `#F5F3F0` | `#161310` | พื้นหลังหลัก |
-| `--surface` | `#FFFFFF` | `#1E1C18` | พื้นผิว card / sheet |
-| `--surface-2` | `#EDEAE6` | `#2A2721` | พื้นรอง / icon box |
-| `--text-primary` | `#1C1916` | `#F0EDE8` | ข้อความหลัก |
-| `--text-secondary` | `#6B6058` | `#A89F94` | ข้อความรอง |
-| `--text-muted` | `#9A9088` | `#6B5E56` | ข้อความจาง |
-| `--accent` | `#B07A2A` | `#D49A4A` | สีเน้น (warm amber) |
-| `--accent-soft` | `#F2E6CE` | `rgba(212,154,74,0.12)` | พื้นสีเน้นอ่อน |
-| `--accent-deep` | `#8A5E1E` | `#A87D2E` | สีเน้นเข้ม |
-| `--success` | `#2D5A3F` | `#4A8F6A` | สำเร็จ |
-| `--success-soft` | `#E2EBE5` | `rgba(74,143,106,0.12)` | พื้นสำเร็จ |
-| `--warning` | `#9A6B1E` | `#C48A3A` | เตือน |
-| `--warning-soft` | `#F5EDD8` | `rgba(196,138,58,0.12)` | พื้นเตือน |
-| `--error` | `#8B2E2E` | `#C06A6A` | ล้มเหลว |
-| `--error-soft` | `#F4E4E4` | `rgba(192,106,106,0.12)` | พื้นล้มเหลว |
-| `--border` | `#E2DDD8` | `#2A2721` | ขอบ |
-| `--overlay` | `rgba(28,25,22,0.30)` | `rgba(240,237,232,0.30)` | พื้น overlay |
-| `--glass` | `rgba(255,255,255,0.90)` | `rgba(30,28,24,0.92)` | Glass effect |
-
-### 2.2 Typography Scale
-| ระดับ | ขนาด (pt) | น้ำหนัก | line-height | letter-spacing | Usage |
-|---|---|---|---|---|---|
-| H1 | 28 | 700 | 1.25 | 0 | หัวเรื่องหลัก (Empty State) |
-| H2 | 22 | 600 | 1.3 | 0 | ชื่อบทสนทนา |
-| H3 | 17 | 600 | 1.3 | 0 | หัวข้อใน Agent document |
-| Body | 16 | 400 | 1.7 | 0.01em | ข้อความ Agent |
-| Body Small | 14 | 400 | 1.6 | 0.01em | ข้อความใน card / step |
-| Caption | 12 | 500 | 1.4 | 0.02em | Timestamp, label |
-| Micro | 11 | 600 | 1.3 | 0.06em | Badge, status pill |
-
-- **Font family**: `font-family: 'IBM Plex Sans Thai', 'Noto Sans Thai', -apple-system, sans-serif;`
-- **Dynamic Type**: รองรับการขยายตัวอักษรของระบบ (iOS Dynamic Type, Android Font Size) โดยใช้ `rem` หรือ `em` แทน `px` ใน production code
-- **Thai line-height**: `1.5`–`1.7` สำหรับเนื้อหา, `1.3` สำหรับหัวเรื่อง
-- **Text truncation**: `white-space: nowrap; overflow: hidden; text-overflow: ellipsis;` สำหรับชื่อไฟล์และข้อความยาวใน chip
-
-### 2.3 Spacing Grid
-- **Base unit**: 4pt → 8pt, 12pt, 16pt, 24pt, 32pt
-- **Padding ขอบหน้าจอ**: 16pt (iOS), 16pt (Android)
-- **Card radius**: 18pt (ค่าเดียวทั้งแอป)
-- **Pill radius**: 28pt (input bar)
-- **Button radius**: 14pt
-
-### 2.4 Radius & Shape Tokens
-| Component | Radius | Note |
+| ฟอนต์ | บทบาท | เหตุผล |
 |---|---|---|
-| `Card` | 18px | ทุก card ใช้ค่าเดียว |
-| `InputBar` | 28px | Pill-shaped |
-| `Chip` | 20px | Suggestion / source chip |
-| `Button` | 14px | ปุ่มทั่วไป |
-| `Badge` | 20px | Status badge |
-| `BottomSheet` | 28px (top) | เฉพาะด้านบน |
+| **Anuphan** (หลัก) | ทั้งแอป | ไทย+ละตินชุดเดียว ทรงเรขาคณิตอ่านง่าย มี 400/500/600 พอสำหรับ UI |
+| IBM Plex Sans Thai (สำรอง) | ถ้าโหลด Anuphan ไม่ได้ | นิ่ง อ่านสบายบนจอเล็ก |
+| ฟอนต์ระบบ | ทางเลือกที่ไม่ต้องเพิ่มไฟล์ | เลย์เอาต์ทดสอบแล้วไม่พัง |
+| SF Mono | โค้ด พาธ แฮช | ใช้กับข้อความเทคนิคที่ซ่อนอยู่เท่านั้น |
+
+**สเกล + Dynamic Type**
+
+| Token | 100% | 115% | 130% | line-height | ใช้กับ |
+|---|---|---|---|---|---|
+| `fs-display` | 25 | 28.5 | 32.5 | 1.40 | คำทักทายสถานะว่าง |
+| `fs-title` | 20 | 23 | 26 | 1.45 | หัวเรื่องหน้า |
+| `fs-head` | 17 | 19.5 | 22 | 1.45 | ชื่อบทสนทนา หัวข้อผลลัพธ์ |
+| `fs-body` | 16 | 18.5 | 21 | **1.62** | ข้อความ Agent/ผู้ใช้ |
+| `fs-callout` | 15 | 17 | 19.5 | 1.60 | ชื่อขั้นตอนในไทม์ไลน์ |
+| `fs-sub` | 14 | 16 | 18 | 1.60 | แถบสถานะสด การ์ด |
+| `fs-foot` | 13 | 15 | 17 | 1.58 | ปุ่ม หมายเหตุ |
+| `fs-cap` | 12 | 14 | 15.5 | 1.55 | เวลา ป้ายสถานะ |
+| `fs-micro` | 11.5 | 13 | 14.5 | 1.55 | รายละเอียดย่อย |
+
+**กฎไทย (บังคับ)**
+- line-height เนื้อหา ≥ 1.45 เสมอ (ใช้ 1.62) เพราะวรรณยุกต์/สระบน-ล่างกินพื้นที่เกินกล่องตัวอักษร
+- ห้ามความสูงตายตัวกับกล่องข้อความไทย → ใช้ padding + min-height
+- ห้าม `minimumScaleFactor` (สระซ้อนทับ) → ตัดบรรทัดเพิ่มแทน
+- ห้าม uppercase กับข้อความผสมไทย
+- ตัดบรรทัดไทยตามพจนานุกรมของระบบ · `break-all` ใช้เฉพาะพาธ/URL/แฮช และต้องเป็นฟอนต์ mono
+- ตัวเลขที่ต้องเทียบกันใช้ tabular numerals
+- วันที่: ไทย → พ.ศ. + 24 ชม. (`28 ก.ย. 2568 · 14:12`) · อังกฤษ → ค.ศ. + 12 ชม. · สลับได้
+
+### 1.4 ระยะห่าง · มุมโค้ง · เงา
+
+| หมวด | ค่า |
+|---|---|
+| กริด | 4 pt → `4 · 8 · 12 · 16 · 20 · 24 · 32` (ใช้ 8/12/16 เป็นหลัก) |
+| ระยะขอบข้าง | 16 pt (แชท) · 12 pt (ในกล่อง) · ระยะระหว่างกลุ่ม 16 pt |
+| มุมโค้ง | ชิป 12–16 · การ์ด 16 · แผ่นล่าง 20 (มุมบน) · ช่องพิมพ์ 28 · ฟองผู้ใช้ 18 (มุมขวาล่าง 6) |
+| เงา | ระดับ 1 การ์ด `0 1 2 rgba(18,20,26,.06)` · ระดับ 2 แถบสถานะสด `0 4 14 .08` · ระดับ 3 แผ่นล่าง `0 12 32 .14` |
+
+### 1.5 ไอคอน (SF Symbols — ตรวจว่ามีใน iOS 15 ทุกตัว)
+
+| ใช้กับ | ชื่อ |
+|---|---|
+| คิด / แผน | `sparkles` · `list.bullet.rectangle` |
+| ค้นเว็บ / เปิดหน้าเว็บ / เรียกเว็บ | `magnifyingglass` · `globe` · `arrow.up.arrow.down.circle` |
+| ไฟล์ | `doc.text` · `square.and.pencil` · `folder` · `arrow.down.circle` |
+| รันคำสั่ง | `terminal` |
+| สถานะ | `checkmark.circle.fill` · `clock` · `ellipsis.circle` · `exclamationmark.triangle.fill` · `minus.circle` · `slash.circle` |
+| ความปลอดภัย/สิทธิ์ | `lock.fill` · `shield.lefthalf.filled` · `hand.raised.fill` |
+| ทั่วไป | `plus` · `paperplane.fill` · `stop.fill` · `mic.fill` · `chevron.down` · `ellipsis` · `arrow.uturn.backward` |
+
+กติกา: ห้ามฝัง icon font · ไอคอนที่สื่อสถานะต้องมีข้อความกำกับ · น้ำหนักเส้น `.medium`/`.semibold` สม่ำเสมอ · ขนาด 17–21 pt ในปุ่ม 44 pt
 
 ---
 
-## 3. Prototype Specification (Interaction & Animation)
+## 2. Component Library (สเปกรายตัว)
 
-### 3.1 Shimmer / Pulse
-- **Running step icon**: `animation: shimmer 1.5s infinite;` (opacity 1 → 0.4 → 1)
-- **Live Status Line pulse**: `animation: pulse 1.5s infinite;` (dot 6px)
-- **Takeover banner**: ไม่มี shimmer — ใช้สี `warning-soft` อ่อนเพื่อไม่รบกวน
-- **Voice Mode think**: `animation: pulse-ring 2s infinite;` (ring ขยายออก)
+| คอมโพเนนต์ | Variants | States | ขนาด | Accessibility | พฤติกรรม |
+|---|---|---|---|---|---|
+| **Live Status Line** | running · waiting_user · done (ก่อนพับ) | — | 52 + 3 pt | ทั้งแถบเป็นปุ่ม · `role=status` `aria-live=polite` | แตะ = กาง/พับไทม์ไลน์ · เวลา = เวลาจริง |
+| **Ribbon** | 3–8 ช่วง | done/active/pending | 3 pt | `aria-hidden` (มีข้อความกำกับข้าง ๆ) | ช่วง active = shimmer 1.4 วิ |
+| **Step Icon** | 7 สถานะ | pending/running/waiting/succeeded/failed/skipped/cancelled | 22 pt | อ่านชื่อขั้น + สถานะ + เวลา | running = นาฬิกาเต้น 1.6 วิ |
+| **Timeline Header** | กาง/พับ · ระดับกิจกรรม 3 แบบ | — | 52 pt | `aria-expanded` + `aria-controls` | จบงานพับอัตโนมัติ |
+| **Card: thinking** | running · collapsed | — | 52 pt | ชื่อการ์ดอ่านออกเสียง | ตัวเอียง พื้นจาง พับหลังจบ |
+| **Card: web_search** | running · done · failed | ตาม model | 52 + body | ปุ่มในแถวแหล่งข้อมูล ≥ 44 pt | running = skeleton ไม่ใช่สปินเนอร์ |
+| **Card: browse** | done · masked-sensitive · screenshot(เตรียมไว้) | — | 52 + body | ชิป “แตะเพื่อแสดง” เป็นปุ่ม | ปิดบังข้อมูลอ่อนไหวค่าเริ่มต้น |
+| **Card: file** | read · write · edit · delete(+undo) | pending/running/done/failed | 52 + body | ปุ่มเปิด/แชร์/ย้อนกลับ ≥ 38 pt | ไฟล์เปลี่ยนเครื่องมีป้าย “ต้องขออนุญาต” |
+| **Card: code run** | collapsed · expanded · failed | — | 52 + body | `<details>` มีชื่อไทย | โค้ดซ่อนเป็นค่าเริ่มต้น |
+| **Card: connector** | single · multi | — | 52 + body | ชิปสิทธิ์อ่านออกเสียง | ห้ามแสดงโทเคน |
+| **Card: subagent** | expanded · collapsed · done | — | 52 + body | แต่ละเลนเป็นรายการที่อ่านได้ | ค่าเริ่มต้นพับเป็นแถบเดียว |
+| **Card: plan** | list · plan-changed | — | 52 + body | เช็กลิสต์อ่านทีละข้อ | ทุกครั้งที่เปลี่ยนแผนมีแถบ “ปรับแผนแล้ว” |
+| **Detail Sheet** | 
+เนื้อหา 8 ชนิด | — | สูง 62–90% | `role=dialog` `aria-modal` | ปิดด้วยปุ่ม · ฉากมืด · ปัดลง |
+| **Permission Sheet** | ปกติ · เสี่ยงสูง | รอการตัดสินใจ | ขึ้นกับเนื้อหา | โฟกัสไปที่ปุ่มแรก · ติ๊กยืนยันก่อนลบ | ไม่มี “อนุญาตเสมอ” ในกรณีลบ |
+| **Scope Chooser** | 4 ระดับ | — | 56 pt ต่อแถว | `aria-pressed` ต่อตัวเลือก | ค่าเริ่มต้น = แคบที่สุด |
+| **Ask User** | เลือกเดียว · หลายข้อ · ตอบแล้ว | waiting_user | 44 pt ต่อปุ่ม | ช่องพิมพ์มี label | มี “ให้ Agent ตัดสินใจเอง” เสมอ |
+| **Input Bar** | ว่าง · กำลังพิมพ์ · ทำงาน(ปุ่มหยุด) · ปิด(รอผู้ใช้) · แนบไฟล์ล้มเหลว | — | 44–112 pt | placeholder ต้องบอกเหตุผลเมื่อปิด | ข้อความยาวขยายได้สูงสุด 112 pt |
+| **Banner** | info · warn · err · ok | — | ขึ้นกับเนื้อหา | ไอคอน + หัวข้อ + ปุ่ม | ห้ามใช้ toast แทน error |
+| **List Row** | static · ปุ่ม | — | 52 pt | ทั้งแถวเป็นปุ่มเมื่อกดได้ | สวิตช์ความปลอดภัยมีคำอธิบาย |
+| **Toggle** | accent · success | on/off/disabled | 48×29 (แตะ 44) | `aria-pressed` + label | — |
+| **Button** | primary · secondary · ghost · danger-line · danger-solid · small | default/pressed/disabled/focus | 44 (เล็ก 38) | ต้องมีชื่อ · ปุ่มที่ปิดต้องอธิบาย | กดแล้ว scale 0.98 + opacity |
+| **Chip** | default · run · ok · warn · err · query | — | 36 pt (แตะรวม 44) | อ่านข้อความในชิป | — |
+| **Progress** | รู้จำนวน · ไม่รู้จำนวน | — | 4–6 pt | ถ้ามี % ต้องมีข้อความ | ไม่รู้จำนวน = แถบไม่มีตัวเลข |
+| **Skeleton** | 1–3 บรรทัด | — | 10 pt | `aria-hidden` + ข้อความคู่กัน | shimmer 1.5 วิ |
+| **Toast** | — | เข้า/ออก | 38 pt | `role=status` | ใช้เฉพาะการยืนยันที่ไม่มีผลถาวร |
+| **Tab Bar / App Header** | 4 แท็บ · 3 สถานะ Agent | — | 50 pt / 56 pt | แท็บละ label · จุดสถานะมีข้อความ | สลับแท็บด้วยนิ้วโป้ง |
 
-### 3.2 Streaming & Scroll
-- **Streaming text**: ข้อความ Agent ปรากฏทีละบรรทัด (ไม่กระตุก) — ใช้ `word-break: break-word;` และ `line-height: 1.7`
-- **Scroll behavior**: `scroll-behavior: smooth;` — แต่ไม่ดึงหน้าเลื่อนเองเมื่อผู้ใช้อ่านข้างบน (`scrollToBottom` เรียกเฉพาะเมื่อผู้ใช้ส่งข้อความใหม่)
-- **Scroll-to-bottom**: ปุ่มลอย (`fixed`, `bottom: 88px`, `right: 16px`) ปรากฏเมื่อ `scrollTop + clientHeight < scrollHeight - 120`
+---
 
-### 3.3 Progressive Disclosure
-- **Live Status Line (A)**: แตะขยาย → แสดง Timeline (B)
-- **Timeline (B)**: แตะ header อีกครั้ง → พับกลับ (max-height transition 400ms)
-- **Detail Sheet (C)**: เปิดจาก citation number (`.cite-num`) → bottom sheet เต็มจอ
-- **Code card**: ปุ่ม "ดูโค้ด" → ขยายบล็อก (`display: block`) + เปลี่ยนข้อความปุ่ม
-- **Thinking card**: คลิกที่ card → พับ/กาง (`max-height` transition)
+## 3. สเปก Interaction & Animation
 
-### 3.4 Reduce Motion & Accessibility
-- **Reduce Motion**: เมื่อระบบตั้งค่า `prefers-reduced-motion: reduce` → เปลี่ยน animation ทั้งหมดเป็น `fade` หรือ `opacity` transition สั้น (≤ 150ms)
-- **No shimmer**: เมื่อ `prefers-reduced-motion` เปิด — shimmer เปลี่ยนเป็น `opacity: 0.7` คงที่ (ไม่กระพริบ)
-- **Haptic**: `haptic-feedback` เบาๆ (`UIImpactFeedbackGenerator(.light)`) เมื่อ:
-  - งานสำคัญเสร็จ
-  - ต้องการอนุมัติจากผู้ใช้
-  - พบคำสั่งแปลก (security alert)
-- **VoiceOver / TalkBack**: ทุก component มี `aria-label`, `aria-live`, `aria-expanded`, `aria-controls`, `role` ที่เหมาะสม
+| จังหวะ | ระยะเวลา | easing | สิ่งที่เปลี่ยน | เมื่อเปิด “ลดการเคลื่อนไหว” |
+|---|---|---|---|---|
+| กดปุ่ม | 120 ms | ease-out | opacity .9 + scale .98 | เหมือนเดิม (สั้นมาก) |
+| ขั้นตอนใหม่เลื่อนเข้า | 240 ms | `cubic-bezier(.2,.8,.2,1)` | opacity 0→1, translateY 8→0 | fade 120 ms |
+| ขั้นที่ทำอยู่ (shimmer) | 1.5 วิ วน | linear | background-position 150%→−50% | หยุด shimmer → ใช้สีทึบ + ข้อความ |
+| เช็กมาร์กตอนสำเร็จ | 260 ms | ease-out | stroke-dashoffset 22→0 | เข้มขึ้นทันที (ไม่วาด) |
+| ข้อความสถานะเปลี่ยน | 240 ms | ease-in-out | crossfade (เก่าจาง 120 ms ก่อน) | fade 120 ms |
+| การ์ดกาง/พับ | 200 ms | ease-out | opacity + ความสูงสูงสุด (ไม่ animate layout ของข้อความ) | ทันที |
+| แผ่นล่างเลื่อนขึ้น | 240 ms / ฉากมืด 180 ms | ease-out | translateY 102%→0 | fade 120 ms |
+| Toast | เข้า/ออก 180 ms | ease-out | opacity + translateY 8→0 | fade 120 ms |
+| ริบบิ้นช่วงที่ทำอยู่ | 1.4 วิ วน | linear | สี shimmer | เปลี่ยนเป็นสีทึบ |
+
+**กฎการสตรีมข้อความ**
+1. รวมชิ้นข้อความก่อนวาด (แอปทำอยู่แล้ว: ทุก 80 ms) → ไม่กระตุกบน iPhone 7
+2. **ห้ามดึงหน้าเลื่อนเองถ้าผู้ใช้กำลังอ่านข้างบน** — แสดงปุ่ม “ข้อความใหม่” แทน (มีในเฟส 1)
+3. ข้อความที่ยังสตรีมอยู่ไม่ต้องมีแอนิเมชันเพิ่ม
+4. เมื่อสตรีมจบ → แสดงปุ่มการกระทำ (คัดลอก/สร้างใหม่/แชร์) แบบ fade
+
+**Haptics**: `light` เมื่อเริ่มงานและเมื่องานเสร็จ · `medium` เมื่อต้องขออนุญาตหรือมีขั้นล้มเหลว · **ห้ามสั่นระหว่างสตรีม**
+
+**ห้ามทำ** (มีผลกับเครื่อง 2GB): แอนิเมชันที่เปลี่ยน width/height/position ของหลาย view พร้อมกัน · blur ซ้อนชั้น · เงาหลายชั้น · auto-scroll ที่แย่งกับผู้ใช้
 
 ---
 
 ## 4. Status Copy Library (ไทย / อังกฤษ)
 
-### 4.1 Activity Types (message title — ภาษาไทย)
-| Type | Thai Label | English Label |
-|---|---|---|
-| `thinking` | กำลังคิด... | Thinking... |
-| `web_search` | ค้นหาเว็บ | Web search |
-| `browse` | ดูหน้าจอ | Browsing |
-| `read_file` | อ่านไฟล์ | Reading file |
-| `write_file` | เขียนไฟล์ | Writing file |
-| `run_code` | รันโค้ด | Running code |
-| `connector` | เชื่อมต่อแอป | App connector |
-| `subagent` | งานคู่ขนาน | Sub-agent |
-| `plan` | วางแผนงาน | Planning |
-| `ask_user` | ขอคำตอบจากคุณ | Waiting for you |
-| `permission` | ต้องการอนุญาต | Needs approval |
+### 4.1 ระหว่างทำ (ตามประเภทกิจกรรม)
 
-### 4.2 Status Labels (badge + VoiceOver text)
-| Status | Thai Badge | English Badge | Thai Description | English Description |
-|---|---|---|---|---|
-| `pending` | รอ | Waiting | รอเริ่มทำงาน | Waiting to start |
-| `running` | กำลังทำ | Running | กำลังดำเนินการ | In progress |
-| `waiting_user` | รอคุณ | Waiting for you | รอคำตอบหรือการอนุมัติ | Waiting for input |
-| `succeeded` | สำเร็จ | Done | ทำเสร็จแล้ว | Completed |
-| `failed` | ล้มเหลว | Failed | ไม่สำเร็จ — มีสาเหตุและทางแก้ | Failed — with cause and next step |
-| `skipped` | ข้าม | Skipped | ข้ามขั้นตอนนี้ | Skipped |
-| `cancelled` | ยกเลิก | Cancelled | ถูกยกเลิกโดยผู้ใช้ | Cancelled by user |
-
-### 4.3 User-Facing Messages (ไม่ใช้ศัพท์เทคนิค)
-| Context | Thai Message | English Message |
+| ประเภท (tool จริง) | ไทย | อังกฤษ |
 |---|---|---|
-| Reading file | "กำลังอ่านไฟล์ที่คุณส่ง..." | "Reading the file you sent..." |
-| Web search (found) | "พบ 8 แหล่งข้อมูล กำลังเลือกที่น่าเชื่อถือ" | "Found 8 sources, selecting the most reliable" |
-| Web search (none) | "ไม่พบข้อมูลที่ตรงกับคำค้น — ลองปรับคำค้น" | "No matching results — try adjusting your query" |
-| Permission request | "ต้องการอนุญาตก่อนส่งอีเมลนี้" | "Needs approval before sending this email" |
-| Takeover | "Agent ต้องการความช่วยเหลือจากคุณ — คุณทำเองได้ และ Agent จะไม่เห็นรหัสที่พิมพ์" | "Agent needs your help — you can do it yourself, and Agent won't see your input" |
-| Security alert | "เว็บนี้พยายามสั่งให้ทำสิ่งอื่น — เราไม่ทำตามและกำลังดำเนินงานต่อ" | "This site tried to instruct something else — we ignored it and are continuing" |
-| Completed | "ทำเสร็จแล้ว ใช้เวลา 1 นาที 12 วินาที" | "Done. Took 1 minute 12 seconds." |
-| Partial success | "ทำเสร็จบางขั้นตอน — บางขั้นไม่สำเร็จ" | "Partially completed — some steps failed" |
-| Undo available | "ทำเสร็จแล้ว — ย้อนกลับได้ภายใน 30 วินาที" | "Done — undo available for 30 seconds" |
-| Rate limit warning | "โควตาใกล้หมด — ใช้ไป 65%" | "Quota running low — 65% used" |
+| `thinking` | กำลังทำความเข้าใจคำขอ… | Understanding your request… |
+| `plan` | กำลังวางแผน 4 ขั้นตอน… | Planning 4 steps… |
+| `read_file` | กำลังอ่านไฟล์… | Reading a file… |
+| `list_directory` | กำลังดูรายการโฟลเดอร์… | Listing a folder… |
+| `search_files` | กำลังหาไฟล์ที่ตรงเงื่อนไข… | Finding matching files… |
+| `search_content` | กำลังค้นข้อความในไฟล์… | Searching inside files… |
+| `write_file` | กำลังบันทึกไฟล์… (ต้องขออนุญาต) | Saving a file… (permission needed) |
+| `edit_file` | กำลังแก้บางจุดในไฟล์… | Editing a file… |
+| `create_directory` | กำลังสร้างโฟลเดอร์… | Creating a folder… |
+| `move_file` | กำลังย้ายไฟล์… | Moving a file… |
+| `copy_file` | กำลังคัดลอกไฟล์… | Copying a file… |
+| `delete_file` | กำลังลบไฟล์… (เสี่ยงสูง) | Deleting a file… (high risk) |
+| `execute_shell` | กำลังรันคำสั่งบนเครื่อง… | Running a command on your device… |
+| `http_request` | กำลังเรียกข้อมูลจากเว็บ… | Requesting data from a website… |
+| `download_file` | กำลังดาวน์โหลดไฟล์… | Downloading a file… |
+| `web_search` | กำลังค้นหาเว็บ… | Searching the web… |
+| `fetch_webpage` | กำลังเปิดอ่านหน้าเว็บ… | Opening a web page… |
+| `connector` | กำลังทำงานกับ {ชื่อบริการ}… | Working with {service}… |
+| `subagent` | กำลังทำงานย่อย {n} งาน… | Running {n} subtasks… |
+| `ask_user` | ขอถามก่อนทำต่อ | A quick question before I continue |
+| `permission` | ต้องการอนุญาตก่อนทำต่อ | Needs your permission to continue |
+
+### 4.2 เมื่อจบ / สถานะ
+
+| สถานการณ์ | ไทย | อังกฤษ |
+|---|---|---|
+| ขั้นสำเร็จ | เสร็จแล้ว · ใช้เวลา {n} วินาที | Done · took {n}s |
+| รอคิว | รอคิว — จะเริ่มหลังขั้นนี้เสร็จ | Queued — starts after the current step |
+| รอผู้ใช้ | รอคุณตอบ | Waiting for you |
+| ล้มเหลว (เน็ต) | อินเทอร์เน็ตขาดตอนระหว่างทำขั้นนี้ | The connection dropped during this step |
+| ล้มเหลว (คำสั่งไม่มี) | เครื่องนี้ไม่มีคำสั่ง “{name}” — ลองวิธีอื่นได้ | This device has no “{name}” command — I can try another way |
+| ข้ามไป | ข้ามขั้นนี้แล้ว เพราะไม่จำเป็นต่อผลลัพธ์ | Skipped — not needed for the result |
+| ยกเลิก | ยกเลิกตามที่คุณสั่ง | Cancelled as you asked |
+| งานจบทั้งงาน | ทำเสร็จแล้ว ใช้เวลา 1 นาที 12 วินาที | Done — took 1 minute 12 seconds |
+| สำเร็จบางส่วน | ได้ผลลัพธ์แล้ว แต่ยังขาดส่วนอ้างอิงจากเว็บ | Results ready, but web citations are missing |
+| ไม่สำเร็จทั้งหมด | ยังทำไม่ได้ในตอนนี้ — สาเหตุคือ {…} ลองใหม่ได้เลย | Couldn't finish — {reason}. You can retry. |
+| ต้องขออนุญาต | ต้องการอนุญาตก่อน {การกระทำ} | Needs your permission to {action} |
+| อนุญาตแล้ว | อนุญาตแล้ว — ทำงานต่อจากขั้นที่ {n} | Approved — continuing from step {n} |
+| ปฏิเสธ | ไม่เป็นไร ผมจะไม่แตะ {สิ่งนั้น} และปรับแผนให้ | No problem — I won't touch it and will adjust the plan |
+| บันทึกขอบเขต | บันทึกแล้ว: “ครั้งนี้เท่านั้น” — จะถามใหม่เมื่องานนี้จบ | Saved: “this time only” — I'll ask again when this task ends |
+| เพิกถอนสิทธิ์ | เพิกถอนแล้ว — ครั้งหน้าจะถามใหม่ | Revoked — I'll ask again next time |
+| คำสั่งแอบแฝง | หน้าเว็บนี้มีข้อความที่พยายามสั่งให้ทำสิ่งอื่น ผมไม่ทำตามและทำงานของคุณต่อ | That page contained instructions aimed at me — I ignored them and continued your task |
+| ปิดบังข้อมูล | ข้อมูลส่วนตัวถูกปิดบังไว้ — กด “แตะเพื่อแสดง” ถ้าจำเป็น | Personal data is masked — tap to reveal if needed |
+| ย้อนกลับได้ | ย้อนกลับได้อีก {m:ss} | You can undo for another {m:ss} |
+| หมดเวลาย้อนกลับ | เลยเวลาย้อนกลับแล้ว — สำเนาเดิมยังอยู่ที่ {path} | The undo window has closed — a backup copy is still at {path} |
+| เน็ตหลุด | อินเทอร์เน็ตขาดตอน งานหยุดชั่วคราวที่ขั้น {n} ผลที่ทำแล้วถูกเก็บไว้ครบ | Connection lost — paused at step {n}, results saved |
+| กลับมาต่อ | สัญญาณกลับมาแล้ว ทำงานต่อจากจุดเดิม | Back online — continuing where I left off |
+| ถูกจำกัดการใช้งาน | ผู้ให้บริการจำกัดการใช้งานชั่วคราว จะลองใหม่ในอีก {n} วินาที | The provider is rate-limiting; retrying in {n} seconds |
+| โควตาหมด | โควตาของโมเดลนี้หมดแล้ว — ใช้โมเดลอื่นต่อได้เลย | This model's quota is used up — you can continue with another model |
+| คีย์ผิด | คีย์ใช้งานไม่ถูกต้อง ต้องตรวจในหน้าตั้งค่า | The API key isn't valid — please check it in Settings |
+| ไฟล์ใหญ่เกิน | ไฟล์ใหญ่เกินเพดานที่ตั้งไว้ ({limit}) | The file is larger than your limit ({limit}) |
+| บริบทใกล้เต็ม | บริบทของห้องนี้ใช้ไป {n}% — ตัดประวัติเก่าหรือส่งออกก่อนได้ | This chat's context is {n}% full — trim or export first |
+| รับช่วงต่อ | เว็บนี้ต้องให้คุณล็อกอินเอง ผมทำแทนไม่ได้ | You'll need to sign in yourself — I can't do this step |
+| ส่งคืน Agent | เสร็จแล้ว ให้ Agent ทำต่อ | Done — hand back to the agent |
+| งานถูกระบบระงับ | ระบบหยุดงานชั่วคราวตอนแอปอยู่เบื้องหลัง — กดทำต่อจากจุดเดิมได้เลย | iOS paused the task in the background — tap to resume from where it stopped |
+
+**โทนภาษา:** กระชับ เป็นมิตร ไม่ตำหนิ ไม่ใช้คำเทคนิค ไม่ใช้เครื่องหมายอัศเจรีย์ และไม่ใช้คำว่า “พัก/Pause” (แอปทำไม่ได้จริง)
 
 ---
 
-## 5. Event Data Structure (สำหรับนักพัฒนา)
+## 5. โครงสร้างข้อมูล Event สำหรับนักพัฒนา
 
-```typescript
-interface AgentEvent {
-  id: string;                    // UUID หรือ unique identifier
-  seq: number;                   // ลำดับขั้นตอนในบทสนทนา (เริ่มจาก 1)
-  parent_id?: string;            // id ของ sub-agent หรืองานคู่ขนาน (ถ้ามี)
-  type: EventType;              // ดูรายการด้านล่าง
-  status: EventStatus;          // pending | running | waiting_user | succeeded | failed | skipped | cancelled
-  title: { th: string; en: string };  // ชื่อขั้นตอน (ภาษาไทย + อังกฤษ)
-  detail?: { th: string; en: string }; // คำอธิบายละเอียด (ไม่บังคับ)
-  started_at: string;           // ISO 8601 timestamp
-  ended_at?: string;            // ISO 8601 timestamp (ถ้าเสร็จ/ล้มเหลว/ข้าม)
-  progress?: number;            // 0 - 100 (เปอร์เซ็นต์ความคืบหน้า — ถ้าประมาณได้)
-  requires_approval: boolean;   // ต้องขออนุญาตก่อนทำงานต่อหรือไม่
-  reversible: boolean;          // สามารถ Undo ได้หรือไม่
-  sensitivity: 'none' | 'personal' | 'financial' | 'credentials'; // ระดับความอ่อนไหวของข้อมูล
-  sources?: Source[];           // แหล่งข้อมูลที่ใช้ (สำหรับ web_search, browse)
-  artifacts?: Artifact[];       // ไฟล์หรือผลงานที่สร้าง (สำหรับ write_file, run_code)
-  error?: {
-    code: string;               // รหัสข้อผิดพลาด (ภาษาอังกฤษสั้น)
-    user_message: { th: string; en: string }; // ข้อความที่แสดงให้ผู้ใช้ (ไม่ใช้ศัพท์เทคนิค)
-    retryable: boolean;         // สามารถลองใหม่ได้หรือไม่
-  };
-}
+### 5.1 Schema
 
-interface Source {
-  id: string;                   // ลำดับหรือ UUID
-  favicon_url?: string;         // URL favicon (ถ้ามี)
-  domain: string;               // โดเมน (เช่น booking.com)
-  url: string;                  // URL เต็ม
-  title?: string;               // ชื่อหน้า (ถ้ามี)
-}
+```ts
+type ActivityType =
+  | 'thinking' | 'plan' | 'web_search' | 'browse' | 'read_file' | 'write_file'
+  | 'run_code' | 'connector' | 'subagent' | 'ask_user' | 'permission';
 
-interface Artifact {
-  id: string;
-  file_type: 'document' | 'image' | 'code' | 'audio' | 'video' | 'other';
-  file_name: string;
-  file_size?: number;           // ขนาดไฟล์ (bytes)
-  url?: string;                 // URL เปิดไฟล์
-  created_at: string;
-}
+type ActivityStatus =
+  | 'pending' | 'running' | 'waiting_user' | 'succeeded' | 'failed' | 'skipped' | 'cancelled';
 
-enum EventType {
-  Thinking = 'thinking',
-  WebSearch = 'web_search',
-  Browse = 'browse',
-  ReadFile = 'read_file',
-  WriteFile = 'write_file',
-  RunCode = 'run_code',
-  Connector = 'connector',
-  SubAgent = 'subagent',
-  Plan = 'plan',
-  AskUser = 'ask_user',
-  Permission = 'permission'
-}
+type Sensitivity = 'none' | 'personal' | 'financial' | 'credentials';
 
-enum EventStatus {
-  Pending = 'pending',
-  Running = 'running',
-  WaitingUser = 'waiting_user',
-  Succeeded = 'succeeded',
-  Failed = 'failed',
-  Skipped = 'skipped',
-  Cancelled = 'cancelled'
+type ActivityEvent = {
+  id: string;              // ไม่ซ้ำ ใช้ dedupe
+  seq: number;             // ลำดับสำหรับเรียง (ห้ามใช้เวลาเรียง)
+  parent_id?: string;      // ถ้าเป็นงานย่อย (subagent)
+  type: ActivityType;
+  status: ActivityStatus;
+  title: { th: string; en: string };
+  detail?: string;         // สรุปภาษาคน
+  started_at?: number;     // epoch ms
+  ended_at?: number;
+  progress?: { done: number; total: number };   // ใส่เฉพาะเมื่อรู้จำนวนจริง
+  requires_approval?: boolean;
+  reversible?: boolean;    // ปัจจุบัน write/delete = false
+  sensitivity: Sensitivity;
+  sources?: { name: string; domain: string; url?: string; snippet?: string }[];
+  artifacts?: { name: string; size: number; path?: string }[];
+  error?: { code: string; user_message: string; retryable: boolean };
+};
+```
+
+### 5.2 Lifecycle
+
+```
+started            updated (0..n)                 completed
+  ├─ status=running ──► progress / การค้นพบกลางทาง ──► status=succeeded (+ ended_at)
+  │                                                └► status=failed    (+ error)
+  │                                                └► status=cancelled (ผู้ใช้หยุด)
+  └─ status=pending ──► running ──► …                status=waiting_user (กลางทาง)
+```
+
+กติกา: `pending → running → (succeeded | failed | cancelled | skipped)` และ `waiting_user` เปลี่ยนกลับเป็น `running` ได้เมื่อผู้ใช้ตอบ · **ห้ามข้ามจาก pending ไป succeeded** (ผู้ใช้จะไม่เห็นว่างานเริ่ม)
+
+### 5.3 การเชื่อมกับของจริง (`AgentEvent` ใน `AgentEngine.swift`)
+
+| AgentEvent เดิม | แปลงเป็น |
+|---|---|
+| `assistantStarted(UUID)` | สร้าง event `type=thinking, status=running` |
+| `assistantDelta(UUID, String)` | อัปเดตข้อความคำตอบ (ไม่สร้าง event ใหม่) |
+| `assistantFinished(UUID, ChatMessage?)` | ปิด `thinking` → `succeeded` + `ended_at` |
+| `toolStarted(ToolInvocation)` | สร้าง event ตาม `toolName` → `type` ที่ map ไว้ · `status=running` |
+| `toolFinished(invocation:result:duration:)` | ปิด event → `succeeded`/`failed` + `ended_at` + `error{ retryable }` |
+| `approvalRequested(ApprovalRequest)` | สร้าง event `type=permission, status=waiting_user, requires_approval=true` |
+| `approvalResolved(id:decision:autoApproved:)` | ปิด event → `succeeded` (อนุญาต) / `cancelled` (ปฏิเสธ) |
+| `status(String)` | ข้อความของแถบสถานะสด (ไม่สร้าง event) |
+| `notice(String)` | แบนเนอร์ในแชท (ไม่สร้าง event) |
+| `usage(TokenUsage)` | สะสมที่ตัวนับของงาน (ไม่แสดงเป็นขั้น) |
+| `completed(reason)` | ปิด event ที่ค้างทั้งหมด + ปิดไทม์ไลน์ |
+
+> เฟส 5 ให้ทำ **adapter** ชั้นนี้ก่อน เพื่อไม่ต้องแก้ backend/engine เดิม · เมื่อพร้อมจึงค่อยย้าย engine ให้ส่ง event ตาม schema ตรง ๆ
+
+### 5.4 การ reconnect เมื่อเน็ตหลุด
+
+| สถานการณ์ | กติกา |
+|---|---|
+| หลุดแล้วกลับมา | ส่ง event ซ้ำได้ทันที — **dedupe ด้วย `id`** (ถ้า id ซ้ำและ `seq` ใหม่กว่า = อัปเดตของเดิม ไม่สร้างใหม่) |
+| เรียงลำดับ | ใช้ `seq` เท่านั้น (นาฬิกาเครื่องอาจเพี้ยน) |
+| event มาถึงช้ากว่าที่ควร | ถ้า event นั้นถูกปิดไปแล้ว (`ended_at` มีค่า) ให้ **ทับเฉพาะข้อมูลที่ใหม่กว่า** (เทียบ `seq`) |
+| งานถูกยกเลิกไปแล้ว | ทิ้ง event ที่ `seq` มาหลังเหตุการณ์ยกเลิก |
+| ขาดช่วงกลาง (หายไปบาง seq) | แสดงขั้นที่หายเป็นขั้นทั่วไป “กำลังทำขั้นตอนหนึ่ง…” ไม่ล้มทั้งไทม์ไลน์ แล้วเติมเมื่อข้อมูลมาถึง |
+| ข้อความสตรีมขาดกลาง | คงข้อความบางส่วนไว้ + หมายเหตุ “ข้อความอาจไม่ครบ” + ปุ่ม “สร้างใหม่” |
+
+### 5.5 event ที่ไม่รู้จัก (Forward compatibility)
+
+- **ห้าม crash และห้ามทิ้งไทม์ไลน์** — แสดงเป็นการ์ดทั่วไป “กำลังทำขั้นตอนหนึ่ง…” พร้อม `detail` ถ้ามี
+- เก็บ `type` ดิบไว้ในไทม์ไลน์ เพื่อให้ตรวจย้อนหลังได้ และวันหลังค่อยเพิ่มการรองรับ
+- ถ้า `status` ไม่รู้จัก → ถือเป็น `running` และปิดเมื่อมี event ปิด
+- ถ้า `sensitivity` ไม่รู้จัก → ถือเป็น `personal` (ปลอดภัยไว้ก่อน) แล้วปิดบังค่าเริ่มต้น
+
+### 5.6 ร่างโครง Swift (ใช้ในเฟส 5)
+
+```swift
+struct ActivityEvent: Codable, Identifiable, Equatable {
+    let id: String
+    let seq: Int
+    let parentID: String?
+    let type: String            // เก็บเป็น String เพื่อรองรับชนิดใหม่ในอนาคต
+    var status: Status
+    let title: LocalizedText
+    var detail: String?
+    var startedAt: Date?
+    var endedAt: Date?
+    var progress: Progress?
+    var requiresApproval: Bool?
+    var reversible: Bool?
+    var sensitivity: Sensitivity
+    var sources: [Source]?
+    var artifacts: [Artifact]?
+    var error: EventError?
+
+    enum Status: String, Codable {
+        case pending, running, waitingUser = "waiting_user"
+        case succeeded, failed, skipped, cancelled
+        // กันข้อมูลพัง: รองรับค่าที่ไม่รู้จัก
+        init(from decoder: Decoder) throws {
+            let raw = try decoder.singleValueContainer().decode(String.self)
+            self = Status(rawValue: raw) ?? .running
+        }
+    }
 }
 ```
 
-### Lifecycle
-- `started` → `updated` (ความคืบหน้าหรือข้อมูลเพิ่มเติม) → `completed` (status: succeeded / failed / skipped / cancelled)
-- `updated` สามารถเรียกได้หลายครั้งระหว่าง `started` และ `completed`
-
-### Reconnect เมื่อเน็ตหลุด
-- ส่ง event ซ้ำ (resend) ด้วย `seq` เดิม — ระบบเรียงลำดับด้วย `seq` และไม่สร้าง event ซ้ำ
-- ถ้า event ที่ไม่รู้จัก (`type` ไม่อยู่ใน `EventType`) — แสดงเป็นขั้นตอนทั่วไป (`type: 'unknown'`, `title: { th: 'ขั้นตอนที่ไม่รู้จัก', en: 'Unknown step' }`) โดยไม่ crash
+**การเก็บบนเครื่อง:** เขียนแบบ append-only เป็นไฟล์ต่อห้อง (`activity-<roomID>.jsonl`) จำกัดจำนวนล่าสุด (เช่น 2,000 บรรทัด) แล้วตัดของเก่า — เข้ากับแนวทางประหยัด RAM ของแอปเดิม
 
 ---
 
 ## 6. Edge Cases และคำแนะนำนักพัฒนา
 
-### 6.1 เมื่อ Backend ไม่ส่งข้อมูลบางอย่าง
-- ถ้า `progress` ไม่ส่งมา → ไม่แสดงเปอร์เซ็นต์ใน Timeline (แสดงเฉพาะสถานะ "กำลังทำ")
-- ถ้า `sources` ว่าง → Web Search Card ไม่แสดง chip แหล่งข้อมูล (แสดงเฉพาะหัวข้อ)
-- ถ้า `artifacts` ว่าง → File Card ไม่ปรากฏใน Detail Sheet
-- ถ้า `error` ไม่มี `user_message` → ใช้ข้อความเริ่มต้น: "เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ — ลองใหม่อีกครั้ง" (ไม่แสดง error code ดิบให้ผู้ใช้เห็น)
-
-### 6.2 เมื่อ Event มี `parent_id`
-- แสดงเป็นเลนย่อย (sub-agent) ใน SubAgentCard
-- ความคืบหน้าของงานหลัก (`parent`) = ค่าเฉลี่ยของความคืบหน้างานย่อยทั้งหมด
-- ถ้างานย่อยล้มเหลว → งานหลักแสดงสถานะ "สำเร็จบางส่วน" (partial success)
-
-### 6.3 เมื่อ `requires_approval` = true แต่ผู้ใช้ไม่ตอบ
-- หลังจากเวลาผ่านไป 10 นาที (หรือตามที่ตั้งค่าใน Settings) → งานเปลี่ยนสถานะเป็น `cancelled` พร้อมข้อความ "หมดเวลาในการรอตอบ — งานถูกยกเลิกโดยอัตโนมัติ"
-- ระบบส่ง Push Notification ก่อนหมดเวลา 2 นาที: "Agent รอคำตอบจากคุณ — เหลือเวลาอีก 2 นาที"
-
-### 6.4 เมื่อ `reversible` = false
-- ไม่แสดงปุ่ม Undo ใน Timeline หรือใน Banner หลังงานเสร็จ
-- ถ้าผู้ใช้พยายามกด Undo → แสดงข้อความ "งานนี้ไม่สามารถย้อนกลับได้" (ไม่ทำให้แอป crash)
-
-### 6.5 เมื่อ `sensitivity` = 'credentials'
-- ข้อมูลใน Detail Sheet (แหล่งข้อมูล, ไฟล์, โค้ด) จะไม่แสดงรายละเอียดที่เกี่ยวข้องกับรหัสผ่านหรือข้อมูลส่วนตัว — แทนด้วยข้อความ "ข้อมูลอ่อนไหวถูกปิดบัง"
-- การส่งออก (Export) จะไม่รวมข้อมูลที่มี `sensitivity` = 'credentials' หรือ 'financial' ยกเว้นผู้ใช้เลือก "รวมข้อมูลทั้งหมด" และยืนยันเพิ่มเติม
-
-### 6.6 การแสดงผลในหน้าจอเล็ก (iPhone 7 — 4.7")
-- ทุก card ใช้ `padding: 14px` (ไม่มากเกินไป) และ `font-size: 13px` (ไม่เล็กเกินไปสำหรับจอเล็ก)
-- Timeline step ลด `gap` เป็น `8px` (จาก `12px`) เมื่อความกว้างจอ < 360px
-- Bottom Sheet ใช้ `max-height: 85vh` (ไม่เต็มจอ) เพื่อให้เห็น header ด้านบนเสมอ
-
----
-
-## 7. เหตุผลเบื้องหลังการตัดสินใจสำคัญ (5–7 ข้อ)
-
-### 7.1 ทำไมไม่ใช้อิโมจิใน UI ทั้งหมด
-- **เหตุผล**: อิโมจิทำให้ UI ดูไม่เป็นมืออาชีพและไม่เหมาะกับแอปที่ต้องการความน่าเชื่อถือ (trust) โดยเฉพาะเมื่อต้องจัดการข้อมูลส่วนตัวและการเงิน — การใช้ SVG stroke + ข้อความภาษาไทยให้ความรู้สึกที่เป็นระบบและชัดเจนมากกว่า
-- **ผลกระทบ**: UI อ่านง่ายขึ้นสำหรับผู้ใช้ทุกวัย และไม่ขึ้นอยู่กับการรองรับอิโมจิของระบบ (บางอุปกรณ์ jailbroken อาจไม่มี font อิโมจิครบ)
-
-### 7.2 ทำไม Agent message ไม่มี bubble (อ่านแบบเอกสาร)
-- **เหตุผล**: การใช้ bubble ทั้งสองฝั่ง (ผู้ใช้และ Agent) เป็นรูปแบบที่ ChatGPT, Claude, Gemini ใช้ — การไม่ใช้ bubble สำหรับ Agent สร้างความแตกต่างและทำให้ผู้ใช้รู้สึกว่า Agent เป็น "เอกสารที่กำลังสร้าง" ไม่ใช่ "คู่สนทนา" ทำให้ progressive disclosure (ซ่อนรายละเอียดใน Timeline) ทำงานได้ดีกว่า
-- **ผลกระทบ**: ข้อความ Agent อ่านสบายขึ้น (line-height 1.7, ไม่ถูกจำกัดด้วย bubble width) และไม่ต้องปรับ layout เมื่อข้อความยาว
-
-### 7.3 ทำไมใช้สี Warm Amber (#B07A2A) แทนสีฟ้า/ม่วงที่เป็นเอกลักษณ์ AI
-- **เหตุผล**: สีฟ้า (#3B82F6) และสีม่วง (#7C3AED) เป็นสีที่ ChatGPT, Claude, Perplexity, Gemini ใช้เป็นเอกลักษณ์ — การใช้สีอบอุ่น (amber) สร้างความแตกต่างและสื่อถึงความเป็น "อบอุ่น เป็นกันเอง" ตามบุคลิกแบรนด์ที่ระบุใน project context
-- **ผลกระทบ**: แอปไม่ถูกเข้าใจผิดว่าเป็น "ChatGPT clone" และผู้ใช้รู้สึกผ่อนคลายมากขึ้นเมื่อใช้งาน (สีอบอุ่นลดความเครียดเมื่ออ่านข้อมูลที่ซับซ้อน)
-
-### 7.4 ทำไมไม่แสดงตัวเลขประมาณการเวลาหรือความมั่นใจเมื่อไม่มีข้อมูลจริง
-- **เหตุผล**: พรอมต์ระบุชัดเจนว่า "ห้ามแสดงตัวเลขประมาณการ (เวลาที่เหลือ ความมั่นใจ) ถ้าไม่มีข้อมูลรองรับจริง" — การแสดงตัวเลขที่ไม่มีข้อมูลจริงทำให้ผู้ใช้เข้าใจผิดและลดความน่าเชื่อถือ
-- **ผลกระทบ**: ผู้ใช้ไม่ถูกหลอกด้วยตัวเลขที่ไม่ถูกต้อง และระบบไม่ต้องสร้างข้อมูลเท็จเพื่อเติมช่องว่าง
-
-### 7.5 ทำไม Timeline ใช้ vertical connector line แทน card แยกกัน
-- **เหตุผล**: การใช้เส้นเชื่อม (connector) สร้างความรู้สึกว่า "ขั้นตอนเหล่านี้เป็นส่วนหนึ่งของงานเดียวกัน" มากกว่าการใช้ card แยกกันที่ดูเหมือนรายการที่ไม่เกี่ยวข้อง — ยังช่วยลดพื้นที่ในแนวตั้ง (ไม่ต้องมี margin ใหญ่ระหว่าง card)
-- **ผลกระทบ**: Timeline อ่านง่ายขึ้นและไม่รก แม้จะมี 6-8 ขั้นตอน
-
-### 7.6 ทำไม Detail Sheet แยกเป็น bottom sheet แทนแสดงใน Timeline
-- **เหตุผล**: ข้อมูลใน Detail Sheet (แหล่งข้อมูล, โค้ด, ข้อผิดพลาดดิบ) มีความยาวและซับซ้อน — ถ้าแสดงใน Timeline จะทำให้ Timeline ยืดและอ่านยาก — การแยกเป็น bottom sheet (progressive disclosure) ทำให้ผู้ใช้เลือกดูได้เมื่อจำเป็น
-- **ผลกระทบ**: Timeline ยังคงสั้นและอ่านง่าย ข้อมูลเทคนิคไม่รบกวนการอ่านผลลัพธ์หลัก
-
-### 7.7 ทำไม Status Copy ใช้ภาษาธรรมดา (ไม่ใช้ศัพท์เทคนิค) ในทุกข้อความที่ผู้ใช้เห็น
-- **เหตุผล**: พรอมต์ระบุว่า "ภาษาใน UI ต้องเข้าใจง่าย เช่น 'กำลังค้นหาเว็บ' แทน 'invoking web_search tool'" — ผู้ใช้เป้าหมายไม่ใช่โปรแกรมเมอร์ และการใช้ศัพท์เทคนิคทำให้ผู้ใช้รู้สึกว่าไม่ควบคุมงานได้
-- **ผลกระทบ**: ผู้ใช้เข้าใจทุกขั้นตอนที่ Agent ทำ และรู้สึกว่าควบคุมได้จริง (ไม่ใช่แค่ดู Agent ทำงานโดยไม่รู้ความหมาย)
-
----
-
-## 8. สรุปรวม: เพิ่ม/แก้/ตัดอะไรจากพรอมต์ในเฟส 4
-
-- **เพิ่ม** Component Library ครบทุก component (Status Line, Timeline Step, 8 Card Types, Bottom Sheet, Permission Sheet, Input Bar) พร้อม variants และ states
-- **เพิ่ม** Design Tokens ฉบับเต็ม (Light/Dark, Typography Scale, Spacing, Radius, Color) + คู่มือสไตล์
-- **เพิ่ม** Prototype Specification (Animation, Interaction, Progressive Disclosure, Reduce Motion, Haptic, Accessibility)
-- **เพิ่ม** Status Copy Library ไทย/อังกฤษ ครบทุก event type และ status
-- **เพิ่ม** โครงสร้างข้อมูล Event (`AgentEvent`, `Source`, `Artifact`, `EventType`, `EventStatus`) พร้อม lifecycle, reconnect, และการจัดการ event ที่ไม่รู้จัก
-- **เพิ่ม** Edge Cases (6 กรณี) และคำแนะนำสำหรับนักพัฒนา (7 ข้อ)
-- **เพิ่ม** เหตุผลการตัดสินใจสำคัญ 7 ข้อ (ไม่ใช้อิโมจิ, ไม่มี bubble Agent, สี amber, ไม่แสดงตัวเลขเดา, connector line, bottom sheet, ภาษาธรรมดา)
-- **แก้** ไม่มี emoji ในทุกไฟล์ (ตรวจสอบด้วย grep ก่อน commit)
-- **แก้** ไม่ดู AI-template — สี amber ตลอด, typography มืออาชีพ, ไม่มี rainbow/neon, progressive disclosure
-- **ตัด** ไม่มีการใช้ศัพท์เทคนิคในข้อความที่ผู้ใช้เห็น (ทุก status copy เป็นภาษาไทย/อังกฤษธรรมดา)
-- **เพิ่ม** Push เข้า repo `pr4yhk6zt6-wq/Test` ด้วย GitHub token (`ghp_...`) — commit `d80476a` (เฟส 3) และจะ push เฟส 4 ต่อ
-
----
-
-## สรุปรวมทั้ง 4 เฟส
-
-| เฟส | หัวข้อ | สถานะ |
+| # | กรณี | คำแนะนำ |
 |---|---|---|
-| 1 | รากฐาน + หน้าแชทหลัก + ระบบกิจกรรม (A/B/C) | เสร็จแล้ว เสร็จ + Push (`15cf888`) |
-| 2 | การ์ด + การควบคุม + ความปลอดภัย + สถานะผิดปกติ | เสร็จแล้ว เสร็จ + Push (`15cf888`) |
-| 3 | งานเบื้องหลัง + หน้ารอง (งานของฉัน, โควตา, Voice, Onboarding, ประวัติ, เชื่อมต่อ, ไฟล์, ส่งออก, ตั้งค่า) | เสร็จแล้ว เสร็จ + Push (`d80476a`) |
-| 4 | Component Library + Design Tokens + Prototype Spec + Status Copy + Data Structure + Edge Cases + Decisions + สรุปรวม | เสร็จแล้ว เสร็จ (ไฟล์นี้) + รอ Push |
+| 1 | ค้นเว็บได้ 0 ผลลัพธ์ | ไม่ใช่ `failed` — ใช้ `succeeded` พร้อมข้อความ “ไม่พบผลลัพธ์ที่ตรง” + เสนอ “ลองคำค้นอื่น” (ทางเลือกที่ทำได้) |
+| 2 | เรียก tool เดิมซ้ำ 3 ครั้งด้วยค่าเดิม | หยุดและถามผู้ใช้ (“ผมลองแบบเดิมซ้ำ 3 ครั้งแล้ว ต้องการให้ลองวิธีอื่นไหม”) |
+| 3 | อ่านไฟล์ใหญ่มาก (หลายสิบ MB) | มี `progress` ที่รู้จำนวนจริง + จำกัดตัวอย่างที่แสดง (ตัดกลางไฟล์) และห้ามโหลดทั้งไฟล์เข้า RAM |
+| 4 | โมเดลส่ง arguments ผิดรูปแบบ | จัดเป็น `failed` + `retryable=true` + ข้อความภาษาคน (“ผมตีความคำสั่งพลาด”) และลองใหม่ได้ทันที |
+| 5 | iOS ระงับแอประหว่างงาน | ตอนเปิดใหม่: ตรวจ event ที่ค้าง → เปลี่ยนเป็น `waiting_user` พร้อมปุ่ม “ทำต่อจากตรงนี้” และข้อความ “ระบบหยุดงานชั่วคราว” |
+| 6 | ผู้ใช้กดหยุดในจังหวะเดียวกับขั้นที่เพิ่งสำเร็จ | ให้ขั้นนั้นเป็น `succeeded` และขั้นถัดไปเป็น `cancelled` — ห้ามรายงานขั้นที่สำเร็จแล้วเป็น “ล้มเหลว” |
+| 7 | เวลาของเครื่องเพี้ยน/เปลี่ยน timezone | เรียงด้วย `seq` · คำนวณเวลาที่ใช้จาก `ended_at - started_at` ของระบบ ไม่ใช้เวลาผู้ใช้ |
+| 8 | ข้อความสตรีมขาดกลางทาง | คงข้อความบางส่วน + หมายเหตุ “ข้อความอาจไม่ครบ” + ปุ่มสร้างใหม่ (ไม่ลบทิ้ง) |
+| 9 | ผลลัพธ์จาก tool ยาวมาก | จำกัดที่ 20 บรรทัด + พับ + ปุ่ม “แสดงทั้งหมด” (แอปมี `ToolOutputLimiter` อยู่แล้ว) |
+| 10 | ข้อมูลอ่อนไหวโผล่ในผลลัพธ์ tool | ปิดบังก่อนเขียนลงไทม์ไลน์/บันทึก และห้ามส่งค่าเดิมเข้าโมเดลในรอบถัดไป |
+| 11 | ชื่อขั้นตอนยาวมาก (ไทยผสมอังกฤษ) | ตัดที่ 1 บรรทัดด้วย … และเก็บข้อความเต็มไว้ใน `aria-label` + แผ่นรายละเอียด |
+| 12 | ไม่รู้จำนวนขั้นทั้งหมด | ห้ามแสดง % หรือ “อีก n ขั้น” — ใช้ริบบิ้น/แถบไม่มีตัวเลข + ข้อความ |
+| 13 | เครื่องร้อน/หน่วยความจำต่ำ | ลดคุณภาพเอง: ปิด shimmer → พับไทม์ไลน์อัตโนมัติ → ลดจำนวนข้อความที่วาด (มีกลไกในแอปแล้ว) |
+| 14 | ผู้ใช้เปิดสองห้องสนทนาพร้อมกัน | ทำทีละงาน (คิว) — UI ต้องบอก “รอคิว” ไม่แสร้งว่ารันพร้อมกัน |
 
-**แผนต่อไป (หลังเฟส 4):**
-1. Push ไฟล์เฟส 4 เข้า repo (`git add -A`, `commit`, `push`)
-2. สร้างสรุปรวมทั้งหมด (`summary.md`) ใน repo
-3. เริ่มแก้ SwiftUI source files (`App/`, `Views/`, `Services/`) ใน repo เพื่อสร้าง `.ipa` ใหม่ที่มี UI ตาม design specs ทั้งหมด
-4. รัน `Scripts/build-local.sh` เพื่อ build `.ipa` (ใช้ `xcodebuild` + `ldid`)
+---
 
-**พิมพ์ 'ต่อ'** เพื่อไปขั้นตอนสรุปรวมและเริ่มแก้ `.ipa` (หรือบอกว่าต้องการให้ทำอะไรเพิ่มเติมก่อน)
+## 7. เหตุผลเบื้องหลังการตัดสินใจสำคัญ (7 ข้อ)
+
+1. **ย้ายแถบสถานะสดมาเหนือช่องพิมพ์** — ผู้ใช้มองจุดเดียวตลอดเวลา ไม่ต้องเลื่อนหาว่า “ตอนนี้ทำอะไรอยู่” และยังอยู่ในโซนนิ้วโป้ง
+2. **แสดง “ขั้นที่ n จาก m” แทน % หรือเวลาที่เหลือ** — เป็นข้อมูลที่รู้จริงจากแผน ส่วนเวลาที่เหลือต้องเดา จึงไม่แสดงเลย
+3. **แยก “ลองใหม่” ออกจาก “วิธีอื่น”** — ความล้มเหลวบางชนิดลองใหม่แล้วล้มเหมือนเดิม (คำสั่งไม่มีในเครื่อง) การยัดปุ่มเดิมทุกกรณีทำให้ผู้ใช้เสียเวลาและลดความเชื่อถือ
+4. **ค่าเริ่มต้นแคบที่สุดทุกเรื่อง** — ขอบเขตสิทธิ์ (ครั้งนี้เท่านั้น) · การปิดบังข้อมูลอ่อนไหว · ระดับกิจกรรม (ปกติ) · การยืนยันก่อนลบ
+5. **สีเดียว + ไอคอน/ข้อความกำกับสถานะเสมอ** — แยกสีได้ยากและในโหมดมืดความต่างลดลง จึงไม่พึ่งสีเป็นสัญญาณเดียว
+6. **ตัด Live Activity / Dynamic Island / ปุ่มอนุมัติจากแจ้งเตือน** — เครื่องเป้าหมายทำไม่ได้จริง (iPhone 7 / iOS 15) และการอนุมัติจากหน้าล็อกเสี่ยงกดพลาดโดยไม่เห็นบริบท
+7. **แทนแท็บ “บันทึก” ด้วย “งานของฉัน”** — สิ่งที่ผู้ใช้สนใจคือ “งานเดินไปถึงไหน” ไม่ใช่ “เรียก tool อะไร” และบันทึกการเรียกใช้ยังเข้าถึงได้จากในหน้านั้น
+
+---
+
+## 8. สรุปรวม — เพิ่ม/แก้/ตัด อะไรจากพรอมต์ และทำไม (ทั้ง 4 เฟส)
+
+**สิ่งที่ทำตรงตามพรอมต์**
+- ครบทุกหัวข้อ: หน้าแชทหลัก · ระบบกิจกรรม 3 ระดับ · การ์ดทุกชนิด · การอนุมัติและขอบเขตสิทธิ์ · Takeover · การแจ้งเตือน · งานของฉัน · ต้นทุน/โควตา · โหมดเสียง · หน้ารอง · Component library · โทเคน · สเปกแอนิเมชัน · ชุดข้อความ · โครง event · edge cases
+- ทุกหน้าจอมี Light/Dark ผ่านโทเคน · ทดสอบ iPhone 7 375×667 · ข้อความไทยยาวและไทยผสมอังกฤษ
+
+**แก้จากพรอมต์ (และเหตุผล)**
+| พรอมต์ระบุ | ทำเป็น | เพราะ |
+|---|---|---|
+| สีอบอุ่น/amber + Flutter | โทนกลาง + สีเน้นคราม `#2E4A8A` + SwiftUI | ตรวจเรโปแล้วแอปเป็น SwiftUI iOS 15 ไม่ใช่ Flutter · สีเดิมถูกทับตามที่สั่ง |
+| Pause / Retry รายขั้น / Undo / ประมาณเวลา | “หยุด + ทำต่อจากผลเดิม” · “ลองใหม่ตั้งแต่ขั้นที่ล้มเหลว” · Undo เฉพาะเมื่อมีสำเนา · ไม่แสดงเวลา | engine จริงยังไม่มี ทำให้ผู้ใช้เข้าใจผิดไม่ได้ |
+| Live Activity + Dynamic Island + ongoing notification (Android) | แจ้งเตือนปกติ + แบนเนอร์ในแอป | iPhone 7 / iOS 15 ทำไม่ได้ และโปรเจกต์ไม่มี Android |
+| ปุ่ม Stop บนแจ้งเตือน | ตัดออก | กันกดพลาดจากหน้าล็อกที่มองไม่เห็นบริบท |
+| ตัวบอกความมั่นใจเป็นตัวเลข | หมายเหตุ “ที่มาของตัวเลข” | ไม่มีข้อมูลความมั่นใจจริงจากโมเดล |
+| Android 360×800 | iPhone 7 375×667 | เครื่องเป้าหมายจริงของแอป |
+| Flutter/Dart components | SwiftUI + SF Symbols ล้วน | ไม่เพิ่ม dependency/ขนาดแอป |
+
+**เพิ่มจากพรอมต์**
+- แบนเนอร์เตือนก่อน iOS ระงับงานเบื้องหลัง + กติกาความปลอดภัยของแจ้งเตือน (ห้ามอนุมัติจากแจ้งเตือน)
+- เกณฑ์การปิดบังข้อมูลอ่อนไหว 3 ระดับ + แถว “ดูทั้งหมด n แหล่ง”
+- แถบ “ปรับแผนแล้ว” ทุกครั้งที่ Agent เปลี่ยนแผน รวมถึงหลังผู้ใช้พิมพ์แทรก
+- หน้าจัดการสิทธิ์ที่เข้าถึงได้ 2 ทาง + สถานะว่างที่สร้างความมั่นใจ
+- การเตือนช่องโหว่สวิตช์ “ถามอนุมัติทุกครั้ง” พร้อมกติกาบังคับ 4 ข้อ
+- รายการ “สิ่งที่ต้องแก้ใน engine” 20 ข้อ เรียงลำดับที่ควรทำ
+
+**ตัดจากพรอมต์**
+- ไม่มี spinner เปล่า · ไม่มีตัวเลขประมาณการ · ไม่มีศัพท์เทคนิคในข้อความผู้ใช้ · ไม่มีภาพประกอบที่กิน RAM
+- ไม่มีสถานะ “พักอัตโนมัติ” และไม่มีการรันหลายงานพร้อมกันจริง (บอกตามจริงเป็นคิว)
+- ไม่มีไอคอนแบบอีโมจิหรือฟอนต์ไอคอน และไม่มีอีโมจิในเอกสารทั้งหมด
+
+---
+
+## 9. สิ่งที่เหลือสำหรับเฟส 5
+
+**ต้องมีก่อนเริ่ม (ผู้ใช้เป็นคนทำ)**
+1. **ยกเลิก token เก่าและออกใหม่แบบ Fine-grained** จำกัดเฉพาะ repo `Test` อายุ ≤ 7 วัน สิทธิ์: Contents · Pull requests · Actions · Workflows · Metadata (ตอนนี้ token ที่ให้มามีสิทธิ์ระดับ admin และ `delete_repo` — อันตรายกว่าสเปกมาก)
+2. ยืนยันว่าจะทำ **TrollStore / palera1n / Sideloadly** ทางไหน (แอปไม่ได้ใช้ Apple Developer)
+3. ยืนยันลำดับการทำ PR (7 ส่วนตามพรอมต์) และการเปิดใช้ feature flag “UI ใหม่ / UI เดิม”
+
+**งานในเฟส 5 (ในโค้ดจริง)**
+- PR 1: design tokens เป็น Swift (`Theme.swift`) + ฟอนต์ไทย + feature flag
+- PR 2: หน้าแชท + input bar + แถบสถานะสด
+- PR 3: ไทม์ไลน์ + การ์ด + แผ่นรายละเอียด + adapter จาก `AgentEvent`
+- PR 4: การอนุมัติ + ขอบเขตสิทธิ์ + Takeover + ความปลอดภัย
+- PR 5: งานของฉัน + การแจ้งเตือน + ต้นทุน/บริบท + หน้ารอง
+- PR 6: งานเบื้องหลัง/แจ้งเตือนขั้นสูง (ตามข้อจำกัด iOS 15)
+- PR 7: โหมดเสียง (ถ้าต้องการ) — ต้องขอสิทธิ์ไมโครโฟนเพิ่ม
+- ทุก PR: build ผ่าน GitHub Actions + ลายเซ็นตามวิธีที่เลือก + คู่มือติดตั้งภาษาไทย
+
+**เช็กลิสต์ก่อนส่งงานเฟส 5:** ไม่มี token/ความลับใน log-commit-PR · ไม่แตะ `main` · ฟีเจอร์เดิมครบ (regression list) · สลับกลับ UI เดิมได้ · ข้อความไทยไม่ล้น · VoiceOver/Reduce Motion/Dark mode ผ่าน · ทุกการกระทำที่มีผลต่อเครื่องยังต้องขออนุญาต
+
+---
+
+## 10. วิธีใช้ไฟล์ชุดนี้
+
+| อยากทำอะไร | เปิดไฟล์ |
+|---|---|
+| ดูว่าหน้าจอจริงเป็นอย่างไร | `design-phase1.html` → `design-phase2.html` → `phase3-prototype.html` |
+| ดูรายการคอมโพเนนต์ทั้งหมด + ทดลองแอนิเมชัน | `phase4-prototype.html` |
+| เขียน SwiftUI ตามสเปก | ไฟล์นี้ (§1–§6) + `design-phase1-style.md` |
+| ทำความเข้าใจกติกาความปลอดภัย | `design-phase2-cards-controls.md` §2–§3 + §9 ของไฟล์นี้ |
+| เริ่มลงมือแก้โค้ด | `design-project-context.md` (ข้อเท็จจริงของแอป) + §9 ของไฟล์นี้ |
+| อ่านสรุปทั้งหมดในหน้าเดียว | `summary.md` |
