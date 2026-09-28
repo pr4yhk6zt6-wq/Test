@@ -90,7 +90,9 @@ enum MarkdownRenderer {
 
     /// แปลง Markdown เป็น AttributedString (รองรับ **ตัวหนา**, *เอียง*, `โค้ด`)
     /// ถ้า parse ไม่สำเร็จจะคืนข้อความธรรมดา
-    static func attributedText(from markdown: String, font: Font? = nil) -> AttributedString {
+    /// หมายเหตุ: ไม่รับพารามิเตอร์ Font ที่นี่ เพื่อไม่ให้ไฟล์นี้ต้อง import SwiftUI
+    /// (การปรับขนาด/ฟอนต์ทำที่ MessageContentView ซึ่งเป็นชั้น SwiftUI)
+    static func attributedText(from markdown: String) -> AttributedString {
         var options = AttributedString.MarkdownParsingOptions()
         options.interpretedSyntax = .inlineOnlyPreservingWhitespace
         options.allowsExtendedAttributes = false
