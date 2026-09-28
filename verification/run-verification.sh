@@ -59,6 +59,8 @@ ORIGINALS=(
   "Services/Tools/ContentSearchTool.swift"
   # เฟส 6 — ดัชนีค้นข้อความย้อนหลังในทุกห้อง
   "Services/ChatSearchIndex.swift"
+  # ดีไซน์ v2 — สำเนาสำรองก่อนแก้ไฟล์ (ทำให้ปุ่มย้อนกลับทำงานจริง) และต้องทดสอบว่าไม่กระทบเครื่องมือเดิม
+  "Services/WorkspaceBackup.swift"
 )
 
 echo "== คัดลอกไฟล์ต้นฉบับที่ต้องทดสอบ =="
