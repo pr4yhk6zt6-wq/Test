@@ -136,7 +136,7 @@ final class WorkspaceBackup {
             if isDirectory {
                 skipped = "เป็นโฟลเดอร์ — ระบบสำรองได้เฉพาะไฟล์ จึงย้อนกลับอัตโนมัติไม่ได้"
             } else if size > WorkspaceBackup.maxFileBytes {
-                skipped = "ไฟล์ใหญ่เกิน \(NetworkPolicy.formatBytes(WorkspaceBackup.maxFileBytes)) — ไม่ได้เก็บสำเนา"
+                skipped = "ไฟล์ใหญ่เกิน \(NetworkPolicy.formatBytes(Int64(WorkspaceBackup.maxFileBytes))) — ไม่ได้เก็บสำเนา"
             } else {
                 backupPath = copyIntoStore(path: path, identifier: identifier)
                 if backupPath == nil {
