@@ -212,6 +212,7 @@ final class ActivityCenter: ObservableObject {
                                   startedAt: Date(),
                                   requiresApproval: false,
                                   isDestructive: invocation.risk.level == .destructive,
+                                  artifactPath: ActivityCenter.undoPath(invocation: invocation),
                                   note: invocation.risk.level == .normal ? nil : invocation.risk.summaryText)
         events.append(event)
         trimIfNeeded()
@@ -256,7 +257,8 @@ final class ActivityCenter: ObservableObject {
                                         duration: duration,
                                         isDestructive: invocation.risk.level == .destructive,
                                         failureMessage: failure,
-                                        artifactNames: artifacts(invocation: invocation)))
+                                        artifactNames: artifacts(invocation: invocation),
+                                        artifactPath: ActivityCenter.undoPath(invocation: invocation)))
         }
 
         trimIfNeeded()
@@ -411,6 +413,19 @@ final class ActivityCenter: ObservableObject {
         if truncatedByApp { parts.append("(ข้อความยาวเกินจึงแสดงไม่ครบ)") }
         let merged = parts.joined(separator: "\n")
         return merged.count > maxDetailCharacters ? String(merged.prefix(maxDetailCharacters)) : merged
+    }
+
+    /// path ของไฟล์ที่ "การย้อนกลับ" ต้องใช้: ย้ายไฟล์ใช้ต้นทาง (source) ตัวอื่นใช้ path ปลายทาง
+    static func undoPath(invocation: ToolInvocation) -> String? {
+        let keys = invocation.toolName == "move_file"
+            ? ["source", "path", "file_path", "target"]
+            : ["path", "file_path", "target"]
+        for key in keys {
+            if case .string(let value)? = invocation.arguments[key], !value.isEmpty {
+                return value
+            }
+        }
+        return nil
     }
 
     private func artifacts(invocation: ToolInvocation) -> [String] {

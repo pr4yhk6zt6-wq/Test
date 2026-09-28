@@ -11,6 +11,7 @@
 //
 
 import SwiftUI
+import Combine
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -392,6 +393,13 @@ struct DSActivityDetailView: View {
     @State private var revealed: Bool = false
     @State private var copied: Bool = false
 
+    /// นาฬิกาสำหรับนับถอยหลังหน้าต่างย้อนกลับ (เวลาจริง ไม่ใช่การประมาณ)
+    @State private var now: Date = Date()
+    private let ticker = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+    @State private var undoMessage: String?
+    @State private var undoFailed: Bool = false
+    @State private var awaitingDeleteConfirm: Bool = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: DSMetrics.s4) {
 
@@ -426,6 +434,8 @@ struct DSActivityDetailView: View {
             detailSection(title: "เวลาที่ใช้",
                           value: timingText,
                           monospaced: true)
+
+            undoSection
 
             if let summary = summaryText {
                 detailSection(title: "สรุปสิ่งที่เกิดขึ้น", value: summary, monospaced: false)
@@ -466,6 +476,103 @@ struct DSActivityDetailView: View {
                              DSHaptic.success()
                          })
             }
+        }
+        .onReceive(ticker) { value in
+            // เดินเฉพาะเมื่อมีอะไรให้เดิน (กันการวาดซ้ำโดยไม่จำเป็นบนเครื่อง 2GB)
+            if event.artifactPath != nil { now = value }
+        }
+    }
+
+    // MARK: - ย้อนกลับ (Undo) — ทำงานจริงเฉพาะเมื่อมีสำเนาสำรอง
+
+    @ViewBuilder
+    private var undoSection: some View {
+        if let path = event.artifactPath,
+           let record = WorkspaceBackup.shared.latest(forPath: path) {
+            VStack(alignment: .leading, spacing: DSMetrics.s2) {
+                DSChip(text: record.canUndo ? "ย้อนกลับได้อีก \(record.remainingText)" : "ย้อนกลับไม่ได้",
+                       tone: record.canUndo ? .accent : .warning,
+                       icon: "arrow.uturn.backward",
+                       scale: fontScale)
+
+                Text(record.kind.thaiExplanation)
+                    .font(DSFont.font(DSFont.sCap, scale: fontScale))
+                    .foregroundColor(DSColor.t2)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if let skipped = record.skippedReason, !record.canUndo {
+                    Text(skipped)
+                        .font(DSFont.font(DSFont.sCap, scale: fontScale))
+                        .foregroundColor(DSColor.warning)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                if record.canUndo {
+                    if record.kind == .created, awaitingDeleteConfirm {
+                        Text("ยืนยันลบไฟล์ที่ Agent สร้างขึ้น? การลบย้อนกลับไม่ได้")
+                            .font(DSFont.font(DSFont.sCap, weight: .semibold, scale: fontScale))
+                            .foregroundColor(DSColor.error)
+                            .fixedSize(horizontal: false, vertical: true)
+                        HStack(spacing: DSMetrics.s3) {
+                            DSButton(title: "ยืนยันลบ",
+                                     icon: "trash",
+                                     kind: .dangerSolid,
+                                     scale: fontScale,
+                                     action: { performUndo(record) })
+                            DSButton(title: "ยกเลิก",
+                                     kind: .secondary,
+                                     scale: fontScale,
+                                     action: {
+                                         DSHaptic.light()
+                                         awaitingDeleteConfirm = false
+                                     })
+                        }
+                    } else {
+                        DSButton(title: record.kind.thaiTitle,
+                                 icon: "arrow.uturn.backward",
+                                 kind: record.kind == .created ? .dangerLine : .secondary,
+                                 accessibilityHint: "คืนค่าไฟล์จากสำเนาที่ระบบเก็บไว้ให้",
+                                 scale: fontScale,
+                                 action: {
+                                     if record.kind == .created {
+                                         DSHaptic.medium()
+                                         awaitingDeleteConfirm = true
+                                     } else {
+                                         performUndo(record)
+                                     }
+                                 })
+                    }
+                }
+
+                if let undoMessage = undoMessage {
+                    DSBanner(tone: undoFailed ? .error : .success,
+                             title: undoFailed ? "ย้อนกลับไม่สำเร็จ" : "ย้อนกลับสำเร็จ",
+                             message: undoMessage,
+                             scale: fontScale)
+                }
+
+                Text("สำเนาถูกเก็บไว้ในโฟลเดอร์ข้อมูลของแอป และจะถูกลบอัตโนมัติเมื่อเลยเวลา 10 นาที")
+                    .font(DSFont.font(DSFont.sMicro, scale: fontScale))
+                    .foregroundColor(DSColor.t3)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private func performUndo(_ record: BackupRecord) {
+        DSHaptic.medium()
+        awaitingDeleteConfirm = false
+        do {
+            try WorkspaceBackup.shared.restore(record)
+            undoFailed = false
+            undoMessage = record.kind == .created
+                ? "ลบไฟล์ที่ Agent สร้างเรียบร้อยแล้ว"
+                : "คืนไฟล์เรียบร้อยแล้ว — เปิดดูได้จากแท็บไฟล์"
+            DSHaptic.success()
+        } catch {
+            undoFailed = true
+            undoMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            DSHaptic.error()
         }
     }
 

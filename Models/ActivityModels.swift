@@ -252,6 +252,8 @@ struct ActivityEvent: Identifiable, Equatable {
     /// ข้อความแจ้งเมื่อล้มเหลว (ภาษาคน)
     var failureMessage: String?
     var artifactNames: [String]
+    /// path เต็มของไฟล์ที่ขั้นนี้แตะ (ใช้ค้นสำเนาสำรองเพื่อย้อนกลับ) — nil = ไม่เกี่ยวกับไฟล์
+    var artifactPath: String?
     var note: String?
 
     init(id: String,
@@ -269,6 +271,7 @@ struct ActivityEvent: Identifiable, Equatable {
          isDestructive: Bool = false,
          failureMessage: String? = nil,
          artifactNames: [String] = [],
+         artifactPath: String? = nil,
          note: String? = nil) {
         self.id = id
         self.seq = seq
@@ -285,6 +288,7 @@ struct ActivityEvent: Identifiable, Equatable {
         self.isDestructive = isDestructive
         self.failureMessage = failureMessage
         self.artifactNames = artifactNames
+        self.artifactPath = artifactPath
         self.note = note
     }
 

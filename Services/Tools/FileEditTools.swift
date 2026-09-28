@@ -137,6 +137,9 @@ struct EditFileTool: AgentTool {
             return .failure(.invalidArguments, "\(display) เป็นโฟลเดอร์ — edit_file ใช้กับไฟล์ข้อความเท่านั้น")
         }
 
+        // สำเนาสำรองก่อนแก้ไขไฟล์ (ให้ผู้ใช้ย้อนกลับได้จากไทม์ไลน์)
+        WorkspaceBackup.shared.keep(path: path, kind: .overwrite)
+
         let data: Data
         do {
             data = try FileSystemService.readAll(path, limitBytes: FileOpSupport.maximumEditableBytes)
@@ -333,6 +336,9 @@ struct MoveFileTool: AgentTool {
         if let gate = FileOpSupport.writeGate(path: source, context: context) {
             return .failure(.blocked, gate)
         }
+
+        // สำเนาสำรองไฟล์ต้นทางก่อนย้าย (ให้ย้อนกลับได้จากไทม์ไลน์)
+        WorkspaceBackup.shared.keep(path: source, kind: .move)
 
         let destinationExists = FileSystemService.exists(destination)
         if destinationExists, !overwrite {
@@ -557,6 +563,9 @@ struct DeleteFileTool: AgentTool {
                             "\(display) เป็นโฟลเดอร์ (มีรายการข้างในอย่างน้อย \(childCount) รายการ) — " +
                             "ถ้าต้องการลบทั้งโฟลเดอร์ ให้ตั้ง recursive = true")
         }
+
+        // สำเนาสำรองก่อนลบ — ถ้าไฟล์ใหญ่หรือเป็นโฟลเดอร์ ระบบจะบอกตรง ๆ ว่าสำรองไม่ได้
+        WorkspaceBackup.shared.keep(path: path, kind: .deletion)
 
         do {
             try FileSystemService.remove(path, recursive: recursive)
