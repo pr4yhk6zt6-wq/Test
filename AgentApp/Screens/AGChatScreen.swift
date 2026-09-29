@@ -66,25 +66,30 @@ struct AGChatScreen: View {
             chatArea
 
             VStack(spacing: AGMetric.s2) {
-                if center.isRunning || !center.events.isEmpty || !center.finishedTitle.isEmpty {
-                    AGLiveBar(isRunning: center.isRunning,
-                              title: liveTitle,
-                              subtitle: liveSubtitle,
-                              elapsed: center.elapsed,
-                              isExpanded: timelineExpanded,
-                              activeDotTone: liveTone,
-                              scale: fontScale) {
-                        withAnimation(AGMotion.animation(AGMotion.ease)) { timelineExpanded.toggle() }
+                if center.isRunning {
+                    VStack(spacing: AGMetric.s2) {
+                        AGLiveBar(isRunning: true,
+                                  title: liveTitle,
+                                  subtitle: activityLevel == .detailed ? liveSubtitle : nil,
+                                  elapsed: center.elapsed,
+                                  isExpanded: timelineExpanded,
+                                  activeDotTone: liveTone,
+                                  scale: fontScale) {
+                            toggleRunCard()
+                        }
+                        AGRibbon(total: max(center.events.count, 6),
+                                 done: center.events.filter { $0.status == .succeeded }.count,
+                                 active: center.events.firstIndex(where: { $0.status == .running }) ?? -1,
+                                 tone: AGColor.accent)
+                            .padding(.horizontal, AGMetric.s1)
+                            .accessibilityHidden(true)
                     }
                     .padding(.horizontal, AGMetric.screenPadding)
-
-                    if timelineExpanded {
-                        timelinePanel
-                    }
+                    .padding(.bottom, 10)
                 }
                 composer
             }
-            .padding(.top, AGMetric.s2)
+            .padding(.top, 10)
             .background(AGColor.surface)
             .overlay(Rectangle().fill(AGColor.border).frame(height: 1), alignment: .top)
         }
@@ -156,9 +161,21 @@ struct AGChatScreen: View {
             }
         }
         .sheet(item: approvalBinding) { request in
-            AGApprovalSheet(request: request, fontScale: fontScale) { decision in
-                viewModel.resolveApproval(decision)
-            }
+            AGApprovalSheet(request: request,
+                            fontScale: fontScale,
+                            onDecide: { decision in
+                                viewModel.resolveApproval(decision)
+                            },
+                            onKeepBackup: {
+                                let target = request.detail ?? request.summary
+                                viewModel.resolveApproval(.deny)
+                                viewModel.send("อย่าลบ \(target) — ให้เก็บสำเนาไว้ในโฟลเดอร์สำรองแทน แล้วบอกผมว่าเก็บไว้ที่ไหน")
+                            },
+                            onEdit: {
+                                viewModel.resolveApproval(.deny)
+                                inputText = "ขอแก้คำสั่งก่อน: "
+                                fieldHeight = 26
+                            })
         }
         .alert("ล้างการสนทนาทั้งหมด?", isPresented: $showClearConfirm, actions: {
             Button("ล้างทั้งหมด", role: .destructive) { viewModel.clearConversation() }
@@ -257,68 +274,53 @@ struct AGChatScreen: View {
         if let request = viewModel.pendingApproval {
             return ("รอคุณอนุญาต: \(request.thaiLabel)", AGColor.warning, false)
         }
+        let waitingCount = center.events.filter { $0.status == .waitingUser }.count
+            + (viewModel.pendingApproval == nil ? 0 : 1)
+        if waitingCount > 0, !center.isRunning {
+            return ("มี \(waitingCount) ขั้นที่ต้องให้คุณตัดสินใจ", AGColor.warning, false)
+        }
         if center.isRunning {
-            let label = center.liveLabel.isEmpty ? "กำลังทำงาน" : center.liveLabel
-            return (label, AGColor.accent, true)
+            let done = center.events.filter { $0.status == .succeeded }.count
+            if center.events.isEmpty {
+                return ("กำลังคิด", AGColor.accent, true)
+            }
+            if let index = center.events.firstIndex(where: { $0.status == .running }) {
+                return ("กำลังทำงาน · ขั้น \(index + 1) จาก \(center.events.count)", AGColor.accent, true)
+            }
+            if done > 0 { return ("กำลังทำงาน · ทำแล้ว \(done) ขั้น", AGColor.accent, true) }
+            return ("กำลังทำงาน", AGColor.accent, true)
         }
         if !viewModel.queuedMessages.isEmpty {
             return ("มีข้อความรอส่ง \(viewModel.queuedMessages.count) ข้อความ", AGColor.accent, false)
         }
-        if center.events.contains(where: { $0.status == .waitingUser }) {
-            return ("Agent รอคำตอบจากคุณ", AGColor.warning, false)
+        if center.finishedTitle == "ทำเสร็จแล้ว" || center.finishedTitle == "ทำงานเสร็จแล้ว" {
+            return ("ทำงานเสร็จแล้ว · ใช้เวลา \(AGFormat.durationShort(center.elapsed))", AGColor.success, false)
         }
-        return ("พร้อมทำงาน", AGColor.success, false)
+        if !center.finishedTitle.isEmpty {
+            return (center.finishedTitle, AGColor.t3, false)
+        }
+        return ("พร้อมทำงาน · ยังไม่มีงานค้าง", AGColor.success, false)
     }
 
     // MARK: - แถบสถานะสด
 
     private var liveTitle: String {
-        if center.isRunning {
-            return center.liveLabel.isEmpty ? "กำลังทำงาน" : center.liveLabel
-        }
-        return center.finishedTitle.isEmpty ? "ไทม์ไลน์งานล่าสุด" : center.finishedTitle
+        center.liveLabel.isEmpty ? "กำลังทำงาน" : center.liveLabel
     }
 
     private var liveSubtitle: String? {
-        if center.isRunning {
-            let done = center.events.filter { $0.status == .succeeded }.count
-            return done > 0 ? "ทำแล้ว \(done) ขั้น · แตะเพื่อดูทุกขั้นตอน" : "แตะเพื่อดูทุกขั้นตอน"
-        }
-        guard !center.events.isEmpty else { return nil }
-        return "\(center.events.count) ขั้นตอน · แตะเพื่อดูรายละเอียด"
+        let done = center.events.filter { $0.status == .succeeded }.count
+        return done > 0 ? "ทำแล้ว \(done) ขั้น · แตะเพื่อดูทุกขั้นตอน" : "แตะเพื่อดูทุกขั้นตอน"
     }
 
     private var liveTone: Color {
-        if center.isRunning { return AGColor.accent }
         if center.events.contains(where: { $0.status == .waitingUser }) { return AGColor.warning }
-        if center.events.contains(where: { $0.status == .failed }) { return AGColor.error }
-        if center.finishedTitle == "ยกเลิกตามที่คุณสั่ง" || center.finishedTitle == "ระบบหยุดงานชั่วคราว" { return AGColor.t3 }
-        return AGColor.success
+        return AGColor.accent
     }
 
-    private var timelinePanel: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            ScrollView {
-                VStack(spacing: 0) {
-                    ForEach(center.events) { event in
-                        AGStepRow(status: event.status,
-                                  title: event.title,
-                                  meta: activityLevel == .concise ? nil : event.detail?.split(separator: "\n").first.map(String.init),
-                                  right: event.duration.map { AGFormat.durationShort($0) },
-                                  isLast: event.id == center.events.last?.id,
-                                  scale: fontScale) {
-                            detailEvent = event
-                        }
-                    }
-                }
-                .padding(.horizontal, AGMetric.screenPadding)
-                .padding(.vertical, AGMetric.s2)
-            }
-            .frame(maxHeight: 260)
-        }
-        .background(AGColor.surface)
-        .overlay(Rectangle().fill(AGColor.border).frame(height: 1), alignment: .top)
-        .transition(.opacity)
+    /// แตะแถบสถานะสด = กาง/พับการ์ดไทม์ไลน์ในแชท (การ์ดเดียว ไม่มีรายการซ้ำ)
+    private func toggleRunCard() {
+        withAnimation(AGMotion.animation(AGMotion.ease)) { timelineExpanded.toggle() }
     }
 
     // MARK: - พื้นที่แชท
@@ -328,6 +330,13 @@ struct AGChatScreen: View {
             GeometryReader { outer in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: AGMetric.s4) {
+                        if viewModel.visibleMessages.isEmpty, center.events.isEmpty, !viewModel.isBusy {
+                            AGChatEmptyState(fontScale: fontScale) { prompt in
+                                inputText = prompt
+                                fieldHeight = 26
+                            }
+                        }
+
                         if viewModel.hiddenMessageCount > 0 { loadEarlierRow }
 
                         ForEach(transcriptItems) { item in
@@ -464,7 +473,8 @@ struct AGChatScreen: View {
     private var currentRunCard: some View {
         AGTimelineCard(steps: center.events,
                        isRunning: center.isRunning,
-                       expanded: timelineExpanded || center.isRunning,
+                       expanded: timelineExpanded,
+                       elapsedText: AGFormat.durationShort(center.elapsed),
                        scale: fontScale,
                        onToggle: {
                            withAnimation(AGMotion.animation(AGMotion.ease)) { timelineExpanded.toggle() }
@@ -478,21 +488,16 @@ struct AGChatScreen: View {
         }
     }
 
-    /// แถว "Agent กำลังคิด" — ใช้โครงร่างข้อความแทนสปินเนอร์เปล่า (ตามเช็กลิสต์)
+    /// การ์ด "กำลังคิด" (เทียบ .tl.always ของแบบ) — มีข้อความจริงจากสถานะ Agent ไม่ใช่สปินเนอร์เปล่า
     private var thinkingRow: some View {
-        VStack(alignment: .leading, spacing: AGMetric.s2) {
-            HStack(spacing: AGMetric.s2) {
-                AGPulseDot(tone: AGColor.accent, size: 14)
-                Text(center.liveLabel.isEmpty ? "Agent กำลังคิด…" : center.liveLabel)
-                    .font(AGFont.font(AGFont.sub, scale: fontScale))
-                    .foregroundColor(AGColor.t2)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            AGSkeleton(lines: 2, scale: fontScale)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text("Agent กำลังทำงาน: \(center.liveLabel.isEmpty ? "กำลังคิด" : center.liveLabel)"))
+        AGThinkingCard(elapsed: center.elapsed,
+                       message: thinkingMessage,
+                       scale: fontScale)
+    }
+
+    private var thinkingMessage: String {
+        if !center.liveLabel.isEmpty { return center.liveLabel }
+        return "กำลังอ่านคำขอของคุณและตรวจไฟล์ที่เกี่ยวข้อง…"
     }
 
     // MARK: - รายการในแชท
@@ -552,7 +557,7 @@ struct AGChatScreen: View {
         VStack(alignment: .leading, spacing: 0) {
             if !viewModel.queuedMessages.isEmpty { queueArea }
 
-            if inputText.isEmpty && !viewModel.isBusy { quickChips }
+            if inputText.isEmpty && !viewModel.isBusy && !center.isRunning { quickChips }
 
             HStack(alignment: .bottom, spacing: AGMetric.s2) {
                 Button(action: {
@@ -563,39 +568,59 @@ struct AGChatScreen: View {
                         .font(AGFont.font(AGFont.title, weight: .medium, scale: fontScale))
                         .foregroundColor(AGColor.t2)
                         .frame(width: AGMetric.touch, height: AGMetric.touch)
+                        .background(Circle().fill(AGColor.surface2))
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(AGPressableStyle())
                 .accessibilityLabel(Text("แนบไฟล์หรือรูป"))
                 .accessibilityHint(Text("การแนบไฟล์ในบิลด์นี้ทำได้จากหน้าตั้งค่า > โฟลเดอร์ทำงาน ก่อน แล้วพิมพ์บอก Agent ให้เปิดไฟล์นั้น"))
 
-                ZStack(alignment: .topLeading) {
-                    AGMultilineField(text: $inputText,
-                                     height: $fieldHeight,
-                                     font: AGFont.uiFont(AGFont.body, scale: fontScale),
-                                     minHeight: 26,
-                                     maxHeight: AGMetric.composerFieldMaxHeight - 26,
-                                     isEditable: true,
-                                     onFocusChange: { focused in fieldFocused = focused })
-                        .frame(height: fieldHeight)
-                        .padding(.vertical, 3)
+                HStack(alignment: .bottom, spacing: 6) {
+                    ZStack(alignment: .topLeading) {
+                        AGMultilineField(text: $inputText,
+                                         height: $fieldHeight,
+                                         font: AGFont.uiFont(AGFont.body, scale: fontScale),
+                                         minHeight: 26,
+                                         maxHeight: AGMetric.composerFieldMaxHeight - 40,
+                                         isEditable: true,
+                                         onFocusChange: { focused in fieldFocused = focused })
+                            .frame(height: fieldHeight)
+                            .padding(.vertical, 3)
 
-                    if inputText.isEmpty {
-                        Text(viewModel.isBusy ? "พิมพ์ได้ — ข้อความจะต่อคิว" : "พิมพ์บอก Agent ว่าจะให้ทำอะไร")
-                            .font(AGFont.font(AGFont.body, scale: fontScale))
-                            .foregroundColor(AGColor.t3)
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                            .padding(.top, 9)
-                            .padding(.leading, 1)
-                            .allowsHitTesting(false)
-                            .accessibilityHidden(true)
+                        if inputText.isEmpty {
+                            Text(viewModel.isBusy ? "พิมพ์ได้ — ข้อความจะต่อคิว" : "พิมพ์ข้อความ ถามงาน หรือแนบไฟล์…")
+                                .font(AGFont.font(AGFont.body, scale: fontScale))
+                                .foregroundColor(AGColor.t3)
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                                .padding(.top, 9)
+                                .padding(.leading, 1)
+                                .allowsHitTesting(false)
+                                .accessibilityHidden(true)
+                        }
                     }
+
+                    Button(action: {
+                        AGHaptic.light()
+                        showVoice = true
+                    }) {
+                        Image(systemName: "mic")
+                            .font(AGFont.font(AGFont.callout, scale: fontScale))
+                            .foregroundColor(AGColor.t2)
+                            .frame(width: 40, height: 40)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(AGPressableStyle())
+                    .accessibilityLabel(Text("พูดแทนการพิมพ์"))
                 }
-                .padding(.horizontal, 12)
+                .padding(.leading, 8)
+                .padding(.trailing, 6)
+                .padding(.vertical, 6)
                 .frame(minHeight: AGMetric.composerFieldMinHeight)
-                .background(Capsule().fill(fieldFocused ? AGColor.surface : AGColor.surface2))
-                .overlay(Capsule().stroke(fieldFocused ? AGColor.accent : Color.clear, lineWidth: 1))
+                .background(RoundedRectangle(cornerRadius: AGMetric.rXL, style: .continuous)
+                    .fill(fieldFocused ? AGColor.surface : AGColor.surface2))
+                .overlay(RoundedRectangle(cornerRadius: AGMetric.rXL, style: .continuous)
+                    .stroke(fieldFocused ? AGColor.accent : Color.clear, lineWidth: 1))
 
                 if viewModel.isBusy && inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     Button(action: {
@@ -630,6 +655,7 @@ struct AGChatScreen: View {
 
             if usage.hasData { usageLine.padding(.horizontal, AGMetric.s3).padding(.bottom, 8) }
         }
+        .padding(.top, 10)
         .background(AGColor.surface)
     }
 

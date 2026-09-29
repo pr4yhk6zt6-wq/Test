@@ -194,6 +194,10 @@ struct AGApprovalSheet: View {
     let request: ApprovalRequest
     var fontScale: Double = 1
     let onDecide: (ApprovalDecision) -> Void
+    /// งานนี้ทำให้ Agent เปลี่ยนไปเก็บสำรองแทนการลบ (ปุ่มของแบบ: "เก็บสำรองแทน")
+    var onKeepBackup: (() -> Void)? = nil
+    /// ให้ผู้ใช้ปรับคำสั่งก่อนอนุญาต (ปุ่มของแบบ: "แก้ไขก่อน")
+    var onEdit: (() -> Void)? = nil
 
     @State private var confirmedDestructive: Bool = false
 
@@ -204,14 +208,15 @@ struct AGApprovalSheet: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: AGMetric.s4) {
                         header
-                        if request.isDestructive { destructiveWarning }
+                        riskBand
                         block(title: "จะทำอะไร", text: request.summary)
                         if let detail = request.detail, !detail.isEmpty {
                             block(title: "ที่ไหน", text: detail, monospaced: true)
                         }
-                        if !request.risk.reasons.isEmpty { riskBlock }
-                        block(title: "สิ่งที่ Agent จะส่งไป", text: request.argumentsText, monospaced: true)
+                        if request.isDestructive { consequence }
+                        block(title: "ข้อมูลที่ Agent จะส่งไปในคำสั่งนี้", text: request.argumentsText, monospaced: true)
                         scopeBlock
+                        if request.isDestructive { confirmBlock }
                     }
                     .padding(.horizontal, AGMetric.screenPadding)
                     .padding(.vertical, AGMetric.s4)
@@ -236,11 +241,11 @@ struct AGApprovalSheet: View {
                     .fill(request.isDestructive ? AGColor.errorSoft : AGColor.warningSoft))
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 3) {
-                Text("ต้องการอนุญาตก่อนทำต่อ")
+                Text("ขออนุญาต\(request.thaiLabel)")
                     .font(AGFont.font(AGFont.title, weight: .semibold, scale: fontScale))
                     .foregroundColor(AGColor.t1)
                     .fixedSize(horizontal: false, vertical: true)
-                Text(request.isDestructive ? "Agent กำลังจะทำสิ่งที่ย้อนกลับไม่ได้" : "Agent ขออนุญาตก่อนลงมือ")
+                Text(request.isDestructive ? "การกระทำนี้ย้อนกลับยาก" : "Agent ขออนุญาตก่อนลงมือ")
                     .font(AGFont.font(AGFont.sub, scale: fontScale))
                     .foregroundColor(AGColor.t2)
                     .fixedSize(horizontal: false, vertical: true)
@@ -249,11 +254,41 @@ struct AGApprovalSheet: View {
         }
     }
 
-    private var destructiveWarning: some View {
-        AGBanner(tone: .error,
-                 title: "การกระทำนี้ย้อนกลับไม่ได้",
-                 message: "การลบไฟล์บน iPhone ที่ยังไม่เจลเบรคเต็มรูปแบบกู้คืนไม่ได้ ถ้าไม่แน่ใจ ให้กด \"ไม่อนุญาต\" แล้วบอก Agent ว่าต้องการเก็บไฟล์ไว้",
-                 scale: fontScale)
+    private var riskBand: some View {
+        HStack(alignment: .top, spacing: AGMetric.s2) {
+            Image(systemName: request.isDestructive ? "xmark.octagon.fill" : "info.circle.fill")
+                .font(AGFont.font(AGFont.foot, scale: fontScale))
+                .foregroundColor(request.isDestructive ? AGColor.error : AGColor.warning)
+                .accessibilityHidden(true)
+            Text("ระดับความเสี่ยง: \(request.risk.level.thaiName)\(riskReasons)")
+                .font(AGFont.font(AGFont.sub, weight: .medium, scale: fontScale))
+                .foregroundColor(AGColor.t1)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, AGMetric.s3)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: AGMetric.rSM, style: .continuous)
+            .fill(request.isDestructive ? AGColor.errorSoft : AGColor.warningSoft))
+    }
+
+    private var riskReasons: String {
+        guard !request.risk.reasons.isEmpty else { return "" }
+        return " — " + request.risk.reasons.joined(separator: " · ")
+    }
+
+    private var consequence: some View {
+        VStack(alignment: .leading, spacing: AGMetric.s2) {
+            Text("ผลที่ตามมา")
+                .font(AGFont.font(AGFont.cap, weight: .semibold, scale: fontScale))
+                .foregroundColor(AGColor.t2)
+            Text("สิ่งที่ถูกลบจะหายจากเครื่อง และกู้คืนจากในแอปไม่ได้ · ถ้าไม่แน่ใจ ให้เลือก \"เก็บสำรองแทน\" เพื่อให้ Agent เปลี่ยนไปเก็บสำเนาไว้ก่อน")
+                .font(AGFont.font(AGFont.sub, scale: fontScale))
+                .foregroundColor(AGColor.t1)
+                .lineSpacing(AGFont.lineSpacing(AGFont.sub, scale: fontScale, multiplier: AGFont.lhMeta))
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 
     private func block(title: String, text: String, monospaced: Bool = false) -> some View {
@@ -272,89 +307,89 @@ struct AGApprovalSheet: View {
         }
     }
 
-    private var riskBlock: some View {
-        VStack(alignment: .leading, spacing: AGMetric.s2) {
-            Text("เหตุที่ระบบจัดว่าเสี่ยง")
-                .font(AGFont.font(AGFont.cap, weight: .semibold, scale: fontScale))
-                .foregroundColor(AGColor.t2)
-            ForEach(request.risk.reasons, id: \.self) { reason in
-                HStack(alignment: .top, spacing: AGMetric.s2) {
-                    Circle().fill(AGColor.warning).frame(width: 6, height: 6).padding(.top, 6)
-                    Text(reason)
-                        .font(AGFont.font(AGFont.sub, scale: fontScale))
-                        .foregroundColor(AGColor.t1)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-        }
-    }
-
     private var scopeBlock: some View {
         VStack(alignment: .leading, spacing: AGMetric.s2) {
-            Text("ขอบเขตของสิทธิ์")
+            Text("ขอบเขตการอนุญาต")
                 .font(AGFont.font(AGFont.cap, weight: .semibold, scale: fontScale))
                 .foregroundColor(AGColor.t2)
-            Text("บิลด์นี้ให้เลือกได้ 2 ทาง: อนุญาตครั้งนี้ แล้วระบบจะถามใหม่ทุกครั้ง · หรือไม่อนุญาต (ยังไม่มีโหมด \"จำไว้ตลอดไป\" เพราะยังไม่มีระบบเพิกถอนสิทธิ์ในแอป)")
+            Text("บิลด์นี้ให้เลือกได้ 2 ทาง: อนุญาตครั้งนี้ (ครั้งต่อไปจะถามใหม่ทุกครั้ง) หรือไม่อนุญาต — ยังไม่มีโหมดจำถาวร เพราะยังไม่มีระบบเพิกถอนสิทธิ์ในแอป จึงไม่แสดงปุ่มที่กดแล้วไม่มีผลจริง")
                 .font(AGFont.font(AGFont.cap, scale: fontScale))
                 .foregroundColor(AGColor.t3)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
 
-    private var actions: some View {
-        VStack(spacing: AGMetric.s2) {
-            if request.isDestructive {
-                Button(action: {
-                    AGHaptic.light()
-                    confirmedDestructive.toggle()
-                }) {
-                    HStack(spacing: AGMetric.s2) {
-                        Image(systemName: confirmedDestructive ? "checkmark.square.fill" : "square")
-                            .font(AGFont.font(AGFont.callout, scale: fontScale))
-                            .foregroundColor(confirmedDestructive ? AGColor.error : AGColor.t3)
-                        Text("ฉันเข้าใจว่าการลบนี้กู้คืนไม่ได้")
+    private var confirmBlock: some View {
+        VStack(alignment: .leading, spacing: AGMetric.s2) {
+            Text("ยืนยัน")
+                .font(AGFont.font(AGFont.cap, weight: .semibold, scale: fontScale))
+                .foregroundColor(AGColor.t2)
+            Button(action: {
+                AGHaptic.light()
+                confirmedDestructive.toggle()
+            }) {
+                HStack(alignment: .top, spacing: AGMetric.s2) {
+                    Image(systemName: confirmedDestructive ? "checkmark.square.fill" : "square")
+                        .font(AGFont.font(AGFont.callout, scale: fontScale))
+                        .foregroundColor(confirmedDestructive ? AGColor.error : AGColor.t3)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("ฉันเข้าใจว่าไฟล์นี้จะถูกลบและไม่มีสำเนา")
                             .font(AGFont.font(AGFont.sub, scale: fontScale))
                             .foregroundColor(AGColor.t1)
                             .fixedSize(horizontal: false, vertical: true)
-                        Spacer(minLength: 0)
+                        Text("ถ้าไม่ติ๊ก ปุ่มลบจะกดไม่ได้ (กันกดพลาด)")
+                            .font(AGFont.font(AGFont.cap, scale: fontScale))
+                            .foregroundColor(AGColor.t3)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
-                    .frame(minHeight: AGMetric.touch)
-                    .contentShape(Rectangle())
+                    Spacer(minLength: 0)
                 }
-                .buttonStyle(AGPressableStyle())
-                .accessibilityLabel(Text("ยืนยันว่าเข้าใจว่าการลบกู้คืนไม่ได้"))
-                .accessibilityValue(Text(confirmedDestructive ? "เลือกแล้ว" : "ยังไม่เลือก"))
+                .frame(minHeight: AGMetric.touch)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(AGPressableStyle())
+            .accessibilityLabel(Text("ฉันเข้าใจว่าไฟล์นี้จะถูกลบและไม่มีสำเนา"))
+            .accessibilityValue(Text(confirmedDestructive ? "เลือกแล้ว" : "ยังไม่เลือก"))
+        }
+    }
+
+    private var actions: some View {
+        VStack(spacing: AGMetric.s2) {
+            if request.isDestructive {
+                AGButton(title: "ลบไฟล์นี้",
+                         icon: "trash",
+                         kind: .danger,
+                         isEnabled: confirmedDestructive,
+                         scale: fontScale,
+                         hint: confirmedDestructive ? nil : "ต้องติ๊กยืนยันก่อน เพราะการลบกู้คืนไม่ได้") {
+                    onDecide(.allowOnce)
+                }
+                if let onKeepBackup = onKeepBackup {
+                    AGButton(title: "เก็บสำรองแทนการลบ", icon: "archivebox", kind: .secondary, scale: fontScale) {
+                        onKeepBackup()
+                    }
+                }
+                AGButton(title: "ไม่อนุญาต", kind: .ghost, scale: fontScale) { onDecide(.deny) }
+            } else {
+                AGButton(title: "อนุญาตครั้งนี้", icon: "checkmark.circle.fill", kind: .primary, scale: fontScale) {
+                    onDecide(.allowOnce)
+                }
+                if let onEdit = onEdit {
+                    AGButton(title: "แก้ไขก่อน", icon: "pencil", kind: .secondary, scale: fontScale) { onEdit() }
+                }
+                AGButton(title: "ไม่อนุญาต", kind: .ghost, scale: fontScale) { onDecide(.deny) }
             }
 
-            AGButton(title: "อนุญาตครั้งนี้",
-                     icon: "checkmark.circle.fill",
-                     kind: .primary,
-                     isEnabled: !request.isDestructive || confirmedDestructive,
-                     scale: fontScale,
-                     hint: request.isDestructive && !confirmedDestructive ? "ต้องติ๊กยืนยันก่อน เพราะการลบกู้คืนไม่ได้" : nil) {
-                onDecide(.allowOnce)
-            }
-
-            AGButton(title: "ไม่อนุญาต", icon: "xmark", kind: .secondary, scale: fontScale) {
-                onDecide(.deny)
-            }
-
-            DSScopeNote()
+            Text("ทุกครั้งที่ Agent จะมีผลกับเครื่อง จะถามแบบนี้เสมอ ถ้าปิดสวิตช์ \"ถามก่อนทุกครั้ง\" ในหน้าตั้งค่า แอปจะแสดงแบนเนอร์เตือนค้างไว้")
+                .font(AGFont.font(AGFont.micro, scale: fontScale))
+                .foregroundColor(AGColor.t3)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.horizontal, AGMetric.screenPadding)
         .padding(.top, AGMetric.s2)
         .padding(.bottom, AGMetric.s4)
         .background(AGColor.surface)
         .overlay(Rectangle().fill(AGColor.border).frame(height: 1), alignment: .top)
-    }
-
-    private struct DSScopeNote: View {
-        var body: some View {
-            Text("ทุกครั้งที่ Agent จะมีผลกับเครื่อง จะถามแบบนี้เสมอ ถ้าปิดสวิตช์ \"ถามก่อนทุกครั้ง\" ในหน้าตั้งค่า แอปจะแสดงแบนเนอร์เตือนค้างไว้")
-                .font(AGFont.font(AGFont.micro))
-                .foregroundColor(AGColor.t3)
-                .fixedSize(horizontal: false, vertical: true)
-        }
     }
 }
 

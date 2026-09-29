@@ -79,7 +79,7 @@ enum AGFont {
     static let micro: CGFloat = 11.5
 
     static let lhBody: CGFloat = 1.62
-    static let lhTight: CGFloat = 1.4
+    static let lhTight: CGFloat = 1.35
     static let lhMeta: CGFloat = 1.5
 
     static let regular = "IBMPlexSansThai-Regular"

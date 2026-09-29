@@ -84,8 +84,8 @@ struct AGStatusGlyph: View {
         let side = AGFont.size(size, scale: scale)
         ZStack {
             Circle().fill(status.agBackground)
-            if status != .succeeded, status != .pending {
-                Circle().stroke(status.agColor.opacity(0.25), lineWidth: 1)
+            if status != .succeeded, status != .running, status != .failed {
+                Circle().stroke(AGColor.border, lineWidth: 1)
             }
             Image(systemName: status.agSymbol)
                 .font(AGFont.font(side * 0.45, weight: .semibold, scale: 1))
@@ -447,11 +447,26 @@ struct AGBubble: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
             .background(
-                RoundedRectangle(cornerRadius: 18, style: .continuous).fill(AGColor.accentSoft)
+                AGBubbleShape().fill(AGColor.accentSoft)
             )
             .frame(maxWidth: UIScreen.main.bounds.width * 0.84, alignment: .trailing)
             .frame(maxWidth: .infinity, alignment: .trailing)
             .accessibilityLabel(Text("คุณพูดว่า \(text)"))
+    }
+}
+
+/// รูปทรงบับเบิลตามแบบ: 18pt ทั้งสามมุม และ 6pt ที่มุมขวาล่าง (หางข้อความ)
+struct AGBubbleShape: Shape {
+
+    func path(in rect: CGRect) -> Path {
+        let path = UIBezierPath(roundedRect: rect,
+                                byRoundingCorners: [.topLeft, .topRight, .bottomLeft],
+                                cornerRadii: CGSize(width: 18, height: 18))
+        let tail = UIBezierPath(roundedRect: CGRect(x: rect.maxX - 12, y: rect.maxY - 12, width: 12, height: 12),
+                                byRoundingCorners: [.bottomRight],
+                                cornerRadii: CGSize(width: 6, height: 6))
+        path.append(tail)
+        return Path(path.cgPath)
     }
 }
 
@@ -466,6 +481,28 @@ struct AGStepRow: View {
     var isLast: Bool = false
     var scale: Double = 1
     let action: () -> Void
+
+    /// ป้ายสถานะตามแบบ (.step-meta .chip) — สีต้องมีข้อความกำกับเสมอ
+    private var statusChipText: String? {
+        switch status {
+        case .running: return "กำลังทำ"
+        case .failed: return "ล้มเหลว"
+        case .skipped: return "ข้ามไป"
+        case .pending: return "รอคิว"
+        case .waitingUser: return "รอคุณตอบ"
+        case .cancelled: return "ยกเลิก"
+        case .succeeded: return nil
+        }
+    }
+
+    private var chipTone: AGChip.Tone {
+        switch status {
+        case .running: return .run
+        case .failed: return .err
+        case .waitingUser: return .warn
+        default: return .neutral
+        }
+    }
 
     var body: some View {
         Button(action: {
@@ -490,13 +527,21 @@ struct AGStepRow: View {
                         .lineLimit(1)
                         .truncationMode(.tail)
                         .multilineTextAlignment(.leading)
-                    if let meta = meta {
-                        Text(meta)
-                            .font(AGFont.font(AGFont.micro, scale: scale))
-                            .foregroundColor(AGColor.t3)
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                            .multilineTextAlignment(.leading)
+                    if statusChipText != nil || meta != nil {
+                        HStack(spacing: 6) {
+                            if let chip = statusChipText {
+                                AGChip(text: chip, tone: chipTone, scale: scale)
+                            }
+                            if let meta = meta {
+                                Text(meta)
+                                    .font(AGFont.font(AGFont.micro, scale: scale))
+                                    .foregroundColor(AGColor.t3)
+                                    .lineLimit(1)
+                                    .truncationMode(.tail)
+                                    .multilineTextAlignment(.leading)
+                            }
+                        }
+                        .padding(.top, 1)
                     }
                 }
                 .padding(.top, 1)
@@ -528,6 +573,8 @@ struct AGTimelineCard: View {
     let steps: [ActivityEvent]
     var isRunning: Bool = false
     var expanded: Bool
+    /// เวลาที่ใช้จริงของงาน (จาก ActivityCenter) — nil = ใช้ผลรวมเวลาของขั้นที่มีข้อมูล
+    var elapsedText: String? = nil
     var scale: Double = 1
     let onToggle: () -> Void
     let onOpenStep: (ActivityEvent) -> Void
@@ -588,6 +635,15 @@ struct AGTimelineCard: View {
                 }
                 .padding(.horizontal, AGMetric.s3)
                 .padding(.bottom, AGMetric.s3)
+
+                Text("แตะขั้นตอนใดก็ได้เพื่อดูรายละเอียด · ระบบจะพับให้อัตโนมัติเมื่อจบงาน")
+                    .font(AGFont.font(AGFont.sub, scale: scale))
+                    .foregroundColor(AGColor.t2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, AGMetric.s3)
+                    .padding(.bottom, AGMetric.s3)
+                    .accessibilityHidden(true)
             }
         }
         .background(RoundedRectangle(cornerRadius: AGMetric.rMD, style: .continuous).fill(AGColor.surface))
@@ -599,18 +655,21 @@ struct AGTimelineCard: View {
 
     private var headline: String {
         let done = steps.filter { $0.status == .succeeded }.count
-        let failed = steps.filter { $0.status == .failed }.count
-        if isRunning { return "กำลังทำงาน \(steps.count) ขั้นตอน" }
-        if failed > 0 { return "เสร็จแล้ว · \(failed) ขั้นล้มเหลว" }
-        return "ทำงานเสร็จแล้ว \(done) ขั้นตอน"
+        if done == steps.count && !isRunning { return "ทำงาน \(steps.count) ขั้นตอน" }
+        return "กำลังทำงาน \(steps.count) ขั้นตอน"
     }
 
+    /// บรรทัดรองของหัวการ์ด — ตามแบบ "\(เวลา)\( · N ขั้นผิดพลาด)"
     private var meta: String {
-        let total = steps.compactMap { $0.duration }.reduce(0, +)
-        if isRunning, let running = steps.first(where: { $0.status == .running }) {
-            return "ขั้นที่ \(steps.firstIndex(where: { $0.id == running.id }).map { $0 + 1 } ?? steps.count) · ใช้เวลา \(AGFormat.durationShort(total))"
-        }
-        return "ใช้เวลา \(AGFormat.durationShort(total))"
+        var parts: [String] = []
+        if let elapsed = elapsedText { parts.append(elapsed) } else { parts.append(AGFormat.durationShort(totalDuration)) }
+        let failed = steps.filter { $0.status == .failed }.count
+        if failed > 0 { parts.append("\(failed) ขั้นผิดพลาด") }
+        return parts.joined(separator: " · ")
+    }
+
+    private var totalDuration: TimeInterval {
+        steps.compactMap { $0.duration }.reduce(0, +)
     }
 
     private func stepMeta(_ event: ActivityEvent) -> String? {
@@ -618,6 +677,177 @@ struct AGTimelineCard: View {
         if event.status == .running { return "กำลังทำอยู่" }
         if let detail = event.detail, !detail.isEmpty { return detail.split(separator: "\n").first.map(String.init) }
         return event.kind.donePhraseTH
+    }
+}
+
+// MARK: - การ์ด "กำลังคิด" (เทียบ .tl.always — กางเสมอ ไม่ใช่สปินเนอร์เปล่า)
+
+struct AGThinkingCard: View {
+
+    var title: String = "กำลังคิด"
+    var elapsed: TimeInterval = 0
+    var message: String
+    var note: String = "ขั้นนี้จะไม่แสดงให้เห็นเป็นข้อความยาว ๆ โดยค่าเริ่มต้น — ดูได้ในโหมด ละเอียด"
+    var scale: Double = 1
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 10) {
+                AGRibbon(total: 6, done: 0, active: 0).frame(width: 54)
+                Spacer(minLength: AGMetric.s2)
+                Text(title)
+                    .font(AGFont.font(AGFont.sub, weight: .semibold, scale: scale))
+                    .foregroundColor(AGColor.t1)
+                Text("· \(AGFormat.durationShort(elapsed))")
+                    .font(AGFont.font(AGFont.micro, scale: scale))
+                    .foregroundColor(AGColor.t3)
+                    .monospacedDigit()
+            }
+            .padding(.horizontal, AGMetric.s3)
+            .frame(minHeight: AGMetric.liveBarMinHeight)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text("\(title) ใช้เวลา \(AGFormat.durationShort(elapsed))"))
+            .accessibilityValue(Text(message))
+
+            VStack(alignment: .leading, spacing: AGMetric.s2) {
+                AGShimmerLine(text: message, scale: scale)
+                Text(note)
+                    .font(AGFont.font(AGFont.sub, scale: scale))
+                    .foregroundColor(AGColor.t2)
+                    .lineSpacing(AGFont.lineSpacing(AGFont.sub, scale: scale))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.horizontal, AGMetric.s3)
+            .padding(.bottom, AGMetric.s3)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .background(RoundedRectangle(cornerRadius: AGMetric.rMD, style: .continuous).fill(AGColor.surface))
+        .overlay(
+            RoundedRectangle(cornerRadius: AGMetric.rMD, style: .continuous)
+                .stroke(AGColor.border, lineWidth: 1)
+        )
+    }
+}
+
+// MARK: - เส้นข้อความเรืองแสง (เทียบ .shimmer — ใช้แทนสปินเนอร์)
+
+struct AGShimmerLine: View {
+
+    let text: String
+    var scale: Double = 1
+
+    @State private var phase: CGFloat = -0.6
+
+    var body: some View {
+        Text(text)
+            .font(AGFont.font(AGFont.sub, scale: scale))
+            .lineSpacing(AGFont.lineSpacing(AGFont.sub, scale: scale))
+            .foregroundColor(.clear)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .overlay(
+                LinearGradient(gradient: Gradient(stops: [
+                    .init(color: AGColor.surface2, location: 0),
+                    .init(color: AGColor.surface3, location: 0.5),
+                    .init(color: AGColor.surface2, location: 1)
+                ]),
+                               startPoint: UnitPoint(x: phase - 0.6, y: 0.5),
+                               endPoint: UnitPoint(x: phase + 0.6, y: 0.5))
+                    .mask(
+                        Text(text)
+                            .font(AGFont.font(AGFont.sub, scale: scale))
+                            .lineSpacing(AGFont.lineSpacing(AGFont.sub, scale: scale))
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    )
+            )
+            .accessibilityHidden(true)
+            .onAppear {
+                guard !AGMotion.reduceMotion else { return }
+                withAnimation(.linear(duration: 1.5).repeatForever(autoreverses: false)) { phase = 1.6 }
+            }
+    }
+}
+
+// MARK: - สถานะว่างของหน้าแชท (เทียบ .hello + .caps + .safe-strip)
+
+struct AGChatEmptyState: View {
+
+    var fontScale: Double = 1
+    var onCapabilityTap: ((String) -> Void)? = nil
+
+    private let capabilities: [(String, String, String)] = [
+        ("อ่านและสรุปไฟล์", "PDF · รูป · ข้อความ ในเครื่องคุณ", "ช่วยสรุปไฟล์ในโฟลเดอร์ทำงานให้หน่อย"),
+        ("ค้นข้อมูลจากเว็บ", "พร้อมบอกแหล่งที่มาให้ตรวจสอบ", "ค้นในเว็บว่าวันนี้มีข่าวอะไรเกี่ยวกับ iPhone"),
+        ("สร้างและแก้ไฟล์ให้", "ทำเสร็จแล้วย้อนกลับได้ในระยะหนึ่ง", "ช่วยสร้างไฟล์โน้ต.md ในโฟลเดอร์ทำงาน"),
+        ("ทำงานยาว ๆ ให้", "ปิดแอปแล้วกลับมาดูผลได้", "ช่วยจัดระเบียบไฟล์ในโฟลเดอร์ทำงาน แล้วรายงานผล")
+    ]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: AGMetric.s4) {
+            VStack(alignment: .leading, spacing: AGMetric.s2) {
+                Text("สวัสดีครับ")
+                    .font(AGFont.font(AGFont.display, weight: .semibold, scale: fontScale))
+                    .foregroundColor(AGColor.t1)
+                Text("จะให้ช่วยทำอะไรดี")
+                    .font(AGFont.font(AGFont.display, weight: .semibold, scale: fontScale))
+                    .foregroundColor(AGColor.t1)
+                Text("บอกรายละเอียดเป็นภาษาคนได้เลย ผมจะบอกทุกขั้นตอนว่ากำลังทำอะไร และจะขออนุญาตก่อนแก้หรือลบไฟล์ทุกครั้ง")
+                    .font(AGFont.font(AGFont.body, scale: fontScale))
+                    .foregroundColor(AGColor.t2)
+                    .lineSpacing(AGFont.lineSpacing(AGFont.body, scale: fontScale))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, AGMetric.s1)
+            }
+
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: AGMetric.s2),
+                                GridItem(.flexible(), spacing: AGMetric.s2)],
+                      spacing: AGMetric.s2) {
+                ForEach(capabilities, id: \.0) { item in
+                    Button(action: {
+                        AGHaptic.light()
+                        onCapabilityTap?(item.2)
+                    }) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(item.0)
+                                .font(AGFont.font(AGFont.foot, weight: .semibold, scale: fontScale))
+                                .foregroundColor(AGColor.t1)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Text(item.1)
+                                .font(AGFont.font(AGFont.micro, scale: fontScale))
+                                .foregroundColor(AGColor.t3)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 62, alignment: .topLeading)
+                        .padding(.horizontal, AGMetric.s3)
+                        .padding(.vertical, AGMetric.s3)
+                        .background(RoundedRectangle(cornerRadius: AGMetric.rMD, style: .continuous).fill(AGColor.surface))
+                        .overlay(RoundedRectangle(cornerRadius: AGMetric.rMD, style: .continuous)
+                            .stroke(AGColor.border, lineWidth: 1))
+                    }
+                    .buttonStyle(AGPressableStyle())
+                    .disabled(onCapabilityTap == nil)
+                    .accessibilityLabel(Text("\(item.0) — \(item.1)"))
+                    .accessibilityHint(Text("แตะเพื่อใช้คำขอนี้"))
+                }
+            }
+
+            HStack(alignment: .top, spacing: AGMetric.s2) {
+                Image(systemName: "lock.fill")
+                    .font(AGFont.font(AGFont.foot, scale: fontScale))
+                    .foregroundColor(AGColor.accentInk)
+                    .accessibilityHidden(true)
+                Text("ทุกการกระทำที่เปลี่ยนเครื่องคุณ (เขียน ลบ ย้ายไฟล์) ต้องได้รับการอนุญาตจากคุณก่อนเสมอ")
+                    .font(AGFont.font(AGFont.foot, scale: fontScale))
+                    .foregroundColor(AGColor.accentInk)
+                    .lineSpacing(AGFont.lineSpacing(AGFont.foot, scale: fontScale))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.horizontal, AGMetric.s3)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: AGMetric.rSM, style: .continuous).fill(AGColor.accentSoft))
+        }
     }
 }
 

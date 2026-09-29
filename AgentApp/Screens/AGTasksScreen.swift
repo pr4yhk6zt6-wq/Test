@@ -21,6 +21,8 @@ struct AGTasksScreen: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: AGMetric.s5) {
+                statusLine
+
                 if !connectivity.isConnected {
                     AGBanner(tone: .warning,
                              title: "ตอนนี้อินเทอร์เน็ตขาด",
@@ -35,6 +37,7 @@ struct AGTasksScreen: View {
                 queuedSection
                 registrySection
                 scheduledSection
+                logSection
             }
             .padding(.horizontal, AGMetric.screenPadding)
             .padding(.vertical, AGMetric.s4)
@@ -44,6 +47,41 @@ struct AGTasksScreen: View {
         .navigationTitle("งานของฉัน")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { center.reloadTasks() }
+    }
+
+    /// บรรทัดสถานะใต้ชื่อหน้า — ตัวเลขจริงจากทะเบียนงานและคิวเท่านั้น
+    private var statusLine: some View {
+        HStack(spacing: AGMetric.s2) {
+            if center.isRunning {
+                AGPulseDot(tone: AGColor.accent, size: 12)
+            } else {
+                Circle()
+                    .fill(attentionCount > 0 ? AGColor.warning : AGColor.success)
+                    .frame(width: 8, height: 8)
+            }
+            Text(statusText)
+                .font(AGFont.font(AGFont.sub, weight: .semibold, scale: fontScale))
+                .foregroundColor(AGColor.t1)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(statusText))
+    }
+
+    private var attentionCount: Int {
+        center.tasks.filter { $0.outcome == .needsAnswer || $0.outcome == .running }.count
+            + center.events.filter { $0.status == .waitingUser }.count
+    }
+
+    private var statusText: String {
+        let running = center.isRunning ? 1 : 0
+        if running > 0 {
+            let queued = queue.items.count
+            return queued > 0 ? "กำลังทำ \(running) งาน · รอคิว \(queued) งาน" : "กำลังทำ \(running) งาน"
+        }
+        if attentionCount > 0 { return "มี \(attentionCount) เรื่องรอคุณ" }
+        return "ไม่มีงานกำลังทำ"
     }
 
     // MARK: - แจ้งเตือน (ชี้ชวนตามบริบท ไม่กดดัน)
@@ -282,6 +320,24 @@ struct AGTasksScreen: View {
         AGHaptic.medium()
         if let roomID = task.roomID { router.pendingRoomID = roomID }
         router.sendToAgent("งานก่อนหน้า (\(task.title)) หยุดกลางทาง — ช่วยทำต่อจากจุดเดิม โดยใช้ผลที่ทำเสร็จแล้ว ไม่ต้องเริ่มใหม่ทั้งหมด")
+    }
+
+    // MARK: - บันทึกการเรียกใช้ (แบบย้ายเข้ามาอยู่ในแท็บนี้ ไม่ให้ความสามารถหาย)
+
+    private var logSection: some View {
+        VStack(alignment: .leading, spacing: AGMetric.s2) {
+            AGSectionTitle(text: "สำหรับผู้ที่ต้องการตรวจสอบ", scale: fontScale)
+            AGCard(padding: 0) {
+                NavigationLink(destination: AgentLogView()) {
+                    AGRow(icon: "list.bullet.rectangle",
+                          title: "บันทึกการเรียกใช้",
+                          subtitle: "รายละเอียดเชิงเทคนิคของทุกคำขอ (สำหรับตรวจสอบย้อนหลัง)",
+                          showsChevron: true,
+                          scale: fontScale)
+                }
+                .buttonStyle(AGPressableStyle())
+            }
+        }
     }
 
     // MARK: - งานตามเวลา (บอกตรง ๆ ว่ายังไม่มี)
