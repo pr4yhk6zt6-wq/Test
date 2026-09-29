@@ -140,7 +140,10 @@ enum AGPreview {
 
     static func seedTasks() {
         let registry = TaskRegistry.shared
-        registry.markInterruptedFromPreviousSessions()
+        // ล้างของเดิมก่อน เพื่อให้ภาพที่ได้เหมือนกันทุกครั้งที่ถ่าย (ทะเบียนจริงสะสมข้ามการเปิดแอป)
+        for record in registry.all { registry.delete(id: record.id) }
+
+        let now = Date()
 
         let first = registry.start(title: "สรุปไฟล์ในโฟลเดอร์ทำงาน", roomID: nil)
         registry.finish(id: first.id,
@@ -149,6 +152,9 @@ enum AGPreview {
                         stepCount: 4,
                         lastStepTitle: "เขียนไฟล์ สรุปโฟลเดอร์.md",
                         fileChangeCount: 1)
+        registry.previewBackdate(id: first.id,
+                                 startedAt: now.addingTimeInterval(-3600),
+                                 endedAt: now.addingTimeInterval(-3600 + 42))
 
         let second = registry.start(title: "ค้นราคา iPhone มือสองในเชียงใหม่", roomID: nil)
         registry.finish(id: second.id,
@@ -157,6 +163,9 @@ enum AGPreview {
                         stepCount: 3,
                         lastStepTitle: "อ่านหน้าเว็บที่ 2",
                         fileChangeCount: 0)
+        registry.previewBackdate(id: second.id,
+                                 startedAt: now.addingTimeInterval(-2400),
+                                 endedAt: now.addingTimeInterval(-2400 + 96))
 
         let third = registry.start(title: "แก้ไขไฟล์ data/ยอดขาย.csv", roomID: nil)
         registry.finish(id: third.id,
@@ -165,6 +174,9 @@ enum AGPreview {
                         stepCount: 2,
                         lastStepTitle: "เขียนทับไฟล์",
                         fileChangeCount: 0)
+        registry.previewBackdate(id: third.id,
+                                 startedAt: now.addingTimeInterval(-1200),
+                                 endedAt: now.addingTimeInterval(-1200 + 18))
 
         let fourth = registry.start(title: "จัดระเบียบไฟล์รูป 40 ไฟล์", roomID: nil)
         registry.finish(id: fourth.id,
@@ -173,6 +185,9 @@ enum AGPreview {
                         stepCount: 5,
                         lastStepTitle: "ถามผู้ใช้ว่าจะย้ายไปโฟลเดอร์ใด",
                         fileChangeCount: 0)
+        registry.previewBackdate(id: fourth.id,
+                                 startedAt: now.addingTimeInterval(-300),
+                                 endedAt: now.addingTimeInterval(-300 + 64))
     }
 }
 #endif
