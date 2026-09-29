@@ -23,29 +23,19 @@ struct AGTasksScreen: View {
             VStack(alignment: .leading, spacing: AGMetric.s5) {
                 statusLine
 
-#if DEBUG
-                // ภาพตรวจแบบ: ข้ามส่วนบนเพื่อให้เห็นประวัติงานถาวรได้ในจอเดียว
-                if AGPreview.screen == "tasks-history" {
+                if isHistoryPreview {
+                    // ภาพตรวจแบบ (Debug): เห็นประวัติงานถาวรในจอเดียว
                     registrySection
                     scheduledSection
                     logSection
-                    return
-                }
-#endif
+                } else {
+                    if !connectivity.isConnected { offlineBanner }
 
-                if !connectivity.isConnected {
-                    AGBanner(tone: .warning,
-                             title: "ตอนนี้อินเทอร์เน็ตขาด",
-                             message: "งานที่ต้องต่อเน็ตจะหยุดชั่วคราว ผลที่ทำไว้แล้วยังอยู่ครบ และทำต่อได้เมื่อสัญญาณกลับมา",
-                             scale: fontScale)
-                }
+                    if !notifier.isEnabled { notificationCard }
 
-                if !notifier.isEnabled { notificationCard }
-
-                currentSection
-                waitingSection
-                queuedSection
-                if !isHistoryPreview {
+                    currentSection
+                    waitingSection
+                    queuedSection
                     registrySection
                     scheduledSection
                     logSection
@@ -102,6 +92,13 @@ struct AGTasksScreen: View {
         }
         if attentionCount > 0 { return "มี \(attentionCount) เรื่องรอคุณ" }
         return "ไม่มีงานกำลังทำ"
+    }
+
+    private var offlineBanner: some View {
+        AGBanner(tone: .warning,
+                 title: "ตอนนี้อินเทอร์เน็ตขาด",
+                 message: "งานที่ต้องต่อเน็ตจะหยุดชั่วคราว ผลที่ทำไว้แล้วยังอยู่ครบ และทำต่อได้เมื่อสัญญาณกลับมา",
+                 scale: fontScale)
     }
 
     // MARK: - แจ้งเตือน (ชี้ชวนตามบริบท ไม่กดดัน)
