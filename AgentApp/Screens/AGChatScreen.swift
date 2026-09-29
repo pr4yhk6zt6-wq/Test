@@ -914,7 +914,8 @@ struct AGChatScreen: View {
                                startedAt: Date().addingTimeInterval(-150), elapsed: 24)
             viewModel.previewSeed(messages: AGPreview.messages(finished: false), isBusy: true,
                                   statusText: "กำลังอ่านหน้าเว็บ", approval: nil)
-            timelineExpanded = false
+            // ระหว่างทำงาน การ์ดกางไว้เสมอ (เหมือน tl_open ของแบบ) — ผู้ใช้เห็นทุกขั้นโดยไม่ต้องกด
+            timelineExpanded = true
         case "approval":
             center.previewSeed(events: AGPreview.runningEvents(), running: true,
                                liveLabel: "รอคุณอนุญาต: ลบไฟล์", finishedTitle: "",

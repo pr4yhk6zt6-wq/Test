@@ -202,32 +202,43 @@ struct AGApprovalSheet: View {
     @State private var confirmedDestructive: Bool = false
 
     var body: some View {
-        ZStack {
-            AGColor.scrim.ignoresSafeArea()
-            VStack(spacing: 0) {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: AGMetric.s4) {
-                        header
-                        riskBand
-                        block(title: "จะทำอะไร", text: request.summary)
-                        if let detail = request.detail, !detail.isEmpty {
-                            block(title: "ที่ไหน", text: detail, monospaced: true)
+        GeometryReader { proxy in
+            ZStack(alignment: .bottom) {
+                AGColor.scrim
+                    .ignoresSafeArea()
+                    .accessibilityHidden(true)
+
+                VStack(spacing: 0) {
+                    // เนื้อหาเลื่อนได้ — ส่วนปุ่มล่างตรึงไว้เสมอ เพื่อให้เห็นทางเลือกครบโดยไม่ต้องเลื่อนหา
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: AGMetric.s4) {
+                            header
+                            riskBand
+                            block(title: "จะทำอะไร", text: request.summary)
+                            if let detail = request.detail, !detail.isEmpty {
+                                block(title: "ที่ไหน", text: detail, monospaced: true)
+                            }
+                            if request.isDestructive { consequence }
+                            block(title: "ข้อมูลที่ Agent จะส่งไปในคำสั่งนี้", text: request.argumentsText, monospaced: true)
+                            scopeBlock
+                            if request.isDestructive { confirmBlock }
                         }
-                        if request.isDestructive { consequence }
-                        block(title: "ข้อมูลที่ Agent จะส่งไปในคำสั่งนี้", text: request.argumentsText, monospaced: true)
-                        scopeBlock
-                        if request.isDestructive { confirmBlock }
-                        actions
+                        .padding(.horizontal, AGMetric.screenPadding)
+                        .padding(.top, AGMetric.s4)
+                        .padding(.bottom, AGMetric.s3)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .padding(.horizontal, AGMetric.screenPadding)
-                    .padding(.top, AGMetric.s4)
-                    .padding(.bottom, AGMetric.s8)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    actions
+                        .padding(.horizontal, AGMetric.screenPadding)
+                        .padding(.top, AGMetric.s2)
+                        .padding(.bottom, AGMetric.s5)
+                        .background(AGColor.surface)
+                        .overlay(Rectangle().fill(AGColor.border).frame(height: 1), alignment: .top)
                 }
+                .frame(maxHeight: proxy.size.height * 0.94)
+                .background(RoundedCorner(radius: AGMetric.rLG, corners: [.topLeft, .topRight]).fill(AGColor.surface))
             }
-            .background(RoundedCorner(radius: AGMetric.rLG, corners: [.topLeft, .topRight]).fill(AGColor.surface))
-            .frame(maxHeight: UIScreen.main.bounds.height * 0.92)
-            .frame(maxHeight: .infinity, alignment: .bottom)
         }
         .accessibilityAddTraits(.isModal)
     }

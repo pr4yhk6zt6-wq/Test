@@ -23,6 +23,16 @@ struct AGTasksScreen: View {
             VStack(alignment: .leading, spacing: AGMetric.s5) {
                 statusLine
 
+#if DEBUG
+                // ภาพตรวจแบบ: ข้ามส่วนบนเพื่อให้เห็นประวัติงานถาวรได้ในจอเดียว
+                if AGPreview.screen == "tasks-history" {
+                    registrySection
+                    scheduledSection
+                    logSection
+                    return
+                }
+#endif
+
                 if !connectivity.isConnected {
                     AGBanner(tone: .warning,
                              title: "ตอนนี้อินเทอร์เน็ตขาด",
@@ -35,9 +45,11 @@ struct AGTasksScreen: View {
                 currentSection
                 waitingSection
                 queuedSection
-                registrySection
-                scheduledSection
-                logSection
+                if !isHistoryPreview {
+                    registrySection
+                    scheduledSection
+                    logSection
+                }
             }
             .padding(.horizontal, AGMetric.screenPadding)
             .padding(.vertical, AGMetric.s4)
@@ -47,6 +59,14 @@ struct AGTasksScreen: View {
         .navigationTitle("งานของฉัน")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { center.reloadTasks() }
+    }
+
+    private var isHistoryPreview: Bool {
+#if DEBUG
+        return AGPreview.screen == "tasks-history"
+#else
+        return false
+#endif
     }
 
     /// บรรทัดสถานะใต้ชื่อหน้า — ตัวเลขจริงจากทะเบียนงานและคิวเท่านั้น
