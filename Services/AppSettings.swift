@@ -35,6 +35,8 @@ enum SettingsKeys {
     static let newChatUI = "settings.newChatUI"
     /// ระดับรายละเอียดกิจกรรม: concise / normal / detailed
     static let activityLevel = "settings.activityLevel"
+    /// สั่นเบา ๆ เมื่อมีการตอบสนอง (ค่าเริ่มต้น: เปิด) — ดีไซน์ v2
+    static let hapticsEnabled = "settings.hapticsEnabled"
     /// เปิด/ปิดการแจ้งเตือนเมื่องานเสร็จ/ต้องตอบ/ล้มเหลว (ค่าเริ่มต้น: ปิด — ขออนุญาตเฉพาะเมื่อผู้ใช้เปิดเอง)
     static let agentNotifications = "settings.agentNotifications"
 

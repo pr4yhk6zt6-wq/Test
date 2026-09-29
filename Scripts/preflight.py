@@ -46,7 +46,21 @@ def warn(message: str) -> None:
 # ---------------------------------------------------------------- 1) ไฟล์ที่ต้องมี
 
 REQUIRED_FILES = [
+    # จุดเริ่มต้นเดิม (เก็บไว้เป็นประวัติ ไม่ได้คอมไพล์ในบิลด์ใหม่)
     "App/iOSAgentSandboxApp.swift",
+    # ดีไซน์ v2: UI ที่สร้างจากแบบ (AgentApp = หน้าจอจริงของบิลด์ใหม่)
+    "AgentApp/App/AgentAppMain.swift",
+    "AgentApp/Design/AGTokens.swift",
+    "AgentApp/Design/AGKit.swift",
+    "AgentApp/Design/AGPreview.swift",
+    "AgentApp/Design/AGTextInput.swift",
+    "AgentApp/Screens/AGChatScreen.swift",
+    "AgentApp/Screens/AGSheets.swift",
+    "AgentApp/Screens/AGTasksScreen.swift",
+    "AgentApp/Screens/AGSettingsScreen.swift",
+    "AgentApp/Screens/AGFilesScreen.swift",
+    "AgentApp/Screens/AGFilePreviewSheet.swift",
+    "AgentApp/Screens/AGOnboardingScreen.swift",
     "Models/JSONValue.swift",
     "Models/ChatModels.swift",
     "Models/OpenRouterModels.swift",

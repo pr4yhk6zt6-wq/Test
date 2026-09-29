@@ -231,6 +231,22 @@ final class TaskRegistry {
         return changed
     }
 
+#if DEBUG
+    /// ใช้เฉพาะข้อมูลตัวอย่างสำหรับภาพตรวจแบบ: กำหนดเวลาเริ่ม/จบให้สมจริง
+    /// (ของจริงไม่มีการแก้ย้อนหลัง — เมธอดนี้อยู่ในบล็อก Debug เท่านั้น)
+    func previewBackdate(id: String, startedAt: Date, endedAt: Date?) {
+        lock.lock()
+        guard let index = records.firstIndex(where: { $0.id == id }) else {
+            lock.unlock()
+            return
+        }
+        records[index].startedAt = startedAt
+        records[index].endedAt = endedAt
+        lock.unlock()
+        save()
+    }
+#endif
+
     func delete(id: String) {
         lock.lock()
         records.removeAll { $0.id == id }
