@@ -83,6 +83,8 @@ struct AGShell: View {
 
     @ObservedObject private var router: AppRouter = .shared
     @AppStorage(SettingsKeys.chatFontScale) private var fontScale: Double = 1
+    /// แท็บไฟล์เปิดที่ "โฟลเดอร์ทำงาน" ที่ตั้งไว้จริง — ไม่ผูกกับค่าคงที่ เพื่อให้ผู้ใช้เปลี่ยนโฟลเดอร์ได้
+    @AppStorage(SettingsKeys.workspacePath) private var workspacePath: String = PathGuard.defaultWorkspace
 
     var body: some View {
         VStack(spacing: 0) {
@@ -92,8 +94,10 @@ struct AGShell: View {
                     NavigationView { AGChatScreen() }
                         .navigationViewStyle(.stack)
                 case .files:
-                    NavigationView { AGFilesScreen() }
-                        .navigationViewStyle(.stack)
+                    NavigationView {
+                        AGFilesScreen(path: workspacePath.isEmpty ? PathGuard.defaultWorkspace : workspacePath)
+                    }
+                    .navigationViewStyle(.stack)
                 case .log:
                     NavigationView { AGTasksScreen() }
                         .navigationViewStyle(.stack)
