@@ -532,7 +532,7 @@ struct AGStepRow: View {
                         .truncationMode(.tail)
                         .multilineTextAlignment(.leading)
                     if statusChipText != nil || meta != nil {
-                        HStack(spacing: 6) {
+                        HStack(alignment: .top, spacing: 6) {
                             if let chip = statusChipText {
                                 AGChip(text: chip, tone: chipTone, scale: scale)
                             }
@@ -540,8 +540,8 @@ struct AGStepRow: View {
                                 Text(meta)
                                     .font(AGFont.font(AGFont.micro, scale: scale))
                                     .foregroundColor(AGColor.t3)
-                                    .lineLimit(1)
-                                    .truncationMode(.tail)
+                                    .lineLimit(2)
+                                    .fixedSize(horizontal: false, vertical: true)
                                     .multilineTextAlignment(.leading)
                             }
                         }
@@ -657,19 +657,19 @@ struct AGTimelineCard: View {
         )
     }
 
+    /// ตามแบบ: "ทำงาน N ขั้นตอน" (ไม่เติมคำว่าเสร็จแล้ว) — สถานะจริงดูจากบรรทัดรองและไอคอน
     private var headline: String {
-        let done = steps.filter { $0.status == .succeeded }.count
-        if done == steps.count && !isRunning { return "ทำงาน \(steps.count) ขั้นตอน" }
-        return "กำลังทำงาน \(steps.count) ขั้นตอน"
+        "ทำงาน \(steps.count) ขั้นตอน"
     }
 
     /// บรรทัดรองของหัวการ์ด — ตามแบบ "\(เวลา)\( · N ขั้นผิดพลาด)"
     private var meta: String {
         var parts: [String] = []
-        if let elapsed = elapsedText { parts.append(elapsed) } else { parts.append(AGFormat.durationShort(totalDuration)) }
+        let elapsed = elapsedText ?? AGFormat.durationShort(totalDuration)
+        parts.append(elapsed)
         let failed = steps.filter { $0.status == .failed }.count
         if failed > 0 { parts.append("\(failed) ขั้นผิดพลาด") }
-        return parts.joined(separator: " · ")
+        return "· " + parts.joined(separator: " · ")
     }
 
     private var totalDuration: TimeInterval {

@@ -116,7 +116,8 @@ struct AGSettingsScreen: View {
                               .accessibilityLabel(Text("เพิ่มขนาดตัวอักษร"))
                           }))
                     divider
-                    segmentedRow(title: "ธีมหน้าจอ",
+                    segmentedRow(icon: "circle.lefthalf.fill",
+                                 title: "ธีมหน้าจอ",
                                  options: AppAppearance.allCases.map { ($0.rawValue, $0.title) },
                                  selection: appearanceRaw) { raw in
                         appearanceRaw = raw
@@ -309,14 +310,22 @@ struct AGSettingsScreen: View {
 
     // MARK: - แถวแบบเลือกได้
 
-    private func segmentedRow(title: String,
+    private func segmentedRow(icon: String,
+                              title: String,
                               options: [(String, String)],
                               selection: String,
                               onSelect: @escaping (String) -> Void) -> some View {
         VStack(alignment: .leading, spacing: AGMetric.s2) {
-            Text(title)
-                .font(AGFont.font(AGFont.sub, scale: fontScale))
-                .foregroundColor(AGColor.t1)
+            HStack(spacing: AGMetric.s3) {
+                Image(systemName: icon)
+                    .font(AGFont.font(AGFont.callout, scale: fontScale))
+                    .foregroundColor(AGColor.t1)
+                    .frame(width: 26, height: 26)
+                    .accessibilityHidden(true)
+                Text(title)
+                    .font(AGFont.font(AGFont.body, scale: fontScale))
+                    .foregroundColor(AGColor.t1)
+            }
             HStack(spacing: AGMetric.s2) {
                 ForEach(options, id: \.0) { option in
                     AGButton(title: option.1,

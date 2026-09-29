@@ -35,7 +35,7 @@ struct AGChatScreen: View {
     @State private var inputText: String = ""
     @State private var fieldHeight: CGFloat = 26
     @State private var fieldFocused: Bool = false
-    @State private var timelineExpanded: Bool = false
+    @State private var timelineExpanded: Bool = true
     @State private var showJumpToLatest: Bool = false
     @State private var showRooms: Bool = false
     @State private var showCost: Bool = false
@@ -350,10 +350,10 @@ struct AGChatScreen: View {
                                                scale: fontScale,
                                                onToggle: { toggleGroup(group.id) },
                                                onOpenStep: { event in detailEvent = event })
+                            case .runCard:
+                                currentRunCard
                             }
                         }
-
-                        if !center.events.isEmpty { currentRunCard }
 
                         Color.clear.frame(height: 1).id(bottomAnchor)
 
@@ -505,6 +505,7 @@ struct AGChatScreen: View {
     private enum TranscriptItem: Identifiable {
         case message(ChatMessage)
         case steps(StepGroup)
+        case runCard
 
         struct StepGroup: Identifiable {
             let messages: [ChatMessage]
@@ -516,6 +517,7 @@ struct AGChatScreen: View {
             switch self {
             case .message(let message): return message.id.uuidString
             case .steps(let group): return group.id
+            case .runCard: return "run-card"
             }
         }
     }
@@ -523,6 +525,7 @@ struct AGChatScreen: View {
     private var transcriptItems: [TranscriptItem] {
         var items: [TranscriptItem] = []
         var buffer: [ChatMessage] = []
+        var cardPlaced = false
 
         func flush() {
             guard !buffer.isEmpty else { return }
@@ -530,18 +533,29 @@ struct AGChatScreen: View {
             buffer.removeAll()
         }
 
-        for message in viewModel.visibleMessages {
+        let messages = viewModel.visibleMessages
+        let lastUserIndex = messages.lastIndex(where: { $0.role == .user }) ?? -1
+
+        for (index, message) in messages.enumerated() {
             if message.role == .tool {
-                if belongsToCurrentRun(message) {
-                    continue
-                }
+                // ขั้นของงานที่กำลังแสดงอยู่ → วาดด้วยการ์ดงานเดียวเท่านั้น ไม่วาดซ้ำเป็นแถวเดี่ยว
+                if belongsToCurrentRun(message) { continue }
                 buffer.append(message)
-            } else {
-                flush()
-                items.append(.message(message))
+                continue
+            }
+
+            flush()
+            items.append(.message(message))
+
+            // การ์ดไทม์ไลน์วางครั้งเดียว หลังคำตอบแรกของ Agent ในงานล่าสุด (ตามแบบ: คำตอบ → การ์ด)
+            if !cardPlaced, !center.events.isEmpty, message.role == .assistant, index > lastUserIndex {
+                items.append(.runCard)
+                cardPlaced = true
             }
         }
         flush()
+
+        if !cardPlaced, !center.events.isEmpty { items.append(.runCard) }
         return items
     }
 
@@ -833,6 +847,7 @@ struct AGChatScreen: View {
             return
         }
         center.beginRun(title: text)
+        timelineExpanded = true
         viewModel.send(text)
     }
 
@@ -889,27 +904,27 @@ struct AGChatScreen: View {
         case "chat", "chat-open":
             center.previewSeed(events: AGPreview.events(), running: false, liveLabel: "",
                                finishedTitle: "ทำเสร็จแล้ว",
-                               startedAt: Date().addingTimeInterval(-96), elapsed: 15)
+                               startedAt: Date().addingTimeInterval(-150), elapsed: 15)
             viewModel.previewSeed(messages: AGPreview.messages(finished: true), isBusy: false,
                                   statusText: "", approval: nil)
             timelineExpanded = (screen == "chat-open")
         case "running":
             center.previewSeed(events: AGPreview.runningEvents(), running: true,
                                liveLabel: "กำลังอ่านหน้าเว็บที่เกี่ยวข้อง", finishedTitle: "",
-                               startedAt: Date().addingTimeInterval(-24), elapsed: 24)
+                               startedAt: Date().addingTimeInterval(-150), elapsed: 24)
             viewModel.previewSeed(messages: AGPreview.messages(finished: false), isBusy: true,
                                   statusText: "กำลังอ่านหน้าเว็บ", approval: nil)
             timelineExpanded = false
         case "approval":
             center.previewSeed(events: AGPreview.runningEvents(), running: true,
                                liveLabel: "รอคุณอนุญาต: ลบไฟล์", finishedTitle: "",
-                               startedAt: Date().addingTimeInterval(-40), elapsed: 40)
+                               startedAt: Date().addingTimeInterval(-150), elapsed: 40)
             viewModel.previewSeed(messages: AGPreview.messages(finished: false), isBusy: true,
                                   statusText: "รออนุมัติ", approval: AGPreview.approvalRequest())
         case "detail":
             center.previewSeed(events: AGPreview.events(), running: false, liveLabel: "",
                                finishedTitle: "ทำเสร็จแล้ว",
-                               startedAt: Date().addingTimeInterval(-96), elapsed: 15)
+                               startedAt: Date().addingTimeInterval(-150), elapsed: 15)
             viewModel.previewSeed(messages: AGPreview.messages(finished: true), isBusy: false,
                                   statusText: "", approval: nil)
             detailEvent = AGPreview.events().first(where: { $0.kind == .fileWrite })

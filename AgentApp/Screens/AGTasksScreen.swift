@@ -194,11 +194,12 @@ struct AGTasksScreen: View {
                                 .font(AGFont.font(AGFont.cap, scale: fontScale))
                                 .foregroundColor(AGColor.t2)
                                 .fixedSize(horizontal: false, vertical: true)
-                            HStack(spacing: AGMetric.s3) {
+                            HStack(spacing: AGMetric.s2) {
                                 AGButton(title: "ไปที่แชท", icon: "bubble.left", kind: .secondary, scale: fontScale) {
                                     if let roomID = item.roomID { router.openRoom(roomID) } else { router.selectedTab = .chat }
                                 }
-                                AGButton(title: "ยกเลิกข้อความนี้", icon: "xmark", kind: .ghost, scale: fontScale) {
+                                AGButton(title: "ยกเลิก", kind: .ghost, scale: fontScale,
+                                         hint: "ลบข้อความนี้ออกจากคิว") {
                                     queue.remove(id: item.id)
                                 }
                             }
