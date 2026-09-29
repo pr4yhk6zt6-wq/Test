@@ -42,6 +42,7 @@ struct AgentAppMain: App {
                             PendingMessageQueue.shared.enqueue(text: "พิมพ์ไว้ระหว่าง Agent ทำงาน — ช่วยเพิ่มกราฟเปรียบเทียบให้ด้วย", roomID: nil)
                             router.selectedTab = .log
                         case "files":
+                            AGPreview.prepareWorkspace()
                             router.selectedTab = .files
                         case "settings":
                             router.selectedTab = .settings

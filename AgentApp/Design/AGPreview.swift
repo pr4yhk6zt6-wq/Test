@@ -136,6 +136,35 @@ enum AGPreview {
                                                        "ลบแล้วกู้คืนไม่ได้บนเครื่องนี้"]))
     }
 
+
+    // MARK: - โฟลเดอร์ทำงานตัวอย่าง (ใช้กับภาพตรวจหน้าจอ "ไฟล์")
+
+    /// สร้างโฟลเดอร์ทำงานชั่วคราวที่มีไฟล์ตัวอย่างสมจริง แล้วตั้งเป็นโฟลเดอร์ทำงาน
+    /// (เฉพาะบิลด์ Debug + โหมดตรวจภาพ: เครื่องซิมูเลเตอร์อ่าน /var/mobile ไม่ได้ตามจริง)
+    static func prepareWorkspace() {
+        let manager = FileManager.default
+        let root = manager.temporaryDirectory.appendingPathComponent("AgentWorkspacePreview", isDirectory: true)
+        let folders = ["notes", "data", "สำรอง"]
+        let files: [(String, String)] = [
+            ("notes/ประชุม.md", "# บันทึกการประชุม 12 ก.ย.\n\n- เรื่องที่คุย: แผนงานไตรมาส 4\n- ผู้รับผิดชอบ: ทีมผลิตภัณฑ์\n- ต้องสรุปภายใน 20 ก.ย.\n"),
+            ("notes/ไอเดีย.md", "# ไอเดียที่ยังไม่ได้ทำ\n\n1. ทำรายงานอัตโนมัติทุกสัปดาห์\n2. รวบรวมใบเสร็จเป็นไฟล์เดียว\n"),
+            ("data/ยอดขาย.csv", "เดือน,ยอดขาย,หน่วย\nก.ค.,182000,1204\nส.ค.,201500,1338\nก.ย.,164000,1090\n"),
+            ("data/ค่าไฟ.csv", "เดือน,หน่วย,บาท\nก.ค.,402,1780\nส.ค.,438,1912\nก.ย.,512,2210\n"),
+            ("สรุปโฟลเดอร์.md", "# สรุปโฟลเดอร์ทำงาน\n\n- ไฟล์ข้อความ 5 ไฟล์\n- ข้อมูลยอดขาย 3 เดือน\n")
+        ]
+        try? manager.createDirectory(at: root, withIntermediateDirectories: true)
+        for folder in folders {
+            try? manager.createDirectory(at: root.appendingPathComponent(folder, isDirectory: true),
+                                         withIntermediateDirectories: true)
+        }
+        for (relative, body) in files {
+            let url = root.appendingPathComponent(relative)
+            try? manager.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try? body.write(to: url, atomically: true, encoding: .utf8)
+        }
+        AppSettings.shared.workspacePath = root.path
+    }
+
     // MARK: - ทะเบียนงาน
 
     static func seedTasks() {
