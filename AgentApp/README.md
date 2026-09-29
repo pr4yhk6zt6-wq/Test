@@ -79,8 +79,8 @@
 
 ## ตรวจงานออกแบบด้วยภาพจริง
 
-`.github/workflows/ui-preview.yml` คอมไพล์แอปสำหรับซิมูเลเตอร์ แล้วถ่ายภาพ **8 หน้าจอ × 2 ธีม**
-(chat · chat-open · running · approval · detail · tasks · files · settings) ผ่าน `-uiPreview <ชื่อ>` ในบิลด์ Debug
+`.github/workflows/ui-preview.yml` คอมไพล์แอปสำหรับซิมูเลเตอร์ แล้วถ่ายภาพ **9 หน้าจอ × 2 ธีม**
+(chat · chat-open · running · approval · detail · tasks · tasks-history · files · settings) ผ่าน `-uiPreview <ชื่อ>` ในบิลด์ Debug
 แล้วอัปโหลดเป็น artifact `ui-screenshots` — ใช้เทียบกับไฟล์ HTML ของแบบทีละหน้าจอ
 
 ## สถานะ
