@@ -60,6 +60,9 @@ jobs:
           echo "== Simulator ที่มีให้เลือก =="
           python3 Scripts/ci/pick-simulator.py > /tmp/sim-udid.txt || true
           cat /tmp/sim-udid.txt | sed 's/^/UDID: /' || true
+          # เขียนบันทึกเต็มลงไฟล์เสมอ — ถ้าคอมไพล์ไม่ผ่านต้องเห็นบรรทัด error: จริง
+          # (บทเรียน: การต่อท้ายด้วย tail เคยกลบข้อผิดพลาดจนหาสาเหตุผิดมาแล้ว)
+          set +e
           xcodebuild \
             -project iOSAgentSandbox.xcodeproj \
             -scheme iOSAgentSandbox \
@@ -69,7 +72,22 @@ jobs:
             -derivedDataPath /tmp/dd \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
             ENABLE_DEBUG_DYLIB=NO \
-            build | tail -40
+            build > /tmp/xcodebuild.log 2>&1
+          STATUS=$?
+          echo "== ผลการคอมไพล์ (exit=$STATUS) =="
+          echo "== บรรทัดที่ผิดพลาด =="
+          grep -n "error:" /tmp/xcodebuild.log | head -40 || echo "(ไม่มีบรรทัด error:)"
+          echo "== 30 บรรทัดท้าย =="
+          tail -30 /tmp/xcodebuild.log
+          exit $STATUS
+
+      - name: อัปโหลดบันทึกการคอมไพล์ (เมื่อล้มเหลว)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: uipreview-build-log
+          path: /tmp/xcodebuild.log
+          if-no-files-found: ignore
 
       - name: ถ่ายภาพหน้าจอทุกหน้าจอ (Light + Dark)
         run: |
