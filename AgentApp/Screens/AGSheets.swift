@@ -2,8 +2,8 @@
 //  AGSheets.swift
 //  AgentApp — แผ่นรายละเอียด · อนุมัติ · ต้นทุน/บริบท · ส่งออก · โหมดเสียง · ห้องสนทนา
 //
-//  ทุกแผ่นใช้ AGSheet (มุมโค้งบน + ฉากมืด + รัศมี 20) ตามแบบ และยึดหลัก:
-//  บอกความจริง (ไม่มีข้อมูล → บอกว่าไม่มี) · ทุกสถานะมีทางไปต่อ · ไม่มีปุ่มที่กดแล้วไม่ได้ผลจริง
+//  ทุกแผ่นยึดหลัก: บอกความจริง (ไม่มีข้อมูล → บอกว่าไม่มี) · ทุกสถานะมีทางไปต่อ · ไม่มีปุ่มที่กดแล้วไม่ได้ผลจริง
+//  เนื้อหาทุกแผ่นเลื่อนได้ทั้งแผ่น เพื่อไม่ให้ปุ่มหรือคำเตือนถูกตัดตกจอเล็ก (iPhone 7)
 //
 
 import SwiftUI
@@ -194,9 +194,9 @@ struct AGApprovalSheet: View {
     let request: ApprovalRequest
     var fontScale: Double = 1
     let onDecide: (ApprovalDecision) -> Void
-    /// งานนี้ทำให้ Agent เปลี่ยนไปเก็บสำรองแทนการลบ (ปุ่มของแบบ: "เก็บสำรองแทน")
+    /// ให้ Agent เปลี่ยนจาก "ลบ" เป็น "เก็บสำรอง" (ปุ่มของแบบ)
     var onKeepBackup: (() -> Void)? = nil
-    /// ให้ผู้ใช้ปรับคำสั่งก่อนอนุญาต (ปุ่มของแบบ: "แก้ไขก่อน")
+    /// ให้ผู้ใช้ปรับคำสั่งก่อนอนุญาต (ปุ่มของแบบ)
     var onEdit: (() -> Void)? = nil
 
     @State private var confirmedDestructive: Bool = false
@@ -234,189 +234,6 @@ struct AGApprovalSheet: View {
 
     private var header: some View {
         HStack(alignment: .top, spacing: AGMetric.s3) {
-            AGStatusGlyph(status: event.status, size: 34, scale: fontScale)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(event.title)
-                    .font(AGFont.font(AGFont.title, weight: .semibold, scale: fontScale))
-                    .foregroundColor(AGColor.t1)
-                    .fixedSize(horizontal: false, vertical: true)
-                HStack(spacing: AGMetric.s2) {
-                    AGChip(text: event.status.agThai, tone: toneChip, scale: fontScale)
-                    if event.isDestructive { AGChip(text: "ย้อนกลับไม่ได้", tone: .err, scale: fontScale) }
-                }
-            }
-            Spacer(minLength: 0)
-        }
-    }
-
-    private var toneChip: AGChip.Tone {
-        switch event.status {
-        case .succeeded: return .ok
-        case .failed: return .err
-        case .running: return .run
-        case .waitingUser: return .warn
-        default: return .neutral
-        }
-    }
-
-    private var displayedDetail: String? {
-        if revealed { return event.rawDetail ?? event.detail }
-        return event.detail
-    }
-
-    private var sensitiveBlock: some View {
-        VStack(alignment: .leading, spacing: AGMetric.s2) {
-            AGBanner(tone: .info,
-                     title: "พบข้อมูลอ่อนไหว \(event.maskedCount) จุด และปิดบังไว้แล้ว",
-                     message: "ระบบปิดบังอัตโนมัติ (คีย์ รหัสผ่าน อีเมล เบอร์โทร เลขบัตร) — กดด้านล่างถ้าจำเป็นต้องเห็น",
-                     scale: fontScale)
-            AGButton(title: revealed ? "ซ่อนข้อมูลอีกครั้ง" : "แตะเพื่อแสดงข้อมูลที่ปิดบัง",
-                     icon: revealed ? "eye.slash" : "eye",
-                     kind: .secondary,
-                     scale: fontScale) {
-                revealed.toggle()
-            }
-        }
-    }
-
-    private func block(title: String, text: String, monospaced: Bool = false) -> some View {
-        VStack(alignment: .leading, spacing: AGMetric.s2) {
-            Text(title)
-                .font(AGFont.font(AGFont.cap, weight: .semibold, scale: fontScale))
-                .foregroundColor(AGColor.t2)
-            Text(text)
-                .font(monospaced ? AGFont.mono(AGFont.foot, scale: fontScale) : AGFont.font(AGFont.sub, scale: fontScale))
-                .foregroundColor(AGColor.t1)
-                .lineSpacing(AGFont.lineSpacing(AGFont.sub, scale: fontScale, multiplier: AGFont.lhMeta))
-                .fixedSize(horizontal: false, vertical: true)
-                .textSelection(.enabled)
-                .padding(AGMetric.s3)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(RoundedRectangle(cornerRadius: AGMetric.rSM, style: .continuous).fill(AGColor.surface2))
-        }
-    }
-
-    private func failureBlock(_ failure: String) -> some View {
-        AGBanner(tone: .error,
-                 title: "ขั้นนี้ไม่สำเร็จ",
-                 message: failure,
-                 scale: fontScale)
-    }
-
-    // MARK: - ย้อนกลับ (จริง ไม่ใช่ปุ่มหลอก)
-
-    private var undoSection: some View {
-        Group {
-            switch undoState {
-            case .checking:
-                EmptyView()
-            case .available(let secondsLeft, let kind):
-                VStack(alignment: .leading, spacing: AGMetric.s2) {
-                    Text("ย้อนกลับการกระทำนี้")
-                        .font(AGFont.font(AGFont.cap, weight: .semibold, scale: fontScale))
-                        .foregroundColor(AGColor.t2)
-                    Text("ทำได้อีก \(AGFormat.durationShort(TimeInterval(secondsLeft))) — ระบบเก็บสำเนาไฟล์ไว้ก่อน Agent ลงมือ")
-                        .font(AGFont.font(AGFont.cap, scale: fontScale))
-                        .foregroundColor(AGColor.t3)
-                        .fixedSize(horizontal: false, vertical: true)
-                    AGButton(title: kind, icon: "arrow.uturn.backward", kind: .secondary, scale: fontScale) {
-                        performUndo(kind: kind)
-                    }
-                }
-                .id(tick)
-            case .unavailable(let reason):
-                Text(reason)
-                    .font(AGFont.font(AGFont.cap, scale: fontScale))
-                    .foregroundColor(AGColor.t3)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-    }
-
-    private func refreshUndo() {
-        guard let path = event.artifactPath else {
-            undoState = .unavailable("ขั้นนี้ไม่เกี่ยวกับไฟล์ จึงไม่มีอะไรต้องย้อนกลับ")
-            return
-        }
-        guard let record = WorkspaceBackup.shared.latest(forPath: path) else {
-            undoState = .unavailable("ไม่มีสำเนาสำรองของไฟล์นี้แล้ว (เกินเวลาที่เก็บไว้ หรือไฟล์ใหญ่เกินกว่าจะสำรอง)")
-            return
-        }
-        guard record.backupPath != nil else {
-            undoState = .unavailable(record.skippedReason ?? "ไม่มีสำเนาเก็บไว้ของไฟล์นี้ จึงย้อนกลับไม่ได้")
-            return
-        }
-        let left = record.remainingSeconds
-        guard left > 0 else {
-            undoState = .unavailable("เลยเวลาที่ย้อนกลับได้ของขั้นนี้แล้ว (เก็บสำเนาไว้ 10 นาที)")
-            return
-        }
-        undoState = .available(secondsLeft: left, kind: record.kind.thaiTitle)
-    }
-
-    private func performUndo(kind: String) {
-        guard let path = event.artifactPath,
-              let record = WorkspaceBackup.shared.latest(forPath: path) else { return }
-        AGHaptic.medium()
-        do {
-            try WorkspaceBackup.shared.restore(record)
-            onUndoMessage?("ย้อนกลับสำเร็จ — \(record.kind.thaiExplanation)")
-            AGHaptic.success()
-            refreshUndo()
-        } catch let error as WorkspaceBackup.UndoError {
-            onUndoMessage?("ย้อนกลับไม่สำเร็จ: \(error.errorDescription ?? "ไม่ทราบสาเหตุ") — ไฟล์ปัจจุบันยังอยู่ครบ")
-        } catch {
-            onUndoMessage?("ย้อนกลับไม่สำเร็จ — ไฟล์ปัจจุบันยังอยู่ครบ")
-        }
-    }
-}
-
-// MARK: - แผ่นขออนุมัติ (บอก "จะทำอะไร ที่ไหน ผลคืออะไร" + ยืนยันก่อนลบ)
-
-struct AGApprovalSheet: View {
-
-    let request: ApprovalRequest
-    var fontScale: Double = 1
-    let onDecide: (ApprovalDecision) -> Void
-    /// งานนี้ทำให้ Agent เปลี่ยนไปเก็บสำรองแทนการลบ (ปุ่มของแบบ: "เก็บสำรองแทน")
-    var onKeepBackup: (() -> Void)? = nil
-    /// ให้ผู้ใช้ปรับคำสั่งก่อนอนุญาต (ปุ่มของแบบ: "แก้ไขก่อน")
-    var onEdit: (() -> Void)? = nil
-
-    @State private var confirmedDestructive: Bool = false
-
-    var body: some View {
-        ZStack {
-            AGColor.scrim.ignoresSafeArea()
-            VStack(spacing: 0) {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: AGMetric.s4) {
-                        header
-                        riskBand
-                        block(title: "จะทำอะไร", text: request.summary)
-                        if let detail = request.detail, !detail.isEmpty {
-                            block(title: "ที่ไหน", text: detail, monospaced: true)
-                        }
-                        if request.isDestructive { consequence }
-                        block(title: "ข้อมูลที่ Agent จะส่งไปในคำสั่งนี้", text: request.argumentsText, monospaced: true)
-                        scopeBlock
-                        if request.isDestructive { confirmBlock }
-                    }
-                    .padding(.horizontal, AGMetric.screenPadding)
-                    .padding(.vertical, AGMetric.s4)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                actions
-            }
-            .background(RoundedCorner(radius: AGMetric.rLG, corners: [.topLeft, .topRight]).fill(AGColor.surface))
-            .frame(maxHeight: UIScreen.main.bounds.height * 0.86)
-            .frame(maxHeight: .infinity, alignment: .bottom)
-        }
-        .accessibilityAddTraits(.isModal)
-    }
-
-    private var header: some View {
-        HStack(alignment: .top, spacing: AGMetric.s3) {
             Image(systemName: request.isDestructive ? "exclamationmark.triangle.fill" : "hand.raised.fill")
                 .font(AGFont.font(AGFont.title, scale: fontScale))
                 .foregroundColor(request.isDestructive ? AGColor.error : AGColor.warning)
@@ -447,6 +264,7 @@ struct AGApprovalSheet: View {
             Text("ระดับความเสี่ยง: \(request.risk.level.thaiName)\(riskReasons)")
                 .font(AGFont.font(AGFont.sub, weight: .medium, scale: fontScale))
                 .foregroundColor(AGColor.t1)
+                .lineSpacing(AGFont.lineSpacing(AGFont.sub, scale: fontScale, multiplier: AGFont.lhMeta))
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
         }
