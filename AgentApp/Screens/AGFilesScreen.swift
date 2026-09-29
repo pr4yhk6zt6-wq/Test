@@ -32,7 +32,11 @@ struct AGFilesScreen: View {
         self.path = path.isEmpty ? PathGuard.defaultWorkspace : path
     }
 
-    private var isRoot: Bool { path == PathGuard.defaultWorkspace }
+    /// รากของแท็บไฟล์ = โฟลเดอร์ทำงานที่ตั้งไว้ (ไม่ผูกกับค่าคงที่ เพื่อให้ผู้ใช้เปลี่ยนโฟลเดอร์ได้)
+    private var isRoot: Bool {
+        let workspace = settings.workspacePath.isEmpty ? PathGuard.defaultWorkspace : settings.workspacePath
+        return path == workspace
+    }
 
     var body: some View {
         ScrollView {
@@ -84,7 +88,10 @@ struct AGFilesScreen: View {
                         Label("คัดลอกพาธ", systemImage: "doc.on.doc")
                     }
                     if !isRoot {
-                        Button(action: { settings.workspacePath = path }) {
+                        Button(action: {
+                            settings.workspacePath = path
+                            notice = "ตั้งโฟลเดอร์ทำงานเป็น \(path) แล้ว"
+                        }) {
                             Label("ตั้งเป็นโฟลเดอร์ทำงานของ Agent", systemImage: "pin")
                         }
                     }

@@ -143,7 +143,7 @@ enum AGPreview {
     /// (เฉพาะบิลด์ Debug + โหมดตรวจภาพ: เครื่องซิมูเลเตอร์อ่าน /var/mobile ไม่ได้ตามจริง)
     static func prepareWorkspace() {
         let manager = FileManager.default
-        let root = manager.temporaryDirectory.appendingPathComponent("AgentWorkspacePreview", isDirectory: true)
+        let root = manager.temporaryDirectory.appendingPathComponent("AgentWorkspace", isDirectory: true)
         let folders = ["notes", "data", "สำรอง"]
         let files: [(String, String)] = [
             ("notes/ประชุม.md", "# บันทึกการประชุม 12 ก.ย.\n\n- เรื่องที่คุย: แผนงานไตรมาส 4\n- ผู้รับผิดชอบ: ทีมผลิตภัณฑ์\n- ต้องสรุปภายใน 20 ก.ย.\n"),
