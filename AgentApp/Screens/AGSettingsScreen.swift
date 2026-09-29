@@ -12,7 +12,6 @@ struct AGSettingsScreen: View {
 
     @EnvironmentObject private var settings: AppSettings
     @ObservedObject private var usage: TokenUsageTracker = .shared
-    @ObservedObject private var backup: WorkspaceBackup = .shared
     @ObservedObject private var notifier: AgentNotifier = .shared
 
     @AppStorage(SettingsKeys.activityLevel) private var activityLevelRaw: String = ActivityDetailLevel.normal.rawValue
@@ -25,6 +24,8 @@ struct AGSettingsScreen: View {
     @State private var showLevelSheet: Bool = false
     @State private var showModelDetail: Bool = false
     @State private var showBackups: Bool = false
+    /// รายการสำเนาที่อ่านใหม่ทุกครั้งที่เปิดชีต (WorkspaceBackup ไม่ใช่ ObservableObject)
+    @State private var backupRecords: [BackupRecord] = []
     @State private var showRevokeConfirm: Bool = false
     @State private var showAbout: Bool = false
     @State private var apiKeyDraft: String = ""
@@ -52,7 +53,9 @@ struct AGSettingsScreen: View {
         .sheet(isPresented: $showApiKeySheet) { apiKeySheet }
         .sheet(isPresented: $showModelSheet) { modelSheet }
         .sheet(isPresented: $showLevelSheet) { levelSheet }
-        .sheet(isPresented: $showBackups) { backupsSheet }
+        .sheet(isPresented: $showBackups) {
+            backupsSheet.onAppear { backupRecords = WorkspaceBackup.shared.undoableRecords }
+        }
         .alert("ปิดการถามก่อนทุกครั้ง?", isPresented: $showRevokeConfirm, actions: {
             Button("ปิดการถาม", role: .destructive) { settings.requireApproval = false }
             Button("ยกเลิก", role: .cancel) { }
@@ -234,9 +237,9 @@ struct AGSettingsScreen: View {
                                   .font(AGFont.font(AGFont.cap, weight: .semibold, scale: fontScale))
                                   .foregroundColor(usage.hasData ? AGColor.accentInk : AGColor.t3)
                                   .frame(minWidth: AGMetric.touch, minHeight: AGMetric.touch)
-                          })
+                          }
                           .disabled(!usage.hasData)
-                          .accessibilityLabel(Text("รีเซ็ตตัวเลขโทเคนและค่าใช้จ่าย")))
+                          .accessibilityLabel(Text("รีเซ็ตตัวเลขโทเคนและค่าใช้จ่าย"))))
                     divider
                     AGRow(icon: "externaldrive",
                           title: "ที่เก็บไฟล์ทำงาน",
@@ -457,12 +460,12 @@ struct AGSettingsScreen: View {
                          title: "สำเนาที่กู้คืนได้ตอนนี้",
                          message: "เก็บเฉพาะไฟล์ที่ Agent เพิ่งแก้ใน 10 นาทีล่าสุด ถ้าเกินเวลาหรือไฟล์ใหญ่เกิน 20 MB ระบบจะไม่เก็บสำเนา",
                          scale: fontScale)
-                if backup.undoableRecords.isEmpty {
+                if backupRecords.isEmpty {
                     Text("ยังไม่มีสำเนา — จะมีเมื่อ Agent ลงมือแก้ไฟล์ครั้งแรก")
                         .font(AGFont.font(AGFont.sub, scale: fontScale))
                         .foregroundColor(AGColor.t2)
                 } else {
-                    ForEach(backup.undoableRecords) { record in
+                    ForEach(backupRecords) { record in
                         AGCard(padding: AGMetric.s4) {
                             VStack(alignment: .leading, spacing: AGMetric.s2) {
                                 Text((record.originalPath as NSString).lastPathComponent)

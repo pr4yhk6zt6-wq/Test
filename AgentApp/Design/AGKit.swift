@@ -274,10 +274,14 @@ struct AGButton: View {
     @ViewBuilder
     private var background: some View {
         switch kind {
-        case .primary: return RoundedRectangle(cornerRadius: AGMetric.rSM, style: .continuous).fill(AGColor.accent)
-        case .secondary: return RoundedRectangle(cornerRadius: AGMetric.rSM, style: .continuous).fill(AGColor.surface)
-        case .ghost: return RoundedRectangle(cornerRadius: AGMetric.rSM, style: .continuous).fill(Color.clear)
-        case .danger: return RoundedRectangle(cornerRadius: AGMetric.rSM, style: .continuous).fill(AGColor.errorSoft)
+        case .primary:
+            RoundedRectangle(cornerRadius: AGMetric.rSM, style: .continuous).fill(AGColor.accent)
+        case .secondary:
+            RoundedRectangle(cornerRadius: AGMetric.rSM, style: .continuous).fill(AGColor.surface)
+        case .ghost:
+            RoundedRectangle(cornerRadius: AGMetric.rSM, style: .continuous).fill(Color.clear)
+        case .danger:
+            RoundedRectangle(cornerRadius: AGMetric.rSM, style: .continuous).fill(AGColor.errorSoft)
         }
     }
 

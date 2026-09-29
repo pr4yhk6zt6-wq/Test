@@ -71,7 +71,7 @@ final class AgentNotifier: NSObject, ObservableObject, UNUserNotificationCenterD
             return "การแจ้งเตือนยังปิดอยู่ — เปิดได้ที่ ตั้งค่า → การแจ้งเตือน"
         }
         switch authorizationStatus {
-        case .authorized, .provisional:
+        case .authorized, .provisional, .ephemeral:
             return "เปิดอยู่: จะแจ้งเมื่องานเสร็จ ต้องรอคำตอบ หรือมีขั้นที่ล้มเหลว"
         case .denied:
             return "คุณปิดการแจ้งเตือนของแอปนี้ใน iOS — เปิดได้ที่ ตั้งค่าเครื่อง → การแจ้งเตือน → iOS Agent Sandbox"
