@@ -134,7 +134,7 @@ struct AGSettingsScreen: View {
                             .accessibilityLabel(Text("สั่นเบา ๆ เมื่อมีการตอบสนอง"))))
                 }
             }
-            Text("ธีมมืดใช้ค่าเดียวกันทั้งแอป เพราะโทเคนสีของระบบรองรับทั้งสองโหมด")
+            Text("โทเคนสีชุดเดียวรองรับทั้งธีมสว่างและธีมมืด")
                 .font(AGFont.font(AGFont.micro, scale: fontScale))
                 .foregroundColor(AGColor.t3)
                 .fixedSize(horizontal: false, vertical: true)
@@ -195,7 +195,7 @@ struct AGSettingsScreen: View {
                           accessory: AnyView(AGChip(text: "ทำงานอัตโนมัติ", tone: .ok, scale: fontScale)))
                 }
             }
-            Text("ขอบเขตของสิทธิ์: การอนุมัติทุกครั้งเป็นแบบ \"ครั้งเดียว\" เท่านั้น (ยังไม่มีโหมดจำถาวร) และไม่มีหน้าเพิกถอนสิทธิ์ในบิลด์นี้ — ถ้าอนุมัติไปแล้วและเปลี่ยนใจ ให้กดหยุดงานในแชททันที")
+            Text("การอนุมัติทุกครั้งเป็นแบบครั้งเดียว (ยังไม่มีโหมดจำถาวร)\nถ้าอนุมัติไปแล้วและเปลี่ยนใจ ให้กดหยุดงานในแชททันที")
                 .font(AGFont.font(AGFont.micro, scale: fontScale))
                 .foregroundColor(AGColor.t3)
                 .fixedSize(horizontal: false, vertical: true)
@@ -333,7 +333,9 @@ struct AGSettingsScreen: View {
                              scale: fontScale,
                              hint: "เปลี่ยนธีมหน้าจอเป็น \(option.1)") {
                         onSelect(option.0)
+                        AGHaptic.light()
                     }
+                    .accessibilityAddTraits(selection == option.0 ? [.isButton, .isSelected] : .isButton)
                 }
             }
         }
